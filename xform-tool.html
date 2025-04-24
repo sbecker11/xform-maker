@@ -295,7 +295,7 @@
             align-items: center;
             gap: 15px;
             position: relative; /* Positioning context for theme toggle */
-            padding-top: 44px; /* toggle height (24) + desired gap (20) */
+            padding-top: 0; /* Removed padding (was 44px) */
         }
         #viewport {
             position: relative; /* Needed for absolute positioning of rects */
@@ -532,9 +532,7 @@
         }
 
         #themeToggle {
-            position: absolute;
-            top: 0px;  /* Position at the top of the center column's padding */
-            right: 0;    /* Align with right edge of viewport container */
+            position: relative; /* Changed from absolute to relative positioning */
             z-index: 10; /* Ensure it's clickable */
             width: 60px;
             height: 24px;
@@ -549,6 +547,7 @@
             color: transparent;
             font-size: 0;
             line-height: 0;
+            margin: 5px; /* Set all four margins to 5px */
         }
 
         #themeToggle::before {
@@ -870,13 +869,13 @@
 
         <!-- Center: Viewport & Actions -->
         <div class="center-column">
-            <button id="themeToggle" title="Toggle Theme"></button>
             <div id="viewport">
                 <!-- Rectangles will be added here by JS -->
             </div>
             <div class="viewport-actions">
                 <button id="startAnimation">Play</button>
                 <button id="resetPositions">Reset</button>
+                <button id="themeToggle" title="Toggle Theme"></button>
             </div>
         </div>
 

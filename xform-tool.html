@@ -22,29 +22,6 @@
         // --- Timer for name updates ---
         window.timeUpdateTimer = null;
         
-        // Function to update time-based name in rename input
-        function updateTimeBasedName() {
-            // Only update if we have required elements
-            if (!window.renameXFormInput) return;
-            
-            const namingSelect = document.getElementById('namingConvention');
-            if (!namingSelect) return;
-            
-            // Only update for datetime naming style
-            if (namingSelect.value !== 'datetime') return;
-            
-            // Get current input value
-            const inputValue = window.renameXFormInput.value;
-            
-            // Only update if field has default value or time-based name
-            if (!inputValue || inputValue === "New X-Form" || 
-                inputValue.match(/^X-Form \d{1,2}\/\d{1,2}\/\d{4}/)) {
-                const now = new Date();
-                const newName = `X-Form ${now.toLocaleDateString()} ${now.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit', second:'2-digit'})}`;
-                window.renameXFormInput.value = newName;
-            }
-        }
-        
         // --- Define global helper functions ---
         window.getSavedXForms = function() {
             const saved = localStorage.getItem(STORAGE_KEY);
@@ -112,14 +89,17 @@
         // --- Global UI Helper Functions ---
         window.renderSavedList = function() {
             if (!window.savedListUl) {
-                console.error("Cannot render saved list - savedListUl not defined yet");
-                return;
+                console.log("Skipping render of saved list - savedListUl element not found");
+                return; // Exit early if the element doesn't exist
             }
             
             const xforms = window.getSavedXForms();
             window.savedListUl.innerHTML = ''; // Clear existing list
             window.selectedSavedXFormId = null; // Clear selection
-            window.selectedControlsDiv.style.display = 'none'; // Hide controls
+            
+            if (window.selectedControlsDiv) {
+                window.selectedControlsDiv.style.display = 'none'; // Hide controls
+            }
 
             if (xforms.length === 0) {
                 window.savedListUl.innerHTML = '<li>No X-Forms saved yet.</li>';
@@ -149,12 +129,18 @@
                     // Toggle selection
                     if (window.selectedSavedXFormId === t.id) {
                         window.selectedSavedXFormId = null;
-                        window.selectedControlsDiv.style.display = 'none';
+                        if (window.selectedControlsDiv) {
+                            window.selectedControlsDiv.style.display = 'none';
+                        }
                     } else {
                         window.selectedSavedXFormId = t.id;
                         li.classList.add('selected');
-                        window.renameInput.value = t.name; // Pre-fill rename input
-                        window.selectedControlsDiv.style.display = 'block';
+                        if (window.renameInput) {
+                            window.renameInput.value = t.name; // Pre-fill rename input
+                        }
+                        if (window.selectedControlsDiv) {
+                            window.selectedControlsDiv.style.display = 'block';
+                        }
                         console.log('Selected saved X-Form:', t.id);
                     }
                 });
@@ -173,6 +159,98 @@
             align-items: center;
             min-height: 100vh; /* Ensure body takes full height */
         }
+        
+        /* Filename section styles for Phase 1 & 2 */
+        .filename-section {
+            margin-bottom: 15px;
+        }
+        
+        .filename-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 5px;
+        }
+        
+        .filename-header label {
+            font-weight: bold;
+            margin-bottom: 0;
+        }
+        
+        .mode-icons {
+            display: flex;
+            gap: 5px;
+        }
+        
+        .mode-icon {
+            background: none;
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            padding: 2px 5px;
+            cursor: pointer;
+            font-size: 0.9em;
+            opacity: 0.6;
+            transition: all 0.2s ease;
+            color: var(--text-color-primary);
+        }
+        
+        .mode-icon.active {
+            opacity: 1;
+            background-color: var(--button-bg);
+            border-color: var(--button-hover-bg);
+            color: white;
+        }
+        
+        .filename-input-container {
+            position: relative;
+            width: 100%;
+        }
+        
+        .time-based-filename {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            box-sizing: border-box;
+            font-family: monospace;
+            background-color: var(--bg-color-secondary);
+            color: var(--text-color-primary);
+            font-size: 14px;
+            margin-bottom: 0; /* Override default margin */
+        }
+        
+        /* Style for readonly input to ensure it doesn't look disabled */
+        .time-based-filename[readonly] {
+            opacity: 1; 
+            background-color: var(--bg-color-secondary);
+            color: var(--text-color-primary);
+            cursor: pointer; /* Indicates it can be clicked for MEM mode */
+            -webkit-user-select: text; /* Ensures text is selectable */
+            user-select: text;
+        }
+        
+        /* Save button styles */
+        .save-button-container {
+            margin-top: 15px;
+            display: flex;
+            justify-content: flex-end;
+        }
+        
+        .save-button {
+            background-color: var(--button-bg);
+            color: white;
+            border: none;
+            border-radius: 4px;
+            padding: 8px 20px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: background-color 0.2s;
+        }
+        
+        .save-button:hover {
+            background-color: var(--button-hover-bg);
+        }
+        
         .three-column-layout {
             display: flex;
             gap: 20px;
@@ -181,9 +259,10 @@
             align-items: flex-start; /* Align items to the top */
             position: relative; /* Needed for viewport-actions positioning */
         }
-        .left-column, .right-column {
-            flex: 1; /* Allow left and right columns to grow */
-            min-width: 220px; /* Reduced min-width */
+        .left-column {
+            flex: 1; /* Allow left column to grow */
+            min-width: 240px; /* Match what browser is actually using */
+            max-width: 280px; /* Limit maximum width */
             padding: 20px;
             background-color: var(--bg-color-secondary);
             border-radius: 8px;
@@ -194,7 +273,23 @@
             flex-direction: column; /* Stack fieldsets vertically */
             gap: 15px; /* Space between fieldsets */
         }
+        .right-column {
+            flex: 0 0 210px; /* Increased by 10px from 200px to 210px */
+            padding: 20px 0 20px 20px; /* Keep top, bottom, left padding, remove right padding */
+            background-color: var(--bg-color-secondary);
+            border-radius: 8px;
+            box-shadow: var(--shadow-elevation-low);
+            height: fit-content; /* Adjust height based on content */
+            border: none; /* Remove previous border, use fieldset */
+            display: flex; /* Use flexbox for children */
+            flex-direction: column; /* Stack fieldsets vertically */
+            gap: 15px; /* Space between fieldsets */
+            box-sizing: border-box; /* Include padding in width calculation */
+            max-width: 210px; /* Enforce maximum width, increased by 10px */
+            width: 210px; /* Explicit width, increased by 10px */
+        }
         .center-column {
+            flex: 0 0 auto; /* Don't grow or shrink, keep current size */
             display: flex;
             flex-direction: column;
             align-items: center;
@@ -503,11 +598,11 @@
              line-height: 28px; /* Align label vertically */
         }
         .block-size-controls input[type="number"] {
-             width: 57px; /* Increased width */
-             margin-bottom: 0;
-             height: 100%; /* Match parent height */
-             box-sizing: border-box;
-             margin-right: 5px; /* Add right margin */
+            width: 87px; /* Increased by another 4px from 83px */
+            margin-bottom: 0;
+            height: 100%; /* Match parent height */
+            box-sizing: border-box;
+            margin-right: 5px; /* Add right margin */
         }
         .block-size-controls span { /* The 'x' */
             margin: 0 2px;
@@ -541,8 +636,49 @@
         }
 
         #duration { /* Specific style for duration input */
-            width: 147px; /* Adjusted for approx 20px spinner width */
+            width: 168px; /* Increased by 30px from 138px */
             margin-left: auto; /* Push input to the right if label is short */
+        }
+
+        /* Controls specific to the right column */
+        .right-column input[type="number"] {
+            box-sizing: border-box;
+        }
+        
+        /* Rectangle size controls specific styling */
+        .block-size-controls {
+            display: flex;
+            gap: 12px; /* Space between width and height inputs */
+            width: 170px; /* Set total width */
+        }
+        
+        .block-size-controls input[type="number"] {
+            width: 79px; /* (170px - 12px gap) / 2 */
+        }
+        
+        .right-column .waypoint-btn {
+            min-width: 40px; /* Reduce from 50px */
+        }
+        
+        /* Duration control layout */
+        .duration-container {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            width: 100%;
+        }
+        
+        .duration-left {
+            display: flex;
+            align-items: center;
+        }
+        
+        #durationFeedback {
+            margin-left: auto; /* Push to the right */
+            font-size: 0.9em;
+            color: var(--text-color-secondary);
+            text-align: right;
+            display: none; /* Hide the element */
         }
 
         /* Waypoint controls row */
@@ -558,7 +694,6 @@
         }
 
         .waypoint-btn { /* Class for Add/Del buttons */
-            min-width: 50px; /* Ensure enough space for Add+ */
             text-align: center;
         }
 
@@ -675,6 +810,25 @@
         .dark-theme .btn-icon[data-dark-src] {
             content: attr(data-dark-src);
         }
+
+        .right-column fieldset {
+            /* border: 1px solid var(--border-color-strong); Remove border */
+            border: none;
+            border-radius: 6px;
+            padding: 15px 0 15px 0; /* Remove left/right padding for fieldsets in the right column */
+            margin: 0; /* Reset default fieldset margin */
+            width: 100%; /* Take full width of parent column */
+            box-sizing: border-box;
+        }
+
+        /* Specific padding adjustments for Add and Del buttons */
+        #addWaypointBtn {
+            padding-right: 10px; /* Reduced from default 15px */
+        }
+        
+        #deleteLastWaypointBtn {
+            padding-left: 10px; /* Reduced from default 15px */
+        }
     </style>
 </head>
 <body>
@@ -689,76 +843,28 @@
             <fieldset>
                 <legend>X-Form Management</legend>
                 
-                <!-- Current X-Form Display -->
-                <div class="control-group" style="margin-bottom: 15px;">
-                    <div class="current-xform-header">
-                        <label>Current X-Form:</label>
-                        <span id="currentXFormName" style="font-weight: bold;"></span>
+                <!-- Filename section with ATM/MEM modes (Phase 1 & 2) -->
+                <div class="control-group filename-section">
+                    <div class="filename-header">
+                        <label>Filename</label>
+                        <div class="mode-icons">
+                            <button id="filenameModeATM" class="mode-icon active" title="Automated Time Mode">
+                                <span>(t)</span>
+                            </button>
+                            <button id="filenameModeManual" class="mode-icon" title="Manual Edit Mode">
+                                <span>(e)</span>
+                            </button>
+                        </div>
                     </div>
-                    <div class="xform-rename-group" style="display: flex; margin-top: 8px;">
-                        <input type="text" id="renameXFormInput" placeholder="New name">
-                        <button id="renameXFormBtn" class="secondary">Rename</button>
-                    </div>
-                </div>
-
-                <!-- Current X-Form Display -->
-                <div class="control-group" style="margin-bottom: 8px;">
-                    <div class="current-xform-header">
-                        <label style="margin-bottom: 2px;">Current X-Form:</label>
-                        <span id="currentXFormName" style="font-weight: bold;"></span>
-                    </div>
-                    <div class="xform-rename-group" style="display: flex; margin-top: 5px; gap: 5px;">
-                        <input type="text" id="renameXFormInput" placeholder="New name" style="flex-grow: 1; margin-bottom: 0;">
-                        <button id="renameXFormBtn" class="icon-btn" title="Rename">
-                            <img src="icons/rename-white.png" alt="Rename" class="btn-icon" data-dark-src="icons/raname-other.png">
-                        </button>
+                    <div class="filename-input-container">
+                        <input type="text" id="filenameInput" class="time-based-filename" readonly>
                     </div>
                 </div>
                 
-
-                <!-- Naming Convention & File Operations -->
-                <div class="control-group" style="margin-bottom: 8px;">
-                    <label for="namingConvention" style="margin-bottom: 2px;">Naming Style:</label>
-                    <div style="display: flex; gap: 5px;">
-                        <select id="namingConvention" style="flex-grow: 1; padding: 6px; margin-bottom: 0;">
-                            <option value="datetime">Date & Time</option>
-                            <option value="numbered">Numbered</option>
-                            <option value="descriptive">Descriptive</option>
-                        </select>
-                        <button id="saveToFileBtn" class="icon-btn" title="Export to File">
-                            <img src="icons/edit-white.png" alt="Export" class="btn-icon" data-dark-src="icons/edit-other.png">
-                        </button>
-                        <button id="loadFromFileBtn" class="icon-btn" title="Import from File">
-                            <img src="icons/edit-other.png" alt="Import" class="btn-icon" data-dark-src="icons/edit-white.png">
-                        </button>
-                    </div>
+                <!-- Save Button -->
+                <div class="control-group save-button-container">
+                    <button id="saveFileBtn" class="save-button">Save</button>
                 </div>
-                
-                <!-- Saved X-Forms List -->
-                <label for="savedList" style="margin-bottom: 2px;">Saved X-Forms:</label>
-                <ul id="savedList" style="max-height: 350px;">
-                    <!-- Saved X-Forms will be listed here -->
-                    <li>No X-Forms saved yet.</li>
-                </ul>
-                
-                <!-- Selected X-Form Controls -->
-                <div class="control-group" id="selectedXFormControls" style="display: none; margin-top: 10px;">
-                    <div style="display: flex; gap: 5px; margin-bottom: 5px;">
-                        <button id="loadXForm" style="flex: 1;">Load</button>
-                        <button id="deleteXForm" class="danger" style="flex: 1;">Delete</button>
-                    </div>
-                    <div style="display: flex; gap: 5px;">
-                    <input type="text" id="renameInput" placeholder="New name">
-                        <button id="renameXForm" class="secondary">Rename</button>
-                </div>
-                </div>
-                
-                <!-- Save Current Button -->
-                <div class="control-group" style="margin-top: 15px; text-align: center;">
-                    <button id="saveXForm">Save Current X-Form</button>
-                </div>
-                
-                <!-- Save Current Button has been removed -->
             </fieldset>
         </div>
 
@@ -801,7 +907,12 @@
             </div>
 
             <div class="control-section">
-                <label for="duration">Duration (ms):</label>
+                <div class="duration-container">
+                    <div class="duration-left">
+                        <label for="duration">Duration (ms):</label>
+                    </div>
+                    <span id="durationFeedback">(0.5s)</span>
+                </div>
                 <div class="control-group">
                     <input type="number" id="duration" value="500" min="0" step="50">
                 </div>
@@ -887,23 +998,212 @@
             let currentXFormId = null; // Can be null (new) or a timestamp (run/loaded/saved)
             let currentXFormHasRun = false;
 
+            // --- Filename mode variables (Phase 1 & 2) ---
+            window.isFilenameModeATM = true; // Start in Automated Time Mode, make it global
+            let filenameUpdateInterval = null;
+            const FILENAME_MODE_KEY = 'xformTester_filenameMode';
+            const FILENAME_VALUE_KEY = 'xformTester_filenameValue';
+            
+            // --- Filename mode functions (Phase 1 & 2) ---
+            function setupFilenameMode() {
+                const filenameInput = document.getElementById('filenameInput');
+                const atmButton = document.getElementById('filenameModeATM');
+                const memButton = document.getElementById('filenameModeManual');
+                const saveButton = document.getElementById('saveFileBtn');
+                
+                if (!filenameInput || !atmButton || !memButton) {
+                    console.error("Filename mode elements not found");
+                    return;
+                }
+                
+                console.log("Setting up filename mode - elements found:", 
+                    { filenameInput: !!filenameInput, atmButton: !!atmButton, memButton: !!memButton });
+                
+                // Restore saved mode and filename
+                const savedMode = localStorage.getItem(FILENAME_MODE_KEY);
+                const savedFilename = localStorage.getItem(FILENAME_VALUE_KEY);
+                
+                // Set initial mode (default to ATM if not saved)
+                window.isFilenameModeATM = savedMode !== 'MEM';
+                
+                // Update UI based on mode
+                if (window.isFilenameModeATM) {
+                    atmButton.classList.add('active');
+                    memButton.classList.remove('active');
+                    filenameInput.setAttribute('readonly', true);
+                    
+                    // Initial filename update
+                    updateFilenameWithTime();
+                    
+                    // Start automatic updates
+                    startFilenameTimeUpdates();
+                } else {
+                    memButton.classList.add('active');
+                    atmButton.classList.remove('active');
+                    filenameInput.removeAttribute('readonly');
+                    
+                    // Set saved filename or default
+                    if (savedFilename) {
+                        filenameInput.value = savedFilename;
+                    } else {
+                        updateFilenameWithTime(); // Set once, but won't update automatically
+                    }
+                }
+                
+                // ATM mode button click handler
+                atmButton.addEventListener('click', () => {
+                    if (!window.isFilenameModeATM) {
+                        // Switch to ATM mode
+                        window.isFilenameModeATM = true;
+                        atmButton.classList.add('active');
+                        memButton.classList.remove('active');
+                        filenameInput.setAttribute('readonly', true);
+                        
+                        // Save mode to localStorage
+                        localStorage.setItem(FILENAME_MODE_KEY, 'ATM');
+                        
+                        // Immediately update with current time
+                        updateFilenameWithTime();
+                        
+                        // Start automatic updates
+                        startFilenameTimeUpdates();
+                        
+                        console.log("Switched to Automated Time Mode");
+                    }
+                });
+                
+                // MEM mode button click handler
+                memButton.addEventListener('click', () => {
+                    if (window.isFilenameModeATM) {
+                        // Switch to MEM mode
+                        window.isFilenameModeATM = false;
+                        memButton.classList.add('active');
+                        atmButton.classList.remove('active');
+                        filenameInput.removeAttribute('readonly');
+                        
+                        // Save mode to localStorage
+                        localStorage.setItem(FILENAME_MODE_KEY, 'MEM');
+                        
+                        // Stop automatic updates
+                        stopFilenameTimeUpdates();
+                        
+                        // Focus the input for editing
+                        filenameInput.focus();
+                        
+                        console.log("Switched to Manual Edit Mode");
+                    }
+                });
+                
+                // Save button click handler
+                if (saveButton) {
+                    saveButton.addEventListener('click', async () => {
+                        // Make sure currentXFormName is updated with the latest filename
+                        currentXFormName = filenameInput.value;
+                        
+                        // Save the file
+                        const success = await saveXFormToFile();
+                        
+                        if (success) {
+                            console.log("File saved successfully with filename:", filenameInput.value);
+                        }
+                    });
+                }
+                
+                // Double-click on input to switch to MEM mode
+                filenameInput.addEventListener('dblclick', () => {
+                    if (window.isFilenameModeATM) {
+                        // Simulate click on MEM button
+                        memButton.click();
+                    }
+                });
+                
+                // Save manually edited filename
+                filenameInput.addEventListener('change', () => {
+                    if (!window.isFilenameModeATM) {
+                        // Save the manually edited value
+                        localStorage.setItem(FILENAME_VALUE_KEY, filenameInput.value);
+                        console.log("Saved manually edited filename");
+                    }
+                });
+            }
+            
+            function startFilenameTimeUpdates() {
+                // Clear any existing interval
+                stopFilenameTimeUpdates();
+                
+                console.log("Starting automated time updates");
+                
+                // Update immediately
+                updateFilenameWithTime();
+                
+                // Set up a new interval for time updates (every second)
+                filenameUpdateInterval = setInterval(() => {
+                    console.log("Time update interval triggered");
+                    updateFilenameWithTime();
+                }, 1000);
+                
+                // Keep a reference to the interval
+                console.log("Interval ID:", filenameUpdateInterval);
+            }
+            
+            // Export functions to global scope
+            window.startFilenameTimeUpdates = startFilenameTimeUpdates;
+            
+            function stopFilenameTimeUpdates() {
+                if (filenameUpdateInterval) {
+                    clearInterval(filenameUpdateInterval);
+                    filenameUpdateInterval = null;
+                }
+            }
+            
+            // Export to global scope
+            window.stopFilenameTimeUpdates = stopFilenameTimeUpdates;
+            
+            function updateFilenameWithTime() {
+                const filenameInput = document.getElementById('filenameInput');
+                if (!filenameInput) {
+                    console.error("Filename input element not found");
+                    return;
+                }
+                
+                if (!window.isFilenameModeATM) {
+                    console.log("Not updating time - currently in manual edit mode");
+                    return;
+                }
+                
+                const now = new Date();
+                const formattedDate = now.toISOString().slice(0, 10).replace(/-/g, '-');
+                const hours = String(now.getHours()).padStart(2, '0');
+                const minutes = String(now.getMinutes()).padStart(2, '0');
+                const seconds = String(now.getSeconds()).padStart(2, '0');
+                const timeStr = `${hours}:${minutes}:${seconds}`;
+                
+                // Create the new filename
+                const newFilename = `${formattedDate} ${timeStr}`;
+                
+                // Update input field
+                filenameInput.value = newFilename;
+                
+                // Update the currentXFormName to use this filename for saving files
+                currentXFormName = newFilename;
+                
+                // Save to localStorage for persistence
+                localStorage.setItem(FILENAME_VALUE_KEY, newFilename);
+                
+                console.log("Updated filename with current time:", newFilename);
+            }
+            
+            // Export to global scope
+            window.updateFilenameWithTime = updateFilenameWithTime;
+
             // --- X-Form Naming Functions ---
             function generateXFormName() {
-                const convention = namingConventionSelect.value;
-                
-                switch(convention) {
-                    case 'datetime':
-                        const now = new Date();
-                        return `X-Form ${now.toLocaleDateString()} ${now.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}`;
-                    
-                    case 'numbered':
-                        const xforms = window.getSavedXForms();
-                        return `X-Form ${xforms.length + 1}`;
-                    
-                    case 'descriptive':
-                    default:
-                        return 'New X-Form';
-                }
+                // Since we don't have namingConventionSelect anymore,
+                // always use the datetime convention
+                const now = new Date();
+                const formattedDate = now.toLocaleDateString();
+                const formattedTime = now.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+                return `X-Form ${formattedDate} ${formattedTime}`;
             }
             
             // Validate and sanitize X-Form name
@@ -927,14 +1227,32 @@
             }
             
             // --- X-Form File Operations ---
+            // Get the current filename based on mode (ATM or MEM)
+            function getCurrentFilename() {
+                const filenameInput = document.getElementById('filenameInput');
+                if (filenameInput) {
+                    // Return the value from the filename input (already updated in ATM mode)
+                    return filenameInput.value || "Unnamed X-Form";
+                }
+                
+                // Fallback to existing currentXFormName if input is not found
+                return currentXFormName || "Unnamed X-Form";
+            }
+            
             // Save X-Form to JSON file
             async function saveXFormToFile() {
                 try {
                     // Create the X-Form data object
                     const xformData = createXFormDataObject();
                     
-                    // Sanitize the filename
-                    const filename = `${sanitizeXFormName(currentXFormName).replace(/\s+/g, '_')}.json`;
+                    // Get the current filename (from ATM/MEM input)
+                    const currentFilename = getCurrentFilename();
+                    
+                    // Use the filename for both the X-Form name and the file
+                    xformData.name = currentFilename;
+                    
+                    // Sanitize the filename for file system
+                    const filename = `${currentFilename.replace(/[<>:"/\\|?*]/g, '').replace(/\s+/g, '_')}.json`;
                     
                     // Use the File System Access API to save the file
                     const options = {
@@ -1156,60 +1474,27 @@
             
             // --- X-Form Management UI Setup ---
             function setupXFormManagement() {
+                // Skip if UI elements are missing (which they are in this version)
+                if (!renameXFormButton || !renameXFormInput) {
+                    console.log("Skipping X-Form management setup - elements not found");
+                    return;
+                }
+                
                 // Initialize current X-Form display
-                updateCurrentXFormDisplay();
-                
-                // Pre-fill rename input with current name or generated name based on selected style
-                function updateRenameInputWithSuggestedName() {
-                    if (currentXFormName === "New X-Form" || !currentXFormName) {
-                        const suggestedName = generateXFormName();
-                        renameXFormInput.value = suggestedName;
-                    } else {
-                        renameXFormInput.value = currentXFormName;
-                    }
+                if (currentNameDisplay) {
+                    currentNameDisplay.textContent = currentXFormName || "New X-Form";
+                    renameXFormInput.value = currentXFormName || "";
                 }
-                
-                // Set up time updating for the rename input
-                function setupTimeUpdater() {
-                    // Clear any existing timer
-                    if (window.timeUpdateTimer) {
-                        clearInterval(window.timeUpdateTimer);
-                        window.timeUpdateTimer = null;
-                    }
-                    
-                    // If datetime is selected, start the timer
-                    if (namingConventionSelect.value === 'datetime') {
-                        // Update immediately
-                        if (currentXFormName === "New X-Form" || !currentXFormName || 
-                            currentXFormName.startsWith('X-Form ')) {
-                            const newName = generateXFormName();
-                            renameXFormInput.value = newName;
-                        }
-                        
-                        // Set interval to update every second
-                        window.timeUpdateTimer = setInterval(() => {
-                            // Only update if the field hasn't been manually edited
-                            const inputValue = renameXFormInput.value;
-                            if (!inputValue || inputValue === "New X-Form" || 
-                                inputValue.startsWith('X-Form ')) {
-                                const newName = generateXFormName();
-                                renameXFormInput.value = newName;
-                            }
-                        }, 1000);
-                    }
-                }
-                
-                // Initially fill the rename input
-                updateRenameInputWithSuggestedName();
-                
-                // Start time updater if needed
-                setupTimeUpdater();
                 
                 // Setup rename functionality
                 renameXFormButton.addEventListener('click', () => {
                     const newName = sanitizeXFormName(renameXFormInput.value);
                     currentXFormName = newName;
-                    updateCurrentXFormDisplay();
+                    
+                    if (currentNameDisplay) {
+                        currentNameDisplay.textContent = newName;
+                    }
+                    
                     saveCurrentState();
                     
                     // Update saved X-Form if this is an existing one
@@ -1219,12 +1504,11 @@
                         if (index >= 0) {
                             xforms[index].name = newName;
                             window.saveXForms(xforms);
-                            window.renderSavedList();
+                            if (window.renderSavedList) {
+                                window.renderSavedList();
+                            }
                         }
                     }
-                    
-                    // Save to storage automatically
-                    saveCurrentXFormToStorage();
                     
                     // Show confirmation
                     const origText = renameXFormButton.innerHTML;
@@ -1234,197 +1518,31 @@
                     }, 1500);
                 });
                 
-                // Setup naming convention change handler
-                namingConventionSelect.addEventListener('change', () => {
-                    if (currentXFormName === "New X-Form" || !currentXFormHasRun) {
-                        // Only auto-generate a new name if using the default or never run
-                        currentXFormName = generateXFormName();
-                        updateCurrentXFormDisplay();
-                    }
-                    localStorage.setItem('xformTester_namingConvention', namingConventionSelect.value);
-                });
-                
-                // Setup naming convention change handler
-                namingConventionSelect.addEventListener('change', () => {
-                    localStorage.setItem('xformTester_namingConvention', namingConventionSelect.value);
-                    
-                    // Clear and restart timer if needed
-                    if (window.timeUpdateTimer) {
-                        clearInterval(window.timeUpdateTimer);
-                        window.timeUpdateTimer = null;
-                    }
-                    
-                    if (namingConventionSelect.value === 'datetime') {
-                        // Update immediately and start timer
-                        updateTimeBasedName();
-                        window.timeUpdateTimer = setInterval(updateTimeBasedName, 1000);
-                    }
-                });
-                
-                // Setup naming convention change handler
-                namingConventionSelect.addEventListener('change', () => {
-                    // Update current name if using default
-                    if (currentXFormName === "New X-Form" || !currentXFormHasRun) {
-                        currentXFormName = generateXFormName();
-                        updateCurrentXFormDisplay();
-                    }
-                    
-                    // Save the selected convention
-                    localStorage.setItem('xformTester_namingConvention', namingConventionSelect.value);
-                    
-                    // Clear and restart timer if needed
-                    if (window.timeUpdateTimer) {
-                        clearInterval(window.timeUpdateTimer);
-                        window.timeUpdateTimer = null;
-                    }
-                    
-                    if (namingConventionSelect.value === 'datetime') {
-                        // Update immediately and start timer
-                        updateTimeBasedName();
-                        window.timeUpdateTimer = setInterval(updateTimeBasedName, 1000);
-                    }
-                });
-                
-                // Load preferred naming convention from localStorage
-                const savedConvention = localStorage.getItem('xformTester_namingConvention');
-                if (savedConvention) {
-                    namingConventionSelect.value = savedConvention;
-                    // Make sure time updater is initialized with saved convention
-                    setupTimeUpdater();
+                // Setup file operation buttons
+                if (saveToFileButton) {
+                    saveToFileButton.addEventListener('click', saveXFormToFile);
                 }
                 
-                // Setup file operation buttons
-                saveToFileButton.addEventListener('click', saveXFormToFile);
-                loadFromFileButton.addEventListener('click', loadXFormFromFile);
+                if (loadFromFileButton) {
+                    loadFromFileButton.addEventListener('click', loadXFormFromFile);
+                }
                 
                 // Update the load X-Form button
-                loadButton.addEventListener('click', () => {
-                    if (selectedSavedXFormId) {
-                        const xforms = window.getSavedXForms();
-                        const selected = xforms.find(t => t.id === selectedSavedXFormId);
-                        
-                        if (selected) {
-                            applyXFormData(selected);
-                            console.log(`Loaded X-Form: ${selected.name}`);
-                        }
-                    }
-                });
-                
-                // Helper function to save the current X-Form to storage
-                function saveCurrentXFormToStorage() {
-                    // Ensure we have a valid name and ID
-                    if (!currentXFormId) {
-                        currentXFormId = Date.now();
-                    }
-                    
-                    // If using time-based naming and we're generating a new name, update it
-                    if (namingConventionSelect.value === 'datetime' && 
-                        (currentXFormName === "New X-Form" || !currentXFormName)) {
-                        currentXFormName = generateXFormName();
-                        updateCurrentXFormDisplay();
-                        // Don't update rename input here as it's continuously updated
-                    }
-                    
-                    // Create X-Form data object
-                    const xformData = createXFormDataObject();
-                    
-                    // Check if we're updating an existing X-Form
-                    const xforms = window.getSavedXForms();
-                    const existingIndex = xforms.findIndex(t => t.id === currentXFormId);
-                    
-                    if (existingIndex >= 0) {
-                        // Update existing
-                        xforms[existingIndex] = xformData;
-                    } else {
-                        // Add new
-                        xforms.push(xformData);
-                    }
-                    
-                    // Save to localStorage
-                    window.saveXForms(xforms);
-                    
-                    // Update the UI
-                    window.renderSavedList();
-                    return xformData;
-                }
-                
-                // Save automatically when making changes
-                // (We removed the explicit Save button)
-                
-                // Rename button
-                renameButton.addEventListener('click', () => {
-                    if (selectedSavedXFormId) {
-                        const newName = sanitizeXFormName(renameInput.value);
-                        
-                        // Update in storage
-                        const xforms = window.getSavedXForms();
-                        const index = xforms.findIndex(t => t.id === selectedSavedXFormId);
-                        
-                        if (index >= 0) {
-                            xforms[index].name = newName;
-                            window.saveXForms(xforms);
-                            
-                            // Update UI
-                            window.renderSavedList();
-                            
-                            // If this is the current X-Form, update its name too
-                            if (currentXFormId === selectedSavedXFormId) {
-                                currentXFormName = newName;
-                                updateCurrentXFormDisplay();
-                                // Don't update rename input here, let the time updater handle it
-                            }
-                            
-                            console.log(`X-Form renamed to: ${newName}`);
-                        }
-                    }
-                });
-                
-                // Delete button
-                deleteButton.addEventListener('click', () => {
-                    if (selectedSavedXFormId) {
-                        if (confirm("Are you sure you want to delete this X-Form?")) {
-                            // Remove from storage
+                if (loadButton) {
+                    loadButton.addEventListener('click', () => {
+                        if (selectedSavedXFormId) {
                             const xforms = window.getSavedXForms();
-                            const filteredXforms = xforms.filter(t => t.id !== selectedSavedXFormId);
-                            window.saveXForms(filteredXforms);
+                            const selected = xforms.find(t => t.id === selectedSavedXFormId);
                             
-                            // Update UI
-                            window.renderSavedList();
-                            
-                            console.log(`X-Form deleted: ${selectedSavedXFormId}`);
-                        }
-                    }
-                });
-                
-                // Update icons based on theme
-                function updateIconsForTheme() {
-                    const isDarkTheme = document.documentElement.classList.contains('dark-theme');
-                    document.querySelectorAll('.btn-icon[data-dark-src]').forEach(img => {
-                        if (isDarkTheme) {
-                            // Switch to black icons on dark theme
-                            const darkSrc = img.getAttribute('data-dark-src');
-                            img.src = darkSrc;
-                        } else {
-                            // Use white icons on light theme
-                            const originalSrc = img.getAttribute('data-original-src') || img.src;
-                            if (!img.getAttribute('data-original-src')) {
-                                img.setAttribute('data-original-src', originalSrc);
+                            if (selected) {
+                                applyXFormData(selected);
+                                console.log(`Loaded X-Form: ${selected.name}`);
                             }
-                            img.src = originalSrc;
                         }
                     });
                 }
                 
-                // Set initial icon states
-                updateIconsForTheme();
-                
-                // Update icons when theme changes
-                window.themeToggleButton.addEventListener('click', () => {
-                    // Give a moment for theme to change
-                    setTimeout(updateIconsForTheme, 50);
-                });
-                
-                console.log('X-Form management UI setup complete');
+                console.log("X-Form management setup completed");
             }
 
             // --- Function to apply saved theme ---
@@ -1919,13 +2037,12 @@
                     window.durationInput.value = DEFAULT_DURATION;
                 }
                 
-                // Create and add duration feedback element
-                const durationFeedback = document.createElement('span');
-                durationFeedback.id = 'durationFeedback';
-                durationFeedback.style.marginLeft = '8px';
-                durationFeedback.style.fontSize = '0.9em';
-                durationFeedback.style.color = 'var(--text-color-secondary)';
-                window.durationInput.parentNode.appendChild(durationFeedback);
+                // Get the existing duration feedback element
+                const durationFeedback = document.getElementById('durationFeedback');
+                if (!durationFeedback) {
+                    console.error("Duration feedback element not found");
+                    return;
+                }
                 
                 // Update feedback text
                 function updateDurationFeedback() {
@@ -2376,8 +2493,12 @@
                 }
             }
             
-            // These functions use the restored state
-            window.renderSavedList();
+            // Only render saved list if the element exists
+            if (window.savedListUl) {
+                window.renderSavedList();
+            } else {
+                console.log("Skipping renderSavedList at initialization - element not found");
+            }
             
             // Only apply theme from localStorage if we didn't restore it from state
             if (!isStateRestored) {
@@ -2385,7 +2506,7 @@
             }
             
             // Start the timer for updating time-based names if using datetime format
-            if (namingConventionSelect.value === 'datetime') {
+            if (namingConventionSelect && namingConventionSelect.value === 'datetime') {
                 updateTimeBasedName(); // Update immediately
                 window.timeUpdateTimer = setInterval(updateTimeBasedName, 1000);
             }
@@ -2397,15 +2518,23 @@
             // Finally, set up state persistence for future changes
             setupStatePersistence();
             
+            // Initialize filename mode (Phase 1 & 2)
+            setupFilenameMode();
+            
+            // Make sure the filename is immediately visible
+            initializeFilenameDisplay();
+            
             console.log("Application initialized" + (isStateRestored ? " with restored state" : " with default state"));
 
             // Add this listener if it was accidentally removed
-            themeToggleButton.addEventListener('click', () => {
-                console.log("Theme toggle clicked!"); // Check listener firing
-                const currentTheme = document.documentElement.classList.contains('dark-theme') ? 'dark' : 'light';
-                const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
-                applyTheme(newTheme);
-            });
+            if (themeToggleButton) {
+                themeToggleButton.addEventListener('click', () => {
+                    console.log("Theme toggle clicked!"); // Check listener firing
+                    const currentTheme = document.documentElement.classList.contains('dark-theme') ? 'dark' : 'light';
+                    const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+                    applyTheme(newTheme);
+                });
+            }
  
         });
 
@@ -2560,6 +2689,11 @@
 
         // --- Render Saved List ---
         function renderSavedList() {
+            if (!window.savedListUl) {
+                console.log("Skipping render of saved list - savedListUl element not found");
+                return;
+            }
+            
             const xforms = window.getSavedXForms();
             window.savedListUl.innerHTML = ''; // Clear existing list
             window.selectedSavedXFormId = null; // Clear selection
@@ -2580,7 +2714,7 @@
 
                 const nameSpan = document.createElement('span');
                 nameSpan.className = 'xform-name';
-                nameSpan.textContent = t.name;
+                nameSpan.textContent = t.name || `X-Form ${t.id.substring(0, 6)}`;
                 li.appendChild(nameSpan);
 
                 // Simple indication of complexity (optional)
@@ -2632,10 +2766,9 @@
                 li.appendChild(actionsDiv);
 
                 li.addEventListener('click', () => {
-                    // Remove selected class from previous
-                    Array.from(window.savedListUl.querySelectorAll('li.selected')).forEach(el => el.classList.remove('selected'));
-
                     // Toggle selection
+                    Array.from(window.savedListUl.querySelectorAll('li')).forEach(el => el.classList.remove('selected'));
+                    
                     if (window.selectedSavedXFormId === t.id) {
                         window.selectedSavedXFormId = null;
                         window.selectedControlsDiv.style.display = 'none';
@@ -2660,6 +2793,77 @@
         window.renderSavedList = renderSavedList;
         
         // --- Bezier/Spline Calculation Helpers ---
+
+        // Initialize the filename mode and start updates
+        function initializeFilenameDisplay() {
+            // Get the current filename input
+            const filenameInput = document.getElementById('filenameInput');
+            if (!filenameInput) {
+                console.error("Cannot initialize filename display - element not found");
+                return;
+            }
+            
+            console.log("Initializing filename display");
+            
+            // Force an immediate update regardless of mode
+            const now = new Date();
+            const formattedDate = now.toISOString().slice(0, 10).replace(/-/g, '-');
+            const hours = String(now.getHours()).padStart(2, '0');
+            const minutes = String(now.getMinutes()).padStart(2, '0');
+            const seconds = String(now.getSeconds()).padStart(2, '0');
+            const timeStr = `${hours}:${minutes}:${seconds}`;
+            
+            // Create the new filename
+            const newFilename = `${formattedDate} ${timeStr}`;
+            
+            // Update input field
+            filenameInput.value = newFilename;
+            console.log("Initial filename set:", newFilename);
+            
+            // If in ATM mode, start updates
+            if (window.isFilenameModeATM) {
+                startFilenameTimeUpdates();
+            }
+        }
+
+        // Helper function to save the current X-Form to storage
+        function saveCurrentXFormToStorage() {
+            // Ensure we have a valid name and ID
+            if (!currentXFormId) {
+                currentXFormId = Date.now();
+            }
+            
+            // Use the current filename from the input if available
+            const filenameInput = document.getElementById('filenameInput');
+            if (filenameInput && filenameInput.value) {
+                currentXFormName = filenameInput.value;
+            }
+            
+            // Create X-Form data object
+            const xformData = createXFormDataObject();
+            
+            // Check if we're updating an existing X-Form
+            const xforms = window.getSavedXForms();
+            const existingIndex = xforms.findIndex(t => t.id === currentXFormId);
+            
+            if (existingIndex >= 0) {
+                // Update existing
+                xforms[existingIndex] = xformData;
+            } else {
+                // Add new
+                xforms.push(xformData);
+            }
+            
+            // Save to localStorage
+            window.saveXForms(xforms);
+            
+            // Update the UI if the function exists
+            if (window.renderSavedList) {
+                window.renderSavedList();
+            }
+            
+            return xformData;
+        }
     </script>
 </body>
 </html>

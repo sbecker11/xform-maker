@@ -1,0 +1,73 @@
+Legend:
+Phase 1 - filename tool
+(t) Filenmae ATM (automated time mode) icon highlighted when filename is in ATM. if in MEM, click to go into ATM
+(e) Filename MEM (manual edit mode) icon highlighted when filename is in MEM. if in ATM, click to go into MEM 
+
+Phase 2. in-line filename edit
+in-line manual filname edit
+
+Phase 3 - parent path tool
+(p) edit path icon opens path chooser dialog
+in-line manual path edit
+
+Phase 4 - save file tool
+(s) save file icon with "Save" label using filename and parent path
+confirm overwrite dialog
+
+Phase 5 - saved files viewer tool
+infinitely long slider in fixed space
+list all previously saved files
+handle zero files case
+    
+Phase 6 - file viewer icons
+(o) open file icon
+(x) delete file icon w/ confirmation dialog
+
+Phase 7 - wrap-up
+
+X-Form Tester (H1-sized) 
+------------------------------------------------------------------------------
+X-Form Management (H2-sized)     +------------------
+-----------------------------+   |  viewport top-left corner
+Filename (t)(e)              | Phase 1 & 2
+[ 2025-05-23 17:02:10      ] | <- filename auto updates with live time, unless in-line edited
+Path                         | Phase 3
+(p)[../last/full/path      ] | (p) full path icon - click to open a choose path dialog
+                  [(s) Save] | Phase 4 (s) save X-Form icon - confirmation if filename already exists in fullpath
+-----------------------------+
+Saved X-Forms (H2-sized) leave body blank if no saved X-Forms to choose from
+-------^---------------------+ -^- toggle sort button ^ = change sort from Z-to-A v = change sort from A-to-Z 
+(o)(p) klgskd dfklakd   (x)|^|<- vertical scrollbar
+(o)(p) jaflsk dfklakd   (x)| | Phase 5 & 6
+(o)(p) jaflsk dfklakd   (x)| |
+(o)(p) jaflsk dfklakd   (x)| |
+(o)(p) jaflsk dfklakd   (x)| |<- one or zero files are highlighted at any time
+(o)(p) jaflsk dfklakd   (x)| |
+(o)(p) jaflsk dfklakd   (x)| |
+(o)(p) jaflsk dfklakd   (x)| |
+(o)(p) jaflsk dfklakd   (x)|v| <- bottom edge of X-Form management column aligns with bottom edge of columns 2 and 3 
+ ^  ^                    ^------- (x) delete file with confirmation dialog
+ |  | edit path icon to edit full path in a modal dialog 
+ open X-Form icon
+
+
+
+
+Phase 1 & 2
+------------------------------------------------------
+X-Form Tester (H1-sized) 
+------------------------------------------------------------------------------
+X-Form Management (label-sized)  +------------------
+-----------------------------+   |  viewport top-left corner
+Filename (t)(e)              |   |
+[ 2025-05-23 17:02:10      ] | <- filename auto updates with live time, unless in-line edited
+
+Development Milestones
+
+Phase 1 - filename tool
+(t) Filenmae ATM (automated time mode) icon highlighted when filename is in ATM. if in MEM, click to go into ATM
+(e) Filename MEM (manual edit mode) icon highlighted when filename is in MEM. if in ATM, click to go into MEM 
+
+Phase 2 - inline filename edit
+in-place manual filname edit
+

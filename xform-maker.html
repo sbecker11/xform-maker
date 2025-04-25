@@ -154,137 +154,141 @@
         <h1>XForm Maker</h1>
     </div>
 
-    <div class="three-column-layout">
-        <!-- Left: Persistence -->
-        <div class="left-column persistence-column">
-            <fieldset class="persistence-fieldset">
-                <!-- <legend>X-Form Management</legend> -->
-                
-                <!-- Filename section with ATM/MEM modes (Phase 1 & 2) -->
-                <div class="control-group filename-section">
-                    <div class="filename-header">
-                        <label>X-Form Filename</label>
-                        <div class="mode-icons">
-                            <button id="filenameModeATM" class="mode-icon active" title="Automated Time Mode">
-                                <span>(t)</span>
-                            </button>
-                            <button id="filenameModeManual" class="mode-icon" title="Manual Edit Mode">
-                                <span>(e)</span>
-                            </button>
+    <!-- Left Column (Now Fixed Position) -->
+    <div class="left-column persistence-column">
+        <fieldset class="persistence-fieldset">
+            <!-- <legend>X-Form Management</legend> -->
+            
+            <!-- Filename section with ATM/MEM modes (Phase 1 & 2) -->
+            <div class="control-group filename-section">
+                <div class="filename-header">
+                    <label>X-Form Filename</label>
+                    <div class="mode-icons">
+                        <button id="filenameModeATM" class="mode-icon active" title="Automated Time Mode">
+                            <span>(t)</span>
+                        </button>
+                        <button id="filenameModeManual" class="mode-icon" title="Manual Edit Mode">
+                            <span>(e)</span>
+                        </button>
+                    </div>
+                </div>
+                <div class="filename-input-container">
+                    <input type="text" id="filenameInput" class="time-based-filename" readonly="true">
+                </div>
+            </div>
+            
+            <!-- Save Button -->
+            <div class="control-group save-button-container">
+                <button id="saveFileBtn" class="save-button">Save</button>
+            </div>
+
+            <div class="control-group file-list-section">
+                <div class="file-list-header">
+                    <label>X-Form Files</label> <button class="files-sort-biutton">(^)</button>
+                </div>
+                <div class="file-list-container">
+                    <ul class="file-list">
+                        <li>document1.txt</li>
+                        <li>image2.jpg</li>
+                        <li>script3.py</li>
+                        <li>notes4.pdf</li>
+                        <li>document5.txt</li>
+                        <li>image6.jpg</li>
+                        <li>script7.py</li>
+                        <li>notes8.pdf</li>
+                        <li>document9.txt</li>
+                        <li>image10.jpg</li>
+                        <li>script11.py</li>
+                        <li>notes12.pdf</li>
+                        <li>document13.txt</li>
+                        <li>image14.jpg</li>
+                        <li>script15.py</li>
+                        <li>notes16.pdf</li>
+                        <li>document17.txt</li>
+                        <li>image18.jpg</li>
+                        <li>script19.py</li>
+                        <li>notes20.pdf</li>
+                        <li>document21.txt</li>
+                        <li>image22.jpg</li>
+                            <!-- Add more filenames as needed -->
+                    </ul>
+                </div> 
+            </div>
+
+        </fieldset>
+    </div>
+
+    <!-- NEW: Container for Main Content (Center/Right) -->
+    <div class="main-content-area">
+        <!-- Wrapper for Center and Right Columns -->
+        <div class="center-right-wrapper">
+            <!-- Center: Viewport & Actions -->
+            <div class="center-column">
+                <div id="viewport" style="cursor: crosshair;"><div id="startRect" class="rect rect-start" style="width: 103px; height: 133px; left: 78.5px; top: 49.5px;">Start</div><div id="endRect" class="rect rect-end" style="width: 103px; height: 133px; left: 250.5px; top: 217.5px;">End</div></div>
+                <div class="viewport-actions">
+                    <button id="startAnimation">Play</button>
+                    <button id="resetPositions">Reset</button>
+                    <button id="themeToggle" title="Toggle Theme"></button>
+                </div>
+            </div>
+
+            <!-- Right: Controls -->
+            <div class="right-column controls-column">
+                <div class="control-section">
+                    <label for="rotations">Rotations:</label>
+                    <div class="control-group" style="margin-bottom: 5px;">
+                        <div class="direction-toggle" data-axis="x" data-direction="1">
+                            <span>X:</span><span class="rot-icon" data-axis="x"></span>
+                            <button class="btn-dir active" data-value="1">+</button>
+                            <button class="btn-dir" data-value="0">0</button>
+                            <button class="btn-dir" data-value="-1">-</button>
+                        </div>
+                        <div class="direction-toggle" data-axis="y" data-direction="1">
+                            <span>Y:</span><span class="rot-icon" data-axis="y"></span>
+                            <button class="btn-dir active" data-value="1">+</button>
+                            <button class="btn-dir" data-value="0">0</button>
+                            <button class="btn-dir" data-value="-1">-</button>
+                        </div>
+                        <div class="direction-toggle" data-axis="z" data-direction="1">
+                            <span>Z:</span><span class="rot-icon" data-axis="z"></span>
+                            <button class="btn-dir active" data-value="1">+</button>
+                            <button class="btn-dir" data-value="0">0</button>
+                            <button class="btn-dir" data-value="-1">-</button>
                         </div>
                     </div>
-                    <div class="filename-input-container">
-                        <input type="text" id="filenameInput" class="time-based-filename" readonly="true">
-                    </div>
-                </div>
-                
-                <!-- Save Button -->
-                <div class="control-group save-button-container">
-                    <button id="saveFileBtn" class="save-button">Save</button>
                 </div>
 
-                <div class="control-group file-list-section">
-                    <div class="file-list-header">
-                        <label>X-Form Files</label> <button class="files-sort-biutton">(^)</button>
+                <div class="control-section">
+                    <div class="duration-container">
+                        <div class="duration-left">
+                            <label for="duration">Duration (ms):</label>
+                        </div>
+                        <span id="durationFeedback" style="color: var(--text-color-secondary);">(1.4s)</span>
                     </div>
-                    <div class="file-list-container">
-                        <ul class="file-list">
-                            <li>document1.txt</li>
-                            <li>image2.jpg</li>
-                            <li>script3.py</li>
-                            <li>notes4.pdf</li>
-                            <li>document5.txt</li>
-                            <li>image6.jpg</li>
-                            <li>script7.py</li>
-                            <li>notes8.pdf</li>
-                            <li>document9.txt</li>
-                            <li>image10.jpg</li>
-                            <li>script11.py</li>
-                            <li>notes12.pdf</li>
-                            <li>document13.txt</li>
-                            <li>image14.jpg</li>
-                            <li>script15.py</li>
-                            <li>notes16.pdf</li>
-                            <li>document17.txt</li>
-                            <li>image18.jpg</li>
-                            <li>script19.py</li>
-                            <li>notes20.pdf</li>
-                            <li>document21.txt</li>
-                            <li>image22.jpg</li>
-                                <!-- Add more filenames as needed -->
-                        </ul>
-                    </div> 
+                    <div class="control-group">
+                        <input type="number" id="duration" value="500" min="100" step="50" max="5000">
+                    </div>
                 </div>
 
-            </fieldset>
-        </div>
-
-        <!-- Center: Viewport & Actions -->
-        <div class="center-column">
-            <div id="viewport" style="cursor: crosshair;"><div id="startRect" class="rect rect-start" style="width: 103px; height: 133px; left: 78.5px; top: 49.5px;">Start</div><div id="endRect" class="rect rect-end" style="width: 103px; height: 133px; left: 250.5px; top: 217.5px;">End</div></div>
-            <div class="viewport-actions">
-                <button id="startAnimation">Play</button>
-                <button id="resetPositions">Reset</button>
-                <button id="themeToggle" title="Toggle Theme"></button>
-            </div>
-        </div>
-
-        <!-- Right: Controls -->
-        <div class="right-column controls-column">
-            <div class="control-section">
-                <label for="rotations">Rotations:</label>
-                <div class="control-group" style="margin-bottom: 5px;">
-                    <div class="direction-toggle" data-axis="x" data-direction="1">
-                        <span>X:</span><span class="rot-icon" data-axis="x"></span>
-                        <button class="btn-dir active" data-value="1">+</button>
-                        <button class="btn-dir" data-value="0">0</button>
-                        <button class="btn-dir" data-value="-1">-</button>
+                <div class="control-section">
+                    <label for="rectangle">Rectangle:</label>
+                    <div class="control-group block-size-controls">
+                        <input type="number" id="rectWidth" value="100" min="50" max="400" title="Width (50-400px)">
+                        <input type="number" id="rectHeight" value="60" min="50" max="400" title="Height (50-400px)">
                     </div>
-                    <div class="direction-toggle" data-axis="y" data-direction="1">
-                        <span>Y:</span><span class="rot-icon" data-axis="y"></span>
-                        <button class="btn-dir active" data-value="1">+</button>
-                        <button class="btn-dir" data-value="0">0</button>
-                        <button class="btn-dir" data-value="-1">-</button>
-                    </div>
-                    <div class="direction-toggle" data-axis="z" data-direction="1">
-                        <span>Z:</span><span class="rot-icon" data-axis="z"></span>
-                        <button class="btn-dir active" data-value="1">+</button>
-                        <button class="btn-dir" data-value="0">0</button>
-                        <button class="btn-dir" data-value="-1">-</button>
+                </div>
+
+                <div class="control-section">
+                    <label for="waypoints">Waypoints:</label>
+                    <div class="control-group waypoint-controls">
+                        <button id="addWaypointBtn" class="waypoint-btn" style="background-color: rgb(0, 123, 255); border-color: rgb(0, 86, 179);">Add +</button>
+                        <span id="waypointCounter">0</span>
+                        <button id="deleteLastWaypointBtn" class="waypoint-btn" style="pointer-events: none; opacity: 0.5; cursor: not-allowed;" disabled="">- Del</button>
                     </div>
                 </div>
             </div>
-
-            <div class="control-section">
-                <div class="duration-container">
-                    <div class="duration-left">
-                        <label for="duration">Duration (ms):</label>
-                    </div>
-                    <span id="durationFeedback" style="color: var(--text-color-secondary);">(1.4s)</span>
-                </div>
-                <div class="control-group">
-                    <input type="number" id="duration" value="500" min="100" step="50" max="5000">
-                </div>
-            </div>
-
-            <div class="control-section">
-                <label for="rectangle">Rectangle:</label>
-                <div class="control-group block-size-controls">
-                    <input type="number" id="rectWidth" value="100" min="50" max="400" title="Width (50-400px)">
-                    <input type="number" id="rectHeight" value="60" min="50" max="400" title="Height (50-400px)">
-                </div>
-            </div>
-
-            <div class="control-section">
-                <label for="waypoints">Waypoints:</label>
-                <div class="control-group waypoint-controls">
-                    <button id="addWaypointBtn" class="waypoint-btn" style="background-color: rgb(0, 123, 255); border-color: rgb(0, 86, 179);">Add +</button>
-                    <span id="waypointCounter">0</span>
-                    <button id="deleteLastWaypointBtn" class="waypoint-btn" style="pointer-events: none; opacity: 0.5; cursor: not-allowed;" disabled="">- Del</button>
-                </div>
-            </div>
-        </div>
-    </div>
+        </div> <!-- End of center-right-wrapper -->
+    </div> <!-- End of main-content-area -->
 
     <!-- Load Module Scripts First -->
     <script src="xform-persistence.js" defer></script>

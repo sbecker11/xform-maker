@@ -1,0 +1,749 @@
+body {
+            margin: 20px;
+            font-family: Arial, sans-serif;
+            background-color: var(--background-primary);
+            color: var(--text-primary);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh; /* Ensure body takes full height */
+        }
+        
+        /* Filename section styles for Phase 1 & 2 */
+        .filename-section {
+            margin-bottom: 15px;
+        }
+        
+        .filename-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 5px;
+        }
+        
+        .filename-header label {
+            font-weight: bold;
+            margin-bottom: 0;
+        }
+        
+        .mode-icons {
+            display: flex;
+            gap: 5px;
+            padding-right: 11px;
+        }
+        
+        .mode-icon {
+            background: none;
+            border: 1px solid var(--border-primary);
+            border-radius: 4px;
+            padding: 2px 5px;
+            cursor: pointer;
+            font-size: 0.9em;
+            opacity: 0.6;
+            transition: all 0.2s ease;
+            color: var(--text-primary);
+        }
+        
+        .mode-icon.active {
+            opacity: 1;
+            background-color: var(--button-primary-bg);
+            border-color: var(--button-primary-hover-bg);
+            color: white;
+        }
+        
+        .filename-input-container {
+            position: relative;
+            width: 100%;
+        }
+        
+        .time-based-filename {
+            width: 100%;
+            padding-top: 8px;
+            padding-bottom: 8px;
+            border: 1px solid var(--border-primary);
+            border-radius: 4px;
+            box-sizing: border-box;
+            font-family: monospace;
+            background-color: white;
+            color: black;
+            font-size: 14px;
+            margin-bottom: 0; /* Override default margin */
+        }
+        
+        /* Style for readonly input to ensure it doesn't look disabled */
+        .time-based-filename[readonly] {
+            opacity: 1; 
+            background-color: var(--background-secondary);
+            color: var(--text-primary);
+            cursor: pointer; /* Indicates it can be clicked for MEM mode */
+            -webkit-user-select: text; /* Ensures text is selectable */
+            user-select: text;
+        }
+
+        .file-list-section {
+            margin-top: 10px;
+        }
+
+        .file-list-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 0px;
+        }
+        
+        .files-sort-biutton {
+            background-color: var(--button-primary-bg);
+            width: 20px;
+            height:20px;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            padding: 2px;
+            margin-right: 17px;
+            padding-bottom: 0px;
+            cursor: pointer;
+            font-weight: normal;
+            transition: background-color 0.2s;
+        }
+
+        .file-list-container {
+            width: 240px; /* Adjust width as needed */
+            height: 245px; /* Fixed height for scrolling */
+            border: 1px solid #ccc;
+            overflow-y: auto; /* Enable vertical scrolling */
+            padding: 2px;
+            margin-top: 5px;
+        }
+
+        .file-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+            background-color: white;
+        }
+
+        .file-list li {
+            padding: 4px;
+            border-bottom: 1px solid #eee;
+            color: black;
+        }
+
+        .file-list li:last-child {
+            border-bottom: none;
+        }
+
+
+        /* Save button styles */
+        .save-button-container {
+            margin-top: 5px;
+            margin-bottom: 20px;
+            display: flex;
+            justify-content: flex-end;
+            padding-right: 11px;
+        }
+        
+        .save-button {
+            background-color: var(--button-primary-bg);
+            color: white;
+            border: none;
+            border-radius: 4px;
+            padding: 8px 20px;
+            padding-top: 4px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: background-color 0.2s;
+        }
+        
+        .save-button:hover {
+            background-color: var(--button-primary-hover-bg);
+        }
+        
+        .three-column-layout {
+            display: flex;
+            gap: 20px;
+            width: 100%;
+            max-width: 1100px; /* Reduced max-width */
+            align-items: flex-start; /* Align items to the top */
+            position: relative; /* Needed for viewport-actions positioning */
+        }
+        .left-column {
+            flex: 1; /* Allow left column to grow */
+            min-width: 240px; /* Match what browser is actually using */
+            max-width: 280px; /* Limit maximum width */
+            padding: 20px;
+            padding-left: 0;
+            padding-right: 0;
+            background-color: var(--background-secondary);
+            border-radius: 8px;
+            box-shadow: var(--shadow-low);
+            height: fit-content; /* Adjust height based on content */
+            border: none; /* Remove previous border, use fieldset */
+            display: flex; /* Use flexbox for children */
+            flex-direction: column; /* Stack fieldsets vertically */
+            gap: 15px; /* Space between fieldsets */
+        }
+        .right-column {
+            flex: 0 0 210px; /* Increased by 10px from 200px to 210px */
+            padding: 20px 0 20px 20px; /* Keep top, bottom, left padding, remove right padding */
+            background-color: var(--background-secondary);
+            border-radius: 8px;
+            box-shadow: var(--shadow-low);
+            height: fit-content; /* Adjust height based on content */
+            border: none; /* Remove previous border, use fieldset */
+            display: flex; /* Use flexbox for children */
+            flex-direction: column; /* Stack fieldsets vertically */
+            gap: 15px; /* Space between fieldsets */
+            box-sizing: border-box; /* Include padding in width calculation */
+            max-width: 210px; /* Enforce maximum width, increased by 10px */
+            width: 210px; /* Explicit width, increased by 10px */
+        }
+        .center-column {
+            flex: 0 0 auto; /* Don't grow or shrink, keep current size */
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 15px;
+            position: relative; /* Positioning context for theme toggle */
+            padding-top: 0; /* Removed padding (was 44px) */
+        }
+        #viewport {
+            position: relative; /* Needed for absolute positioning of rects */
+            background-color: white; /* Keep background */
+            border-radius: 8px;
+            /* Bevel effect */
+            border: 1px solid #aaa;
+            box-shadow: inset 3px 3px 6px rgba(0,0,0,0.2),
+                        inset -2px -2px 5px rgba(255,255,255,0.6),
+                        0 4px 8px rgba(0,0,0,0.15); /* Optional outer shadow */
+            overflow: hidden;
+            width: 400px; /* Reduced width */
+            height: 400px; /* Reduced height */
+            perspective: 1000px; /* Enable 3D space for children */
+        }
+        .rect {
+            position: absolute;
+            width: 100px;
+            height: 60px;
+            border-radius: 4px;
+            cursor: grab;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            color: white;
+            text-shadow: 1px 1px 2px black;
+            box-sizing: border-box; /* Include padding/border in element's total width and height */
+            transform-style: preserve-3d; /* Important for containing 3D transforms */
+            transition: transform 0.5s ease-in-out; /* Default transition */
+        }
+        .rect-start {
+            background-color: rgba(0, 128, 0, 0.8); /* Green, semi-transparent */
+            border: 2px solid darkgreen;
+            z-index: 1; /* Start rect below */
+            cursor: grab; /* Make it grabbable */
+            position: absolute; /* Keep absolute positioning */
+        }
+        .rect-end {
+            background-color: rgba(255, 0, 0, 0.8); /* Red, semi-transparent */
+            border: 2px solid darkred;
+            z-index: 2; /* End rect above, draggable */
+            position: absolute; /* Keep absolute positioning */
+        }
+        .rect-end:active {
+            cursor: grabbing;
+        }
+        .controls-column h2,
+        .persistence-column h2 {
+            margin-top: 0;
+            margin-bottom: 10px; /* Space below H2 inside fieldset */
+            font-size: 1.1em; /* Slightly smaller H2 */
+        }
+        fieldset {
+            /* border: 1px solid var(--border-color-strong); Remove border */
+            border: none;
+            border-radius: 6px;
+            padding: 15px;
+            margin: 0; /* Reset default fieldset margin */
+            width: 100%; /* Take full width of parent column */
+            box-sizing: border-box;
+        }
+        .persistence-fieldset {
+            padding-top: 0;
+            padding-right: 0;
+        }
+        /* legend {
+            padding: 0 5px;
+            font-weight: bold;
+            color: var(--text-color-primary);
+            margin-left: 10px; 
+            font-size: 1em;
+        } */
+
+        /* Style the new labels as section headers */
+        .control-section > label {
+            display: block; /* Make label take full width */
+            font-weight: bold;
+            margin-bottom: 10px; /* Space below label */
+            font-size: 1.1em;
+            color: var(--text-primary);
+        }
+
+        .control-section {
+            /* padding: 2px 0; Further reduce vertical padding */
+            padding: 0; /* Remove padding, rely on gap */
+        }
+
+        .control-group {
+             margin-bottom: 5px; /* Further reduce space */
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        input[type="number"], input[type="text"] {
+            width: calc(100% - 16px);
+            padding: 8px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            margin-bottom: 10px;
+        }
+        button {
+            padding: 10px 15px;
+            border: none;
+            border-radius: 4px;
+            background-color: #007bff;
+            color: white;
+            cursor: pointer;
+            margin-right: 5px;
+            margin-bottom: 5px;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        button.secondary {
+            background-color: #6c757d;
+        }
+        button.secondary:hover {
+            background-color: #5a6268;
+        }
+         button.danger {
+            background-color: #dc3545;
+        }
+        button.danger:hover {
+            background-color: #c82333;
+        }
+        #savedList { /* Target the ul directly */
+            list-style: none;
+            padding: 0;
+            max-height: 300px; /* Keep max-height */
+            overflow-y: auto;
+        }
+         #savedList li { /* Target li directly */
+            padding: 10px;
+            border: 1px solid #eee;
+            margin-bottom: 5px;
+            border-radius: 4px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            cursor: pointer;
+        }
+        .saved-xforms li:hover {
+            background-color: #f8f9fa;
+        }
+        .saved-xforms li.selected {
+            background-color: #e0e0e0;
+            font-weight: bold;
+        }
+        .xform-name {
+             flex-grow: 1;
+             margin-right: 10px;
+             overflow: hidden;
+             text-overflow: ellipsis;
+             white-space: nowrap;
+        }
+        .direction-toggle span:first-child { /* Target the label span specifically */
+            display: inline-block;
+            width: 30px; /* Fixed width for alignment */
+            color: var(--text-primary);
+        }
+        .rot-icon {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            margin-left: 0px; /* Remove left margin */
+            margin-right: 8px;
+            vertical-align: middle;
+            background-size: contain; /* Or 16px 16px */
+            background-repeat: no-repeat;
+            background-position: center;
+        }
+        .rot-icon[data-axis="x"] { background-image: url('icons/x-rot.png'); }
+        .rot-icon[data-axis="y"] { background-image: url('icons/y-rot.png'); }
+        .rot-icon[data-axis="z"] { background-image: url('icons/z-rot.png'); }
+        .dark-theme .rot-icon[data-axis="x"] { background-image: url('icons/x-rot-dark.png'); }
+        .dark-theme .rot-icon[data-axis="y"] { background-image: url('icons/y-rot-dark.png'); }
+        .dark-theme .rot-icon[data-axis="z"] { background-image: url('icons/z-rot-dark.png'); }
+        .direction-toggle button {
+            padding: 5px 0; /* Adjust padding for consistent height */
+            font-size: 0.9em; /* Slightly smaller text */
+            width: 30px; /* Fixed width for all */
+            min-width: auto; /* Allow button to be smaller */
+            margin-left: 5px;
+            margin-bottom: 5px; /* Add bottom margin */
+            text-align: center;
+            line-height: 1.2; /* Adjust for vertical centering */
+        }
+        .direction-toggle button.active {
+            background-color: #28a745; /* Green for active */
+            border: 1px solid #1e7e34;
+            opacity: 1.0;
+        }
+        .direction-toggle button:not(.active) {
+            background-color: #6c757d; /* Grey for inactive */
+            opacity: 0.7;
+        }
+        /* Specific style for active zero button */
+        .direction-toggle button[data-value="0"].active {
+             background-color: #ffc107; /* Yellow for zero */
+             color: #333;
+             border-color: #e0a800;
+             opacity: 1.0;
+        }
+        .point-marker {
+            position: absolute;
+            width: 15px;
+            height: 15px;
+            background-color: rgba(0, 0, 255, 0.7);
+            border: 1px solid darkblue;
+            border-radius: 50%;
+            cursor: pointer;
+            transform: translate(-50%, -50%); /* Center the marker on the click point */
+            z-index: 3; /* Above rects */
+        }
+        .point-marker.selected {
+            background-color: rgba(0, 255, 255, 0.9); /* Cyan when selected */
+            border: 2px solid teal;
+        }
+
+        /* Header */
+        .app-header {
+            width: 100%;
+            display: flex;
+            /* justify-content: space-between; Let button be positioned independently */
+            align-items: center;
+            padding: 10px 20px;
+            box-sizing: border-box;
+            /* margin-bottom: 15px; Reduce space below header */
+            margin-bottom: 5px;
+        }
+        .app-header h1 {
+            margin: 0;
+            flex-grow: 1;
+            margin-bottom: 10px; /* Add some space below title */
+        }
+
+        #themeToggle {
+            position: relative; /* Changed from absolute to relative positioning */
+            z-index: 10; /* Ensure it's clickable */
+            width: 60px;
+            height: 24px;
+            border-radius: 12px; /* height / 2 */
+            border: 1px solid var(--border-strong);
+            background-color: var(--theme-toggle-off-bg);
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+            box-sizing: border-box;
+            appearance: none; /* Remove default button styles */
+            /* Clear content for pseudo-element */
+            color: transparent;
+            font-size: 0;
+            line-height: 0;
+            margin: 5px; /* Set all four margins to 5px */
+        }
+
+        #themeToggle::before {
+            content: '';
+            position: absolute;
+            width: 20px; /* Size of the switch circle */
+            height: 20px;
+            border-radius: 50%;
+            background-color: var(--theme-toggle-switch-bg);
+            top: 1px; /* Center vertically */
+            left: 1px;
+            transition: transform 0.3s ease;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+        }
+
+        .dark-theme #themeToggle {
+            background-color: var(--theme-toggle-on-bg);
+        }
+
+        .dark-theme #themeToggle::before {
+            transform: translateX(36px); /* Adjust based on size/padding */
+        }
+
+        /* Layout */
+        .three-column-layout {
+            display: flex;
+            gap: 20px;
+            width: 100%;
+            max-width: 1100px; /* Reduced max-width */
+            align-items: flex-start; /* Align items to the top */
+            position: relative; /* Needed for viewport-actions positioning */
+        }
+
+        /* Block size controls row */
+        .block-size-controls {
+            display: flex;
+            align-items: center;
+            gap: 5px; /* Reduced gap */
+            /* Calculate total width similar to duration */
+            /* Label width can be flexible */
+        }
+        .block-size-controls label {
+             margin-bottom: 0; /* Remove bottom margin for inline label */
+             white-space: nowrap;
+             flex-shrink: 0; /* Prevent label from shrinking */
+             margin-right: auto; /* Push inputs/button to the right */
+             line-height: 28px; /* Align label vertically */
+        }
+        .block-size-controls input[type="number"] {
+            width: 87px; /* Increased by another 4px from 83px */
+            margin-bottom: 0;
+            height: 100%; /* Match parent height */
+            box-sizing: border-box;
+            margin-right: 5px; /* Add right margin */
+        }
+        .block-size-controls span { /* The 'x' */
+            margin: 0 2px;
+        }
+        .block-size-controls button {
+            margin-bottom: 0;
+            flex-shrink: 0; /* Prevent button from shrinking */
+            padding: 10px 8px; /* Increase top/bottom padding */
+            min-width: auto; /* Allow button to be smaller */
+            height: 100%; /* Match parent height */
+            box-sizing: border-box;
+        }
+
+        /* Viewport Actions (Start/Replay/Reset) */
+        .viewport-actions {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            width: 100%; /* Span width below viewport */
+            margin-top: 10px; /* Space above buttons */
+        }
+
+        .right-column {
+            /* margin-top: -40px; Remove this adjustment for now */
+        }
+
+        .direction-toggle {
+            display: flex; /* Use flexbox to keep elements in a row */
+            align-items: center; /* Vertically align label, icon, buttons */
+            margin-bottom: 8px; /* Space between rows */
+        }
+
+        #duration { /* Specific style for duration input */
+            width: 168px; /* Increased by 30px from 138px */
+            margin-left: auto; /* Push input to the right if label is short */
+        }
+
+        /* Controls specific to the right column */
+        .right-column input[type="number"] {
+            box-sizing: border-box;
+        }
+        
+        /* Rectangle size controls specific styling */
+        .block-size-controls {
+            display: flex;
+            gap: 12px; /* Space between width and height inputs */
+            width: 170px; /* Set total width */
+        }
+        
+        .block-size-controls input[type="number"] {
+            width: 79px; /* (170px - 12px gap) / 2 */
+        }
+        
+        .right-column .waypoint-btn {
+            min-width: 40px; /* Reduce from 50px */
+        }
+        
+        /* Duration control layout */
+        .duration-container {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            width: 100%;
+        }
+        
+        .duration-left {
+            display: flex;
+            align-items: center;
+        }
+        
+        #durationFeedback {
+            margin-left: auto; /* Push to the right */
+            font-size: 0.9em;
+            color: var(--text-secondary);
+            text-align: right;
+            display: none; /* Hide the element */
+        }
+
+        /* Waypoint controls row */
+        .waypoint-controls {
+            display: flex;
+            align-items: center;
+            /* padding: 0 5px; Remove padding */
+            /* gap: 10px; Add gap between elements */
+            gap: 6px; /* Reduce gap */
+        }
+        .waypoint-controls > button:first-child {
+            margin-right: 0; /* Override auto margin */
+        }
+
+        .waypoint-btn { /* Class for Add/Del buttons */
+            text-align: center;
+        }
+
+        #waypointCounter {
+            font-weight: bold;
+            color: var(--text-secondary);
+            /* min-width: 25px; Tighter width for 2 digits */
+            min-width: 40px; /* Adjusted width */
+            text-align: center;
+        }
+
+        #deleteLastWaypointButton[disabled] { /* Simpler selector test */
+            background-color: #cccccc !important; /* Light grey background - Force */
+            color: #888888 !important; /* Dimmer text - Force */
+            cursor: not-allowed !important; /* Force cursor */
+        }
+
+        /* Optional: Explicitly prevent hover style changes */
+        #deleteLastWaypointButton[disabled]:hover { /* Simpler selector test */
+            background-color: #cccccc !important; /* Keep it grey - Force */
+            /* color: #888888; Keep text dim */
+        }
+
+        :root {
+            /* New Semantic Variables (Light Theme) */
+            --background-primary: #f0f0f0;
+            --background-secondary: #ffffff;
+            --text-primary: #333333;
+            --text-secondary: #666666;
+            --border-primary: #dddddd;
+            --border-strong: #aaaaaa;
+            --button-primary-bg: #007bff;
+            --button-primary-hover-bg: #0056b3;
+            --button-danger-bg: #dc3545;
+            --button-danger-hover-bg: #c82333;
+            --shadow-low: 0 1px 2px rgba(0,0,0,0.05);
+            --shadow-medium: 0 4px 8px rgba(0,0,0,0.1);
+            --text-shadow-primary: 1px 1px 2px rgba(0,0,0,0.1);
+            --theme-toggle-off-bg: #cccccc;
+            --theme-toggle-on-bg: #007bff;
+            --theme-toggle-switch-bg: #ffffff;
+
+            /* Old variables below will be removed after replacement */
+            /* --bg-color-primary: #f0f0f0; ... */
+        }
+
+        .dark-theme {
+            /* Override Semantic Variables for Dark Theme */
+            --background-primary: #22272e;
+            --background-secondary: #2d333b;
+            --text-primary: #cdd9e5;
+            --text-secondary: #97a6b7;
+            --border-primary: #444c56;
+            --border-strong: #586069;
+            --button-primary-bg: #3081f7;
+            --button-primary-hover-bg: #458ff7;
+            --button-danger-bg: #f85149;
+            --button-danger-hover-bg: #fa675f;
+            --shadow-low: 0 1px 2px rgba(0,0,0,0.2);
+            --shadow-medium: 0 4px 8px rgba(0,0,0,0.3);
+            --text-shadow-primary: 1px 1px 2px rgba(0,0,0,0.1);
+            --theme-toggle-off-bg: #586069;
+            --theme-toggle-on-bg: #3081f7;
+            --theme-toggle-switch-bg: #22272e;
+
+            /* Old variables below will be removed after replacement */
+            /* --bg-color-primary: #22272e; ... */
+        }
+
+        /* Utility Classes */
+        .no-select {
+            user-select: none; /* Standard */
+            -webkit-user-select: none; /* Safari */
+            -moz-user-select: none; /* Firefox */
+            -ms-user-select: none; /* IE/Edge */
+        }
+        
+        /* Icon buttons */
+        .icon-btn {
+            padding: 6px;
+            min-width: 32px;
+            height: 32px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background-color: var(--button-primary-bg);
+        }
+        
+        .btn-icon {
+            width: 16px;
+            height: 16px;
+        }
+        
+        /* List item icon buttons */
+        .list-icon-btn {
+            padding: 3px;
+            min-width: 24px;
+            height: 24px;
+            background-color: transparent;
+            border: none;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            opacity: 0.7;
+            border-radius: 3px;
+        }
+        
+        .list-icon-btn:hover {
+            opacity: 1;
+            background-color: rgba(0,0,0,0.1);
+        }
+        
+        .btn-icon-small {
+            width: 14px;
+            height: 14px;
+        }
+        
+        /* Dark theme icon switching */
+        .dark-theme .btn-icon[data-dark-src] {
+            content: attr(data-dark-src);
+        }
+
+        .right-column fieldset {
+            /* border: 1px solid var(--border-color-strong); Remove border */
+            border: none;
+            border-radius: 6px;
+            padding: 15px 0 15px 0; /* Remove left/right padding for fieldsets in the right column */
+            margin: 0; /* Reset default fieldset margin */
+            width: 100%; /* Take full width of parent column */
+            box-sizing: border-box;
+        }
+
+        /* Specific padding adjustments for Add and Del buttons */
+        #addWaypointBtn {
+            padding-right: 10px; /* Reduced from default 15px */
+        }
+        
+        #deleteLastWaypointBtn {
+            padding-left: 10px; /* Reduced from default 15px */
+        } 

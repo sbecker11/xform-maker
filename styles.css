@@ -33,8 +33,8 @@ body {
 /* Filename section styles for Phase 1 & 2 */
 .filename-section {
     margin-bottom: 5px;
-    /* padding-right: 5px; */ /* No padding needed here now */
-    /* box-sizing: border-box; */
+    padding-right: 10px; /* UPDATED padding */
+    box-sizing: border-box;
 }
 
 .filename-header {
@@ -42,20 +42,13 @@ body {
     justify-content: space-between;
     align-items: center;
     margin-bottom: 5px;
-    /* padding-right: 17px; */ /* REMOVE padding */
-    /* box-sizing: border-box; */ /* REMOVE box-sizing */
-    position: relative; /* ADD for absolute child positioning */
-}
-
-.filename-header label {
-    font-weight: bold;
-    margin-bottom: 0;
 }
 
 .mode-icons {
     display: flex;
     gap: 5px;
-    /* padding-right: 11px; */ /* REMOVE - Handled by parent header */
+    flex-shrink: 0;
+    margin-right: -10px;
 }
 
 .mode-icon {
@@ -130,41 +123,42 @@ body {
 }
 
 .file-list-header {
-    display: flex;
-    justify-content: space-between; 
-    align-items: center; 
+    display: flex; /* Use flexbox */
+    justify-content: space-between; /* Push label and button group apart */
+    align-items: center; /* Align items vertically */
     margin-bottom: 0px;
-    /* padding-right: 17px; */ /* REMOVE padding */
-    /* box-sizing: border-box; */ /* REMOVE box-sizing */
-    position: relative; /* ADD for absolute child positioning */
+    /* Remove padding/positioning related to old absolute positioning */
+    /* padding-right: 17px; */ 
+    /* position: relative; */
+    box-sizing: border-box; 
 }
 
 .file-list-header label {
-    /* margin-right: auto; */ /* REMOVE */
+    /* margin-right: auto; */ /* No longer needed with space-between */
 }
 
-.file-list-header > div { /* Style the div wrapping the buttons */
+/* Style for the new button group wrapper */
+.header-button-group {
     display: flex;
-    gap: 5px; 
-    position: absolute; 
-    right: -50px; /* DIAGNOSTIC: Exaggerated shift right */
-    top: 50%; 
-    transform: translateY(-50%); 
+    align-items: center;
+    gap: 5px; /* Space between buttons */
+    flex-shrink: 0; /* Prevent group from shrinking */
 }
 
-/* Ensure icon-btn styles apply correctly */
-/* .icon-btn { ... } */
+/* REMOVE absolute positioning from old header div rule */
+/* .file-list-header > div { ... } */ 
 
-/* Remove old sort button style if specific */
-/* .files-sort-biutton { ... } */
+/* REMOVE specific button margins if set previously */
+/* #sortFilesBtn, #filenameModeManual { margin-right: 0; } */
 
 .file-list-container {
     width: 100%; /* REVERTED: Use full parent width */
-    height: 245px; /* Fixed height for scrolling */
+    height: 310px; /* Fixed height for scrolling */
     border: 1px solid #ccc;
     overflow-y: auto; /* Enable vertical scrolling */
     padding: 2px;
     margin-top: 5px;
+    margin-bottom: 15px;
 }
 
 .file-list {
@@ -175,7 +169,7 @@ body {
 }
 
 .file-list li {
-    padding: 4px;
+    /* padding: 4px; */ /* REMOVE this padding */
     border-bottom: 1px solid #eee;
     color: black;
 }
@@ -189,10 +183,10 @@ body {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 4px;
-    border-bottom: 1px solid #eee;
+    padding: 0 4px !important; /* Force vertical padding removal */
+    /* border-bottom: 1px solid #eee; */ /* REMOVE this */
     color: black;
-    cursor: pointer; /* Indicate clickable for loading */
+    cursor: pointer; 
 }
 .file-list-item:last-child {
      border-bottom: none;
@@ -220,6 +214,15 @@ body {
     font-weight: bold;
 }
 
+.folder-prompt {
+    padding: 0 10px !important;
+    padding-top: 5px !important;
+    padding-bottom: 0px !important;
+    background-color: orange !important;
+    margin-bottom: 0px !important;
+    border: none !important;
+}
+
 /* Style for selected file list item */
 .file-list-item.selected {
     background-color: var(--button-primary-bg); /* Blue background */
@@ -235,12 +238,6 @@ body {
      color: #f8d7da; /* Light pink/red on hover */
  }
 
-/* Save button styles */
-.save-button-container {
-   /* This container might no longer be needed if button is inline */
-   /* margin-top: 5px; ... */ 
-}
-
 .save-button {
     background-color: var(--button-primary-bg);
     color: white;
@@ -252,7 +249,7 @@ body {
     transition: background-color 0.2s;
     flex-shrink: 0; 
     margin-left: auto; 
-    margin-right: 0; /* Ensure right margin is 0 */
+    margin-right: -15px; /* Ensure right margin is 0 */
     box-sizing: border-box; 
     position: relative; 
     top: -5px; 
@@ -277,18 +274,17 @@ body {
     position: fixed;
     top: 60px; /* Offset for fixed header */
     left: 0;
-    height: calc(100vh - 60px); /* Full height minus header */
+    height: calc(100vh - 85px); /* Full height minus header */
     width: calc(100% - 660px); /* REVERTED: Reserve 640px + 20px gap */
     min-width: 275px; 
     padding: 0 0 20px 20px; /* UPDATED: Removed right padding */
-    background-color: var(--background-secondary);
-    border-radius: 0; /* Remove radius for fixed sidebar */
+    background-color: var(--background-primary);
     box-shadow: var(--shadow-low);
-    border: none; 
+    border: none;
     display: flex; 
     flex-direction: column; 
     gap: 15px; 
-    /* margin-right: 20px; */ /* Remove margin */
+    margin-left: 0px;
     overflow-y: auto; /* Allow internal scrolling */
     box-sizing: border-box;
     z-index: 10; /* Ensure it's above normal flow but below header */
@@ -314,15 +310,15 @@ body {
     padding: 20px; 
     padding-left: 23px; 
     background-color: var(--background-secondary);
-    border-radius: 8px;
-    box-shadow: var(--shadow-low);
+    /* box-shadow: var(--shadow-low); */
     height: fit-content; 
-    border: none; 
+    border-radius: 8px;
+    border: 2px groove var(--border-primary); 
     display: flex; 
     flex-direction: column; 
     gap: 15px; 
     box-sizing: border-box; 
-    /* margin-right: 60px; */ /* REMOVED right margin */
+    margin-right: 30px;
 }
 
 .center-column {
@@ -331,7 +327,6 @@ body {
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 15px;
     position: relative; 
     padding-top: 0; 
 }
@@ -340,8 +335,12 @@ body {
 .persistence-fieldset {
     padding-right: 20px !important; 
     padding-top: 15px;
-    padding-bottom: 15px;
+    padding-bottom: 0px;
     padding-left: 15px;
+    border: 2px groove var(--border-strong); 
+    border-radius: 8px;
+    margin-left: -5px;
+    background-color: var(--background-secondary);
 }
 
 /* Style the new labels as section headers */
@@ -813,15 +812,113 @@ button.danger:hover {
 /* Specific button margins */
 #sortFilesBtn,
 #filenameModeManual {
-    margin-right: 0;
+    margin-right: -5px;
+}
+
+#changeFolderBtn {
+    /* margin-right: 10px; */ /* OPTIONAL margin */
+    display: flex; /* Visible by default */
+}
+
+/* Style to highlight button when folder selection is needed */
+#changeFolderBtn.prompt-active {
+    display: flex; /* Ensure it's visible */
+    background-color: orange; 
+    border-color: darkorange; /* Optional: adjust border too */
+}
+#changeFolderBtn.prompt-active:hover {
+    background-color: #ff8c00; /* Darker orange on hover */
 }
 
 /* NEW: Folder Selection Area Styles */
-/* .folder-selection-area { ... } */
-/* .folder-display-container { ... } */
-/* #currentFolderDisplay { ... } */
-/* #changeFolderBtn { ... } */
+.folder-selection-area {
+    margin-bottom: 15px; 
+    padding-right: 10px; /* UPDATED padding */
+    box-sizing: border-box;
+}
+.folder-display-container {
+    display: flex; 
+    align-items: center;
+    justify-content: space-between; 
+    background-color: var(--background-primary); 
+    padding: 5px 10px; 
+    border-radius: 4px;
+    border: 1px solid var(--border-strong);
+    position: relative; /* ADDED: Needed for absolute child */
+}
+#currentFolderDisplay {
+     flex-grow: 1; 
+     font-style: normal;
+     font-weight: bold;
+     color: var(--text-secondary); 
+     font-size: 0.9em;
+     overflow: hidden;
+     white-space: nowrap;
+     text-overflow: ellipsis;
+     margin-right: 10px; /* Add margin to separate from buttons */
+}
+/* Style the NEW div wrapping folder buttons */
+.folder-display-container > div {
+    display: flex;
+    gap: 5px; /* Consistent gap */
+    flex-shrink: 0;
+}
+/* REMOVE specific margin for changeFolderBtn */
+/* #changeFolderBtn {
+    margin-right: 10px; 
+} */
 
-/* Filename section styles ... */
-.filename-section {
+/* Filename section styles */
+.filename-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 5px;
+}
+.mode-icons { /* This is the wrapper for clock/T */
+    display: flex;
+    gap: 5px; 
+    flex-shrink: 0;
+}
+
+/* REMOVE Specific button margins */
+/* #sortFilesBtn,
+#filenameModeManual {
+    margin-right: 0;
+} */
+/* #changeFolderBtn {
+    margin-right: 10px; 
+} */
+
+/* General styles for icons inside mode buttons */
+.mode-icon img.btn-icon {
+    width: 20px; /* INCREASED icon image size */
+    height: 20px; /* INCREASED icon image size */
+    object-fit: contain;
+    filter: brightness(0) invert(1); /* Force icon white */
+}
+
+/* Ensure modal button inherits mode-icon style correctly */
+.modal .mode-icon {
+     flex-shrink: 0;
+}
+
+/* Add this optional style if you want to visually indicate the prompt state */
+/* #changeFolderBtn.prompt-active {
+    background-color: orange; 
+} */
+
+.modal-input {
+}
+
+/* NEW rule for specific button group positioning */
+#folderActionButtons {
+     position: absolute;
+     right: 0;
+     top: 10px;
+     left: 363px; 
+     /* Keep flex and gap for buttons inside */
+     display: flex;
+     gap: 5px;
+     /* Adjust width/height if needed */
 }

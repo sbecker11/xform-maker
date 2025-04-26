@@ -2,8 +2,9 @@
 // LocalStorage Keys (Declared in inline script in HTML)
 // const STORAGE_KEY = 'xformMaker_savedForms';
 // const STATE_STORAGE_KEY = 'xformMaker_currentState';
-const FILENAME_MODE_KEY = 'xformMaker_filenameMode';
-const FILENAME_VALUE_KEY = 'xformMaker_filenameValue';
+// Filename Mode Keys (Declared in xform-persistence.js)
+// const FILENAME_MODE_KEY = 'xformMaker_filenameMode';
+// const FILENAME_VALUE_KEY = 'xformMaker_filenameValue';
 
 // DOM Element References (to be populated in DOMContentLoaded)
 window.savedListUl = null;

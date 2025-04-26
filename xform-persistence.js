@@ -1,9 +1,9 @@
 // --- Global Constants & Variables (Declared in main script.js) ---
 // const STORAGE_KEY = 'xformMaker_savedForms'; 
 // const STATE_STORAGE_KEY = 'xformMaker_currentState';
-// const FILENAME_MODE_KEY = 'xformMaker_filenameMode';
-// const FILENAME_VALUE_KEY = 'xformMaker_filenameValue';
-window.lastUsedDirHandle = null; // Keep track of the last directory
+const FILENAME_MODE_KEY = 'xformMaker_filenameMode';
+const FILENAME_VALUE_KEY = 'xformMaker_filenameValue';
+window.lastUsedDirHandle = null; // Keep track of the selected 'storage' directory handle
 // window.isFilenameModeATM = true; // Managed within setupFilenameMode
 let filenameUpdateInterval = null;
 let selectedFileListItem = null; // Keep track of selected file LI element
@@ -11,15 +11,89 @@ let selectedFilename = null; // Keep track of selected filename
 // References to DOM elements needed by persistence (set in main script)
 // window.savedListUl, window.selectedControlsDiv, window.renameInput, etc.
 
-// --- LocalStorage Helper Functions (Previously Global) ---
-window.getSavedXForms = function() {
-    const saved = localStorage.getItem(STORAGE_KEY);
-    return saved ? JSON.parse(saved) : [];
-};
+// --- IndexedDB Helpers for Directory Handle Persistence ---
+const DB_NAME = 'xformMakerDB';
+const DB_VERSION = 1;
+const STORE_NAME = 'settingsStore';
+const DIR_HANDLE_KEY = 'lastDirectoryHandle';
 
-window.saveXForms = function(xforms) {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(xforms));
-};
+let dbPromise = null;
+
+function openDB() {
+    if (dbPromise) return dbPromise;
+    dbPromise = new Promise((resolve, reject) => {
+        const request = indexedDB.open(DB_NAME, DB_VERSION);
+        request.onerror = (event) => {
+            console.error("IndexedDB error:", event.target.error);
+            reject("IndexedDB error");
+        };
+        request.onsuccess = (event) => {
+            console.log("IndexedDB opened successfully.");
+            resolve(event.target.result);
+        };
+        request.onupgradeneeded = (event) => {
+            console.log("IndexedDB upgrade needed.");
+            const db = event.target.result;
+            if (!db.objectStoreNames.contains(STORE_NAME)) {
+                db.createObjectStore(STORE_NAME);
+                console.log(`Object store '${STORE_NAME}' created.`);
+            }
+        };
+    });
+    return dbPromise;
+}
+
+async function saveDirectoryHandle(handle) {
+    if (!handle || handle.name !== 'storage') { // Only save if it's the correct folder
+        console.warn("Attempted to save handle for folder other than 'storage'. Aborting save.");
+        return;
+    }
+    try {
+        const db = await openDB();
+        const tx = db.transaction(STORE_NAME, 'readwrite');
+        const store = tx.objectStore(STORE_NAME);
+        await store.put(handle, DIR_HANDLE_KEY);
+        await tx.done;
+        console.log('Directory handle saved to IndexedDB.');
+    } catch (error) {
+        console.error('Error saving directory handle:', error);
+    }
+}
+
+async function loadDirectoryHandle() {
+    try {
+        const db = await openDB();
+        const tx = db.transaction(STORE_NAME, 'readonly');
+        const store = tx.objectStore(STORE_NAME);
+        const handle = await store.get(DIR_HANDLE_KEY);
+        await tx.done;
+        if (handle && handle.name === 'storage') { // Verify it's the storage handle
+            console.log('Directory handle loaded from IndexedDB.');
+            return handle; 
+        } else {
+            if (handle) console.warn('Loaded handle is not for storage folder.');
+            else console.log('No directory handle found in IndexedDB.');
+            await deleteStoredDirectoryHandle(); // Clear invalid/missing handle
+            return null;
+        }
+    } catch (error) {
+        console.error('Error loading directory handle:', error);
+        return null;
+    }
+}
+
+async function deleteStoredDirectoryHandle() {
+    try {
+        const db = await openDB();
+        const tx = db.transaction(STORE_NAME, 'readwrite');
+        const store = tx.objectStore(STORE_NAME);
+        await store.delete(DIR_HANDLE_KEY);
+        await tx.done;
+        console.log('Stored directory handle deleted from IndexedDB.');
+    } catch (error) {
+        console.error('Error deleting directory handle:', error);
+    }
+}
 
 // --- Filename mode functions (Phase 1 & 2) ---
 function setupFilenameMode() {
@@ -170,6 +244,23 @@ function sanitizeXFormName(name) {
          sanitized = `X-Form ${sanitized}`;
     }
     return sanitized;
+}
+
+function sanitizeFilenameForSystem(originalName) {
+    const MAX_BASE_LENGTH = 64; 
+    const allowedCharsRegex = /[^a-zA-Z0-9_\-()]/g;
+    let sanitizedBase = originalName.trim()
+        .replace(allowedCharsRegex, '_') 
+        .replace(/-+/g, '-')        
+        .replace(/_+/g, '_');       
+    sanitizedBase = sanitizedBase.replace(/^[-_]+|[-_]+$/g, '');
+    if (!sanitizedBase) sanitizedBase = 'Untitled_X-Form';
+    if (sanitizedBase.length > MAX_BASE_LENGTH) {
+        sanitizedBase = sanitizedBase.substring(0, MAX_BASE_LENGTH);
+        sanitizedBase = sanitizedBase.replace(/^[-_]+|[-_]+$/g, ''); 
+    }
+    if (!sanitizedBase) sanitizedBase = 'Untitled_X-Form'; 
+    return `${sanitizedBase}_xform.json`;
 }
 
 // --- X-Form File Operations ---
@@ -549,105 +640,6 @@ window.makeDraggableWaypoint = function(element, index) { // Define on window
     // Note: mousemove and mouseup listeners are handled globally (in controls module?)
 };
 
-// --- Render Saved List UI (Using LocalStorage) ---
-// Ensure this function exists and is correct for LocalStorage
-window.renderSavedList = function() { 
-    const savedListUl = document.getElementById('savedList'); // Get UL here
-    if (!savedListUl) { 
-        console.warn("Target <ul> #savedList not found for rendering.");
-        return;
-    }
-
-    const xforms = window.getSavedXForms(); 
-    savedListUl.innerHTML = ''; 
-    selectedFileListItem = null; // Clear selection variables
-    selectedFilename = null;
-    window.selectedSavedXFormId = null; // Use the correct global ID store
-
-    if (xforms.length === 0) {
-        savedListUl.innerHTML = '<li>No X-Forms saved in LocalStorage.</li>';
-        return;
-    }
-
-    // Sort by timestamp (assuming it exists)
-    xforms.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0)); 
-
-    xforms.forEach(t => {
-        const li = document.createElement('li');
-        li.className = 'file-list-item'; // Use consistent class
-        li.dataset.xformId = t.id; // Store ID
-
-        const nameSpan = document.createElement('span');
-        nameSpan.textContent = t.name || `Unnamed (${t.id})`; 
-        nameSpan.title = t.name || `Unnamed (${t.id})`; 
-        li.appendChild(nameSpan);
-
-        // Optional: Add details like waypoint count
-        const detailsSpan = document.createElement('span');
-        detailsSpan.style.fontSize = '0.8em';
-        detailsSpan.style.color = 'var(--text-secondary)';
-        detailsSpan.textContent = ` (${t.waypoints ? t.waypoints.length : 0} pts)`;
-        li.appendChild(detailsSpan);
-
-        // Per-item delete button for LocalStorage entry
-        const deleteBtn = document.createElement('button');
-        deleteBtn.className = 'delete-file-btn';
-        deleteBtn.innerHTML = '&times;'; 
-        deleteBtn.title = `Delete saved X-Form: ${nameSpan.textContent}`;
-        deleteBtn.addEventListener('click', (e) => {
-            e.stopPropagation(); 
-            if (confirm(`Delete saved X-Form "${t.name || t.id}"? This cannot be undone.`)) {
-                 const currentForms = window.getSavedXForms();
-                 const filtered = currentForms.filter(x => x.id !== t.id);
-                 window.saveXForms(filtered); // Save updated array to LocalStorage
-                 window.renderSavedList(); // Re-render the list
-                 console.log("Deleted X-Form from LocalStorage:", t.id);
-            }
-        });
-        li.appendChild(deleteBtn);
-
-        // Click listener for selection and loading from LocalStorage
-        li.addEventListener('click', () => {
-            if (selectedFileListItem === li) {
-                // Second click: Load from LocalStorage
-                console.log("Second click detected, loading X-Form from LocalStorage:", t.id);
-                // *** TODO: Add check for unsaved changes ***
-                 const xforms = window.getSavedXForms();
-                 const formData = xforms.find(x => x.id === t.id);
-                 if (formData) {
-                      applyXFormData(formData); // Load the data
-                      // Update filename input based on mode
-                      const filenameInput = document.getElementById('filenameInput');
-                      if (filenameInput && !window.isFilenameModeATM) {
-                           filenameInput.value = formData.name;
-                           localStorage.setItem(FILENAME_VALUE_KEY, formData.name);
-                      } else if (filenameInput && window.isFilenameModeATM) {
-                          // Maybe update ATM name based on loaded timestamp?
-                          // updateFilenameWithTime(); // Or just leave it
-                      }
-                 } else {
-                      console.error("Could not find X-Form data in LocalStorage for ID:", t.id);
-                      alert("Error: Could not load saved X-Form data.");
-                 }
-            } else {
-                // First click: Select
-                if (selectedFileListItem) {
-                    selectedFileListItem.classList.remove('selected'); 
-                }
-                li.classList.add('selected'); 
-                selectedFileListItem = li;
-                selectedFilename = t.name || t.id; // Store name/id for reference
-                window.selectedSavedXFormId = t.id; // Store the ID
-                console.log("Selected saved X-Form (LocalStorage):", window.selectedSavedXFormId);
-            }
-        });
-
-        savedListUl.appendChild(li);
-    });
-}
-window.renderSavedList = renderSavedList; // Ensure it's globally accessible
-
-
 // --- Setup State Persistence Listeners ---
 function setupStatePersistence() {
     // ... (Keep existing listeners for theme, rename if needed) ...
@@ -682,41 +674,382 @@ function saveCurrentXFormToStorage() {
     return xformData; // Return data just in case
 }
 
+// NEW function containing the core file writing logic
+// Renamed and modified to accept fileHandle from picker
+async function _writeDataToHandle(fileHandle, xformData) { // fileHandle has the potentially numbered name
+    try {
+        if (!fileHandle) {
+            throw new Error("Invalid file handle received for writing.");
+        }
+
+        const writable = await fileHandle.createWritable();
+        await writable.write(JSON.stringify(xformData, null, 2)); // xformData still has original name
+        await writable.close();
+
+        console.log(`X-Form data (name: ${xformData.name}) saved to file: ${fileHandle.name}`);
+        alert(`X-Form exported successfully as ${fileHandle.name}!`);
+
+        // *** UPDATE global name state AFTER successful save ***
+        // Use the actual filename used for saving (potentially numbered)
+        window.currentXFormName = fileHandle.name.replace(/_xform\.json$/, ''); 
+        // Update the main input display if in manual mode
+        const filenameInput = document.getElementById('filenameInput');
+        if (filenameInput && !window.isFilenameModeATM) {
+             filenameInput.value = window.currentXFormName; 
+             localStorage.setItem(FILENAME_VALUE_KEY, filenameInput.value); // Persist manual name change
+        } else if (filenameInput && window.isFilenameModeATM) {
+             // If ATM, we might just want to update the display with the time again?
+             // Or leave it showing the saved file name? For now, leave it.
+        }
+
+        // Refresh file list (assuming lastUsedDirHandle is still valid)
+        if (window.lastUsedDirHandle) { 
+            await listJsonFiles(window.lastUsedDirHandle); 
+        }
+        return true;
+
+    } catch (error) {
+        console.error('Error during file write:', error);
+        if (error.name !== 'AbortError') { 
+            alert(`Error writing file: ${error.message || 'Operation failed'}`);
+        }
+        return false;
+    }
+}
+
+// NEW Helper function to find the next available numbered filename
+async function _findAvailableFilename(folderHandle, baseName) {
+    // NEW: normalize baseName by stripping an existing _(<num>) suffix if present so we don't create filename_(1)_(1)_xform.json
+    const baseMatch = baseName.match(/^(.*?)(?:_\((\d+)\))?$/);
+    const rootName = baseMatch ? baseMatch[1] : baseName;
+
+    let counter = 1;
+    let checkName = `${rootName}_(${counter})_xform.json`;
+    while (true) {
+        try {
+            await folderHandle.getFileHandle(checkName); // exists -> bump counter
+            counter++;
+            checkName = `${rootName}_(${counter})_xform.json`;
+        } catch (error) {
+            if (error.name === 'NotFoundError') {
+                // available filename found
+                console.log(`Found available filename: ${checkName}`);
+                return checkName;
+            }
+            // propagate unexpected errors
+            console.error(`Error checking filename ${checkName}:`, error);
+            throw error;
+        }
+        if (counter > 999) {
+            throw new Error("Could not find an available filename after 999 attempts.");
+        }
+    }
+}
 
 // --- Initial Setup Function (called from main script) ---
 async function setupPersistence() { 
-    // REMOVE folder handle loading
-    // window.lastUsedDirHandle = await loadDirectoryHandle(); 
-    // listJsonFiles(null); // Show prompt in file list
+    const folderDisplay = document.getElementById('currentFolderDisplay');
+
+    // Try loading directory handle first
+    window.lastUsedDirHandle = await loadDirectoryHandle(); 
+    
+    if (window.lastUsedDirHandle) {
+        console.log("Attempting to list files from loaded directory handle...");
+        try {
+            await listJsonFiles(window.lastUsedDirHandle);
+            console.log("Successfully listed files from loaded handle.");
+            if (folderDisplay) { 
+                folderDisplay.textContent = window.lastUsedDirHandle.name;
+                folderDisplay.title = window.lastUsedDirHandle.name;
+            }
+        } catch (listError) {
+            // ... (Error handling) ...
+            if (listError.name === 'NotAllowedError') {
+                window.lastUsedDirHandle = null;
+                await deleteStoredDirectoryHandle(); 
+                listJsonFiles(null);
+                if (folderDisplay) folderDisplay.textContent = "Select 'storage' folder -->";
+            } else {
+                window.lastUsedDirHandle = null; 
+                listJsonFiles(null);
+                if (folderDisplay) folderDisplay.textContent = "Error reading folder";
+            }
+        }
+    } else {
+         // No handle loaded 
+         listJsonFiles(null); 
+         if (folderDisplay) folderDisplay.textContent = "Select 'storage' folder -->";
+    }
 
     initializeFilenameDisplay(); 
     restoreState(); 
     setupStatePersistence(); 
 
-    // REMOVE folder selection button setup
-    // const changeFolderButton = document.getElementById('changeFolderBtn');
-    // const folderDisplay = document.getElementById('currentFolderDisplay');
-    // ... 
-
-    // Setup Main Save button to save to LocalStorage
+    // Setup Main Save button 
     const saveFileButton = document.getElementById('saveFileBtn');
     if (saveFileButton) {
-        saveFileButton.addEventListener('click', () => { 
-            console.log("Save button clicked - saving to LocalStorage...");
-            saveCurrentXFormToStorage(); // Call LocalStorage save function
+        saveFileButton.addEventListener('click', async () => { 
+            if (!window.lastUsedDirHandle) {
+                alert("Please select the 'storage' folder first.");
+                return; 
+            }
+            
+            const originalName = getCurrentFilename();
+            // Sanitize but *without* the final suffix initially
+            const sanitizedBase = sanitizeFilenameForSystem(originalName).replace(/_xform\.json$/, '');
+            let finalSanitizedFilename = `${sanitizedBase}_xform.json`; // Initial target
+                
+            let fileExists = false;
+            let existingFileHandle = null;
+            let fileHandleToSave = null; 
+
+            try {
+                // 1. Check if the default sanitized file exists
+                existingFileHandle = await window.lastUsedDirHandle.getFileHandle(finalSanitizedFilename); 
+                fileExists = true;
+            } catch (error) {
+                if (error.name !== 'NotFoundError') {
+                    console.error("Error checking file existence:", finalSanitizedFilename, error); 
+                    alert(`Error checking file status: ${error.message}`);
+                    return; 
+                }
+                // NotFoundError means it's safe to create directly
+                fileExists = false;
+            }
+
+            // 2. Handle based on existence
+            let proceedWithSave = false;
+
+            if (fileExists) {
+                // File exists - Ask user to overwrite or keep both
+                if (confirm(`File "${finalSanitizedFilename}" already exists. Overwrite? (Click Cancel to potentially keep both)`)) {
+                     proceedWithSave = true;
+                     fileHandleToSave = existingFileHandle; // Use the existing handle for overwrite
+                } else {
+                     // User cancelled overwrite, ask about keeping both
+                     if (confirm(`Keep both files? (Save new file with a number suffix like \"${sanitizedBase}_(N)_xform.json\")`)) {
+                          try {
+                              // Find the next available numbered filename
+                              finalSanitizedFilename = await _findAvailableFilename(window.lastUsedDirHandle, sanitizedBase);
+                              // Get a new handle for the numbered file
+                              fileHandleToSave = await window.lastUsedDirHandle.getFileHandle(finalSanitizedFilename, { create: true });
+                              proceedWithSave = true;
+                          } catch (findError) {
+                              console.error("Error finding available filename or getting handle:", findError);
+                              alert(`Could not prepare numbered filename: ${findError.message}`);
+                              proceedWithSave = false; // Abort
+                          }
+                     } else {
+                          // User cancelled keeping both as well
+                          console.log("Save operation cancelled by user.");
+                          proceedWithSave = false;
+                     }
+                }
+            } else {
+                // File does not exist - Proceed to create
+                try {
+                     fileHandleToSave = await window.lastUsedDirHandle.getFileHandle(finalSanitizedFilename, { create: true });
+                     proceedWithSave = true;
+                 } catch (handleError) {
+                      console.error("Error getting file handle for creation:", finalSanitizedFilename, handleError); 
+                      alert(`Failed to prepare file \"${finalSanitizedFilename}\": ${handleError.message}`);
+                      proceedWithSave = false; // Abort
+                 }
+            }
+
+            // 3. Perform Save if confirmed/allowed
+            if (proceedWithSave && fileHandleToSave) {
+                 const xformData = createXFormDataObject(); 
+                 xformData.name = originalName; // Store the original name used in the input
+                 await _writeDataToHandle(fileHandleToSave, xformData);
+            } else {
+                 console.log("Save did not proceed.");
+            }
         });
     }
 
-    // Setup sort button (still not implemented)
+    // Setup sort button 
     const sortButton = document.getElementById('sortFilesBtn');
     if (sortButton) {
-        sortButton.addEventListener('click', () => alert("Sorting not implemented yet."));
+        // NEW: implement toggling sort order instead of placeholder alert
+        window.fileListSortAsc = true; // default sort order tracker
+        sortButton.addEventListener('click', () => {
+            window.fileListSortAsc = !window.fileListSortAsc;
+            const ul = document.getElementById('savedList');
+            if (!ul) return;
+            const items = Array.from(ul.querySelectorAll('li.file-list-item'));
+            items.sort((a, b) => {
+                const nameA = a.dataset.filename || '';
+                const nameB = b.dataset.filename || '';
+                return window.fileListSortAsc
+                    ? nameA.localeCompare(nameB, undefined, { numeric: true, sensitivity: 'base' })
+                    : nameB.localeCompare(nameA, undefined, { numeric: true, sensitivity: 'base' });
+            });
+            // Append in new order
+            items.forEach(li => ul.appendChild(li));
+            // Optionally update button label/icon to indicate order
+            sortButton.textContent = window.fileListSortAsc ? '↓' : '↑';
+        });
     }
-    
-    // Call renderSavedList initially
-    if(typeof window.renderSavedList === 'function') {
-         window.renderSavedList();
-    } else {
-         console.error("renderSavedList is not defined!");
+}
+
+// --- NEW File System Functions ---
+async function selectDirectoryAndListFiles(isLineItem=false) {
+    try {
+        if (isLineItem) {
+            console.log("selectDirectoryAndListFiles called from line item");
+        }
+        const options = {}; // No startIn needed if we always require selecting 'storage'
+        const dirHandle = await window.showDirectoryPicker(options);
+        if (dirHandle.name !== 'storage') { /* ... validation ... */ return false; }
+        
+        window.lastUsedDirHandle = dirHandle; 
+        await saveDirectoryHandle(dirHandle); 
+        
+        const folderDisplay = document.getElementById('currentFolderDisplay');
+        if (folderDisplay) { /* ... update text ... */ }
+        await listJsonFiles(dirHandle); 
+        return true; // Indicate success
+    } catch (err) { /* ... error handling ... */ return false; }
+}
+
+async function listJsonFiles(dirHandle) {
+    const fileListUl = document.getElementById('savedList'); // Use correct ID
+    const sortButton = document.getElementById('sortFilesBtn'); // capture once
+    if (!fileListUl) { console.error("#savedList element not found."); return; }
+
+    selectedFileListItem = null; 
+    selectedFilename = null;
+
+    if (!dirHandle) {
+        fileListUl.innerHTML = `<li id="changeFolderLineItem" class="folder-prompt"><span class="folder-prompt-text">Select the 'storage' folder first.</span> <select-folder-icon-btn>📁</select-folder-icon-btn></li>`;
+        // Hide sort button when no folder selected
+        if (sortButton) sortButton.style.display = 'none';
+        // NEW: attach click listener directly on the list item so user can click it immediately
+        const changeLi = document.getElementById('changeFolderLineItem');
+        if (changeLi) {
+            changeLi.addEventListener('click', () => selectDirectoryAndListFiles(true));
+        }
+        window.lastUsedDirHandle = null;
+        return;
     }
-} 
+
+    fileListUl.innerHTML = '<li>Loading files...</li>';
+    // Show sort button by default while loading (will be adjusted later)
+    if (sortButton) sortButton.style.display = 'none';
+
+    try {
+        const files = [];
+        for await (const entry of dirHandle.values()) {
+            if (entry.kind === 'file' && entry.name.endsWith('_xform.json')) { // Match suffix
+                files.push(entry.name);
+            }
+        }
+        fileListUl.innerHTML = ''; 
+        if (files.length === 0) {
+            fileListUl.innerHTML = '<li>No X-Forms found in storage folder.</li>';
+            if (sortButton) sortButton.style.display = 'none';
+            return;
+        }
+
+        // Update sort button visibility based on count
+        if (sortButton) sortButton.style.display = files.length < 2 ? 'none' : 'inline-block';
+
+        files.sort((a, b) => a.localeCompare(b, undefined, {numeric: true, sensitivity: 'base'}));
+
+        files.forEach(filename => {
+            const li = document.createElement('li');
+            li.className = 'file-list-item';
+            li.dataset.filename = filename;
+            const nameSpan = document.createElement('span');
+            nameSpan.textContent = filename.replace(/_xform\.json$/, ''); // Show base name
+            nameSpan.title = filename; 
+            li.appendChild(nameSpan);
+
+            const deleteBtn = document.createElement('button');
+            deleteBtn.className = 'delete-file-btn';
+            deleteBtn.innerHTML = '&times;'; 
+            deleteBtn.title = `Delete ${filename}`;
+            deleteBtn.addEventListener('click', (e) => {
+                e.stopPropagation(); 
+                deleteFile(filename); // Call delete function
+            });
+            li.appendChild(deleteBtn);
+
+            li.addEventListener('click', () => {
+                if (selectedFileListItem === li) {
+                    console.log("Second click detected, loading file:", filename);
+                    // *** TODO: Add check for unsaved changes ***
+                    loadFile(filename);
+                } else {
+                    if (selectedFileListItem) {
+                        selectedFileListItem.classList.remove('selected');
+                    }
+                    li.classList.add('selected');
+                    selectedFileListItem = li;
+                    selectedFilename = filename;
+                    console.log("Selected file:", selectedFilename);
+                }
+            });
+            fileListUl.appendChild(li);
+        });
+
+    } catch (err) {
+        console.error("Error listing files:", err);
+        fileListUl.innerHTML = '<li>Error reading directory contents.</li>';
+        if (err.name === 'NotAllowedError') {
+             window.lastUsedDirHandle = null;
+             await deleteStoredDirectoryHandle(); // Remove bad handle from DB
+             alert("Permission denied for storage folder. Please re-select it.");
+             listJsonFiles(null); // Update list display
+        }
+        if (sortButton) sortButton.style.display = 'none';
+    }
+}
+
+async function loadFile(filename) {
+     if (!window.lastUsedDirHandle) {
+        alert("Please select the storage folder first.");
+        return;
+    }
+    console.log(`Attempting to load: ${filename}`);
+    let fileHandle = null;
+    let contents = null;  
+    try {
+        fileHandle = await window.lastUsedDirHandle.getFileHandle(filename);
+        const file = await fileHandle.getFile();
+        contents = await file.text();
+        const xformData = JSON.parse(contents);
+       
+        applyXFormData(xformData); // Apply the data first
+        console.log(`X-Form loaded successfully from file: ${filename}`);
+       
+        // --- UPDATE Name Logic --- 
+        // Set current name state based on the ACTUAL filename loaded, including _(N) suffix
+        window.currentXFormName = filename.replace(/_xform\.json$/, ''); 
+        window.currentXFormId = xformData.id || Date.now(); 
+        window.currentXFormHasRun = true; 
+       
+        // Always Update main filename input display to reflect loaded file
+        const filenameInput = document.getElementById('filenameInput');
+        if (filenameInput) {
+            filenameInput.value = window.currentXFormName; 
+             // If in manual mode, save this name to local storage so it persists if user switches modes
+             if (!window.isFilenameModeATM) {
+                 localStorage.setItem(FILENAME_VALUE_KEY, filenameInput.value);
+             }
+             // If in ATM mode, stop the timer and maybe switch to MEM?
+             // else {
+             //    stopFilenameTimeUpdates(); 
+             // }
+        }
+        // --- END Name Logic Update ---
+
+    } catch (err) {
+        console.error(`Error processing file ${filename}:`, err); 
+        alert(`Could not load or process file: ${filename}\nReason: ${err.name} - ${err.message}\nIt might be corrupted, moved, or permissions may have changed.`); // Ensure backtick is here
+
+        // Attempt to move the file to an 'errors' folder IF we had a handle 
+        // ... rest of catch block
+    }
+}

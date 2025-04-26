@@ -827,7 +827,7 @@ async function setupPersistence() {
                      fileHandleToSave = existingFileHandle; // Use the existing handle for overwrite
                 } else {
                      // User cancelled overwrite, ask about keeping both
-                     if (confirm(`Keep both files? (Save new file with a number suffix like \"${sanitizedBase}_(N)_xform.json\")`)) {
+                     if (confirm("Keep both files?") ) {
                           try {
                               // Find the next available numbered filename
                               finalSanitizedFilename = await _findAvailableFilename(window.lastUsedDirHandle, sanitizedBase);

@@ -88,6 +88,9 @@ document.addEventListener('DOMContentLoaded', () => {
     // Ensure waypoint counter and rotation buttons are correct after all setup
     if (typeof window.updateWaypointCounter === 'function') window.updateWaypointCounter();
     if (typeof updateRotationButtonsUI === 'function') updateRotationButtonsUI();
+    
+    // Ensure icons are set correctly for initial theme
+    if (typeof updateIconsForTheme === 'function') updateIconsForTheme();
 
     console.log("Application initialization sequence complete.");
 

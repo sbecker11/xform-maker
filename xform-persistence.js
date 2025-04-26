@@ -6,6 +6,8 @@
 window.lastUsedDirHandle = null; // Keep track of the last directory
 // window.isFilenameModeATM = true; // Managed within setupFilenameMode
 let filenameUpdateInterval = null;
+let selectedFileListItem = null; // Keep track of selected file LI element
+let selectedFilename = null; // Keep track of selected filename
 // References to DOM elements needed by persistence (set in main script)
 // window.savedListUl, window.selectedControlsDiv, window.renameInput, etc.
 
@@ -75,17 +77,6 @@ function setupFilenameMode() {
             console.log("Switched to Manual Edit Mode");
         }
     });
-    
-    if (saveButton) {
-        saveButton.addEventListener('click', async () => {
-             // No need to update currentXFormName here, getCurrentFilename handles it
-            const success = await saveXFormToFile();
-            if (success) {
-                console.log("File saved successfully with filename:", filenameInput.value);
-                // Potentially refresh file list UI here
-            }
-        });
-    }
     
     filenameInput.addEventListener('dblclick', () => {
         if (window.isFilenameModeATM) {
@@ -191,101 +182,6 @@ function getCurrentFilename() {
          return filenameInput.value || generateXFormName(); // Use manual input or default
     }
     return generateXFormName(); // Fallback
-}
-
-async function saveXFormToFile() {
-    try {
-        const xformData = createXFormDataObject(); // Assumes createXFormDataObject is available
-        const currentFilename = getCurrentFilename(); // Get name based on mode
-        xformData.name = currentFilename; // Ensure object name matches filename
-        
-        const filename = `${currentFilename.replace(/[<>:"/\\|?*]/g, '').replace(/\s+/g, '_')}.json`;
-        
-        const options = {
-            suggestedName: filename,
-            types: [{
-                description: 'X-Form JSON',
-                accept: {'application/json': ['.json']}
-            }]
-        };
-        
-        if (window.lastUsedDirHandle) {
-            try { options.startIn = window.lastUsedDirHandle; } catch (e) { console.warn("Couldn't use last directory handle:", e); }
-        }
-        
-        const fileHandle = await window.showSaveFilePicker(options);
-        try { window.lastUsedDirHandle = await fileHandle.getParent(); } catch (e) { console.warn("Couldn't save directory handle:", e); }
-        
-        const writable = await fileHandle.createWritable();
-        await writable.write(JSON.stringify(xformData, null, 2));
-        await writable.close();
-        
-        console.log(`X-Form exported to file: ${filename}`);
-        alert(`X-Form exported successfully!`); // Simplified alert
-        return true;
-    } catch (error) {
-        console.error('Error saving X-Form to file:', error);
-        if (error.name !== 'AbortError') {
-            alert(`Error exporting X-Form: ${error.message || 'Operation failed'}`);
-        }
-        return false;
-    }
-}
-
-async function loadXFormFromFile() {
-    try {
-        const options = {
-            types: [{
-                description: 'X-Form JSON',
-                accept: {'application/json': ['.json']}
-            }],
-            multiple: false
-        };
-        if (window.lastUsedDirHandle) {
-             try { options.startIn = window.lastUsedDirHandle; } catch (e) { console.warn("Couldn't use last directory handle:", e); }
-        }
-
-        const [fileHandle] = await window.showOpenFilePicker(options);
-        try { window.lastUsedDirHandle = await fileHandle.getParent(); } catch (e) { console.warn("Couldn't save directory handle:", e); }
-        
-        const file = await fileHandle.getFile();
-        const contents = await file.text();
-        const xformData = JSON.parse(contents);
-        
-        applyXFormData(xformData); // Assumes applyXFormData is available
-        console.log(`X-Form imported from file: ${file.name}`);
-        
-        // Update current form name based on loaded data/filename
-        let loadedName = xformData.name;
-        if (!loadedName) {
-             loadedName = file.name.replace(/\.json$/, '').replace(/_/g, ' ');
-        }
-        window.currentXFormName = sanitizeXFormName(loadedName);
-        window.currentXFormId = xformData.id || Date.now(); // Ensure ID exists
-        window.currentXFormHasRun = true; // Mark as loaded/modified
-
-        // Update filename input based on mode
-        const filenameInput = document.getElementById('filenameInput');
-        if (filenameInput) {
-             if (!window.isFilenameModeATM) {
-                 filenameInput.value = window.currentXFormName; // Update manual input
-                 localStorage.setItem(FILENAME_VALUE_KEY, filenameInput.value); // Save manual value
-             } else {
-                 updateFilenameWithTime(); // Reset ATM display
-             }
-        }
-
-        // saveCurrentXFormToStorage(); // Optionally save imported to local storage immediately
-        if (typeof window.renderSavedList === 'function') window.renderSavedList(); // Refresh UI
-        
-        return true;
-    } catch (error) {
-        console.error('Error loading X-Form from file:', error);
-        if (error.name !== 'AbortError') {
-            alert(`Error importing X-Form: ${error.message || 'Operation failed'}`);
-        }
-        return false;
-    }
 }
 
 // --- State Management Functions ---
@@ -559,10 +455,40 @@ function applyTheme(theme) {
         htmlElement.classList.remove('dark-theme');
     }
     localStorage.setItem('xformMakerTheme', theme);
-    // Update icons (icon update logic might need to be centralized or passed)
-    if (typeof updateIconsForTheme === 'function') {
-         setTimeout(updateIconsForTheme, 50); // Ensure it runs after potential DOM changes
-    }
+    // Update icons 
+    updateIconsForTheme(); // Call the update function
+}
+
+// NEW or UPDATED function to handle icon source switching
+function updateIconsForTheme() {
+    const isDark = document.documentElement.classList.contains('dark-theme');
+    console.log("Updating icons for theme:", isDark ? "Dark" : "Light");
+
+    // Update all icons with data-dark-src attribute
+    document.querySelectorAll('img.btn-icon[data-dark-src]').forEach(img => {
+        const lightSrc = img.getAttribute('src');
+        const darkSrc = img.getAttribute('data-dark-src');
+        if (isDark && darkSrc) {
+            // Check if we need to update (prevent unnecessary reloads)
+            if (img.src !== darkSrc) {
+                img.src = darkSrc;
+                console.log(`Switched ${img.alt} icon to dark: ${darkSrc}`);
+            }
+        } else {
+            // Check if we need to update
+            if (img.src !== lightSrc) {
+                img.src = lightSrc;
+                console.log(`Switched ${img.alt} icon to light: ${lightSrc}`);
+            }
+        }
+    });
+    
+     // Special handling for icons NOT using data-dark-src (like rotation icons)
+     // This logic might need adjustment based on how those are handled.
+     // Example for rotation icons (assuming they are background images):
+     // document.querySelectorAll('.rot-icon').forEach(icon => {
+     //     // Logic to potentially swap background-image url
+     // });
 }
 
 // --- Update Waypoint Counter UI ---
@@ -597,15 +523,17 @@ window.makeDraggableWaypoint = function(element, index) { // Define on window
     element.addEventListener('mousedown', (e) => {
         isDragging = true;
         window.draggingPointIndex = index;
-        window.lastModifiedPointIndex = index;
-        window.wasDraggingPoint = false; // Reset flag
+        window.lastModifiedPointIndex = index; // Use window scope
+        window.wasDraggingPoint = false; // Use window scope & Reset flag
         
         const vpRect = window.viewport.getBoundingClientRect();
         // Ensure point exists before accessing coords
         if(window.intermediatePoints[index]) {
-           window.dragOffsetX = e.clientX - (vpRect.left + window.intermediatePoints[index].x);
+           // Assign to global offset vars
+           window.dragOffsetX = e.clientX - (vpRect.left + window.intermediatePoints[index].x); 
            window.dragOffsetY = e.clientY - (vpRect.top + window.intermediatePoints[index].y);
         } else {
+            // Fallback if point data isn't ready?
              window.dragOffsetX = e.clientX - vpRect.left - parseFloat(element.style.left || 0);
              window.dragOffsetY = e.clientY - vpRect.top - parseFloat(element.style.top || 0);
         }
@@ -614,164 +542,181 @@ window.makeDraggableWaypoint = function(element, index) { // Define on window
         document.querySelectorAll('.point-marker.selected').forEach(el => el.classList.remove('selected'));
         element.classList.add('selected');
         
-        window.selectedPointIndex = index;
+        window.selectedPointIndex = index; // Use window scope
         e.stopPropagation();
         e.preventDefault();
     });
     // Note: mousemove and mouseup listeners are handled globally (in controls module?)
 };
 
-// --- Render Saved List UI --- 
-// Needs access to window.savedListUl, window.selectedControlsDiv, window.renameInput 
-window.renderSavedList = function() { // Define on window
-    if (!window.savedListUl || !window.selectedControlsDiv || !window.renameInput) {
-        // console.log("Skipping render of saved list - required elements not found");
+// --- Render Saved List UI (Using LocalStorage) ---
+// Ensure this function exists and is correct for LocalStorage
+window.renderSavedList = function() { 
+    const savedListUl = document.getElementById('savedList'); // Get UL here
+    if (!savedListUl) { 
+        console.warn("Target <ul> #savedList not found for rendering.");
         return;
     }
-    
-    const xforms = window.getSavedXForms(); // Uses global helper
-    window.savedListUl.innerHTML = ''; 
-    window.selectedSavedXFormId = null;
-    window.selectedControlsDiv.style.display = 'none';
+
+    const xforms = window.getSavedXForms(); 
+    savedListUl.innerHTML = ''; 
+    selectedFileListItem = null; // Clear selection variables
+    selectedFilename = null;
+    window.selectedSavedXFormId = null; // Use the correct global ID store
 
     if (xforms.length === 0) {
-        window.savedListUl.innerHTML = '<li>No X-Forms saved yet.</li>';
+        savedListUl.innerHTML = '<li>No X-Forms saved in LocalStorage.</li>';
         return;
     }
 
-    xforms.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0)); // Sort by timestamp descending
+    // Sort by timestamp (assuming it exists)
+    xforms.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0)); 
 
-xforms.forEach(t => {
-    const li = document.createElement('li');
-    li.dataset.id = t.id;
-    li.className = 'xform-list-item'; // Add a class for easier styling/selection
+    xforms.forEach(t => {
+        const li = document.createElement('li');
+        li.className = 'file-list-item'; // Use consistent class
+        li.dataset.xformId = t.id; // Store ID
 
-    const nameSpan = document.createElement('span');
-    nameSpan.className = 'xform-name';
-    // Use sanitized name, fallback to ID if necessary
-    nameSpan.textContent = sanitizeXFormName(t.name || 'Unnamed') || `X-Form ID ${t.id ? String(t.id).substring(0, 6) : '??'}`;
-    nameSpan.title = nameSpan.textContent; // Add title for overflow
-    li.appendChild(nameSpan);
+        const nameSpan = document.createElement('span');
+        nameSpan.textContent = t.name || `Unnamed (${t.id})`; 
+        nameSpan.title = t.name || `Unnamed (${t.id})`; 
+        li.appendChild(nameSpan);
 
-    const detailsSpan = document.createElement('span');
-    detailsSpan.className = 'xform-details';
-    detailsSpan.textContent = ` (${t.waypoints ? t.waypoints.length : 0} pts)`;
-    li.appendChild(detailsSpan);
-    
-    const actionsDiv = document.createElement('div');
-    actionsDiv.className = 'xform-actions';
-    
-    // Load button
-    const loadBtn = document.createElement('button');
-    loadBtn.className = 'list-icon-btn';
-    loadBtn.title = 'Load this X-Form';
-    // Use consistent icon names if possible
-    loadBtn.innerHTML = '<img src="icons/edit-white.png" alt="Load" class="btn-icon-small" data-dark-src="icons/edit-black.png">'; 
-    loadBtn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        const selected = window.getSavedXForms().find(x => x.id === t.id);
-        if (selected) {
-            applyXFormData(selected); // Assumes applyXFormData is available
-            // Update main filename input if in MEM
-             const filenameInput = document.getElementById('filenameInput');
-             if(filenameInput && !window.isFilenameModeATM) {
-                 filenameInput.value = selected.name;
-                 localStorage.setItem(FILENAME_VALUE_KEY, filenameInput.value); 
-             }
-            console.log(`Quick-loaded X-Form: ${selected.name}`);
-            window.selectedSavedXFormId = t.id; // Mark as selected
-            Array.from(window.savedListUl.querySelectorAll('li.selected')).forEach(el => el.classList.remove('selected'));
-            li.classList.add('selected');
-            window.selectedControlsDiv.style.display = 'block'; // Show controls
-            window.renameInput.value = t.name; // Pre-fill rename
-        } else {
-             console.error("Could not find selected X-Form to load:", t.id);
-        }
+        // Optional: Add details like waypoint count
+        const detailsSpan = document.createElement('span');
+        detailsSpan.style.fontSize = '0.8em';
+        detailsSpan.style.color = 'var(--text-secondary)';
+        detailsSpan.textContent = ` (${t.waypoints ? t.waypoints.length : 0} pts)`;
+        li.appendChild(detailsSpan);
+
+        // Per-item delete button for LocalStorage entry
+        const deleteBtn = document.createElement('button');
+        deleteBtn.className = 'delete-file-btn';
+        deleteBtn.innerHTML = '&times;'; 
+        deleteBtn.title = `Delete saved X-Form: ${nameSpan.textContent}`;
+        deleteBtn.addEventListener('click', (e) => {
+            e.stopPropagation(); 
+            if (confirm(`Delete saved X-Form "${t.name || t.id}"? This cannot be undone.`)) {
+                 const currentForms = window.getSavedXForms();
+                 const filtered = currentForms.filter(x => x.id !== t.id);
+                 window.saveXForms(filtered); // Save updated array to LocalStorage
+                 window.renderSavedList(); // Re-render the list
+                 console.log("Deleted X-Form from LocalStorage:", t.id);
+            }
+        });
+        li.appendChild(deleteBtn);
+
+        // Click listener for selection and loading from LocalStorage
+        li.addEventListener('click', () => {
+            if (selectedFileListItem === li) {
+                // Second click: Load from LocalStorage
+                console.log("Second click detected, loading X-Form from LocalStorage:", t.id);
+                // *** TODO: Add check for unsaved changes ***
+                 const xforms = window.getSavedXForms();
+                 const formData = xforms.find(x => x.id === t.id);
+                 if (formData) {
+                      applyXFormData(formData); // Load the data
+                      // Update filename input based on mode
+                      const filenameInput = document.getElementById('filenameInput');
+                      if (filenameInput && !window.isFilenameModeATM) {
+                           filenameInput.value = formData.name;
+                           localStorage.setItem(FILENAME_VALUE_KEY, formData.name);
+                      } else if (filenameInput && window.isFilenameModeATM) {
+                          // Maybe update ATM name based on loaded timestamp?
+                          // updateFilenameWithTime(); // Or just leave it
+                      }
+                 } else {
+                      console.error("Could not find X-Form data in LocalStorage for ID:", t.id);
+                      alert("Error: Could not load saved X-Form data.");
+                 }
+            } else {
+                // First click: Select
+                if (selectedFileListItem) {
+                    selectedFileListItem.classList.remove('selected'); 
+                }
+                li.classList.add('selected'); 
+                selectedFileListItem = li;
+                selectedFilename = t.name || t.id; // Store name/id for reference
+                window.selectedSavedXFormId = t.id; // Store the ID
+                console.log("Selected saved X-Form (LocalStorage):", window.selectedSavedXFormId);
+            }
+        });
+
+        savedListUl.appendChild(li);
     });
-    actionsDiv.appendChild(loadBtn);
-    
-    // Delete button
-    const deleteBtn = document.createElement('button');
-    deleteBtn.className = 'list-icon-btn danger'; // Add danger class
-    deleteBtn.title = 'Delete this X-Form';
-    deleteBtn.innerHTML = '<img src="icons/trash-white.png" alt="Delete" class="btn-icon-small" data-dark-src="icons/trash-black.png">'; 
-    deleteBtn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        const nameToDelete = nameSpan.textContent;
-        if (confirm(`Are you sure you want to delete "${nameToDelete}"? This cannot be undone.`)) {
-            const currentForms = window.getSavedXForms();
-            const filtered = currentForms.filter(x => x.id !== t.id);
-            window.saveXForms(filtered); // Save updated list
-            window.renderSavedList(); // Re-render
-            console.log("Deleted X-Form:", nameToDelete);
-        }
-    });
-    actionsDiv.appendChild(deleteBtn);
-    li.appendChild(actionsDiv);
-
-    // Main list item click (for selection only, not loading)
-    li.addEventListener('click', () => {
-        const currentlySelected = window.savedListUl.querySelector('li.selected');
-        if (currentlySelected === li) {
-            // Deselect if clicking the same one again
-            li.classList.remove('selected');
-            window.selectedSavedXFormId = null;
-            window.selectedControlsDiv.style.display = 'none';
-        } else {
-            // Select the new item
-            if(currentlySelected) currentlySelected.classList.remove('selected');
-            li.classList.add('selected');
-            window.selectedSavedXFormId = t.id;
-            window.renameInput.value = t.name; // Pre-fill rename input
-            window.selectedControlsDiv.style.display = 'block'; // Show controls
-            console.log('Selected saved X-Form:', t.id);
-        }
-    });
-    window.savedListUl.appendChild(li);
-});
-
-    // Update icons for theme (needs access to applyTheme or similar)
-    if (typeof applyTheme === 'function') {
-        applyTheme(localStorage.getItem('xformMakerTheme') || 'light'); // Re-apply theme to fix icons
-    }
 }
+window.renderSavedList = renderSavedList; // Ensure it's globally accessible
+
 
 // --- Setup State Persistence Listeners ---
 function setupStatePersistence() {
-    // State is saved primarily *after* actions in the controls/persistence modules
-    // (e.g., after dropping a rect, adding/deleting a waypoint, changing rotation/duration/size, loading/saving)
-    // We still need listeners for theme toggle and rename if those controls exist.
-
-    // Save on theme changes
-    if (window.themeToggleButton) {
-        window.themeToggleButton.addEventListener('click', () => setTimeout(window.saveCurrentState, 50));
-    }
-    
-    // Save on X-Form rename (assuming rename controls might exist)
-    // This rename functionality seems missing/incomplete in the original code snippets
-    const renameButton = document.getElementById('renameXFormBtn'); // Example ID
-    if (renameButton) {
-        renameButton.addEventListener('click', () => setTimeout(window.saveCurrentState, 50));
-    }
-    
-    console.log('State persistence hooks set up (actions trigger saves)');
+    // ... (Keep existing listeners for theme, rename if needed) ...
+    console.log('State persistence hooks set up.');
 }
 
+// Helper function to save the current X-Form state to LocalStorage
+// (Used by the Save button)
+function saveCurrentXFormToStorage() {
+    if (!window.currentXFormId) { 
+        window.currentXFormId = Date.now(); // Assign ID if new
+    }
+    // Use current filename from input/ATM mode
+    window.currentXFormName = getCurrentFilename(); 
+
+    const xformData = createXFormDataObject(); // Get current state
+
+    const xforms = window.getSavedXForms();
+    const existingIndex = xforms.findIndex(t => t.id === window.currentXFormId);
+
+    if (existingIndex >= 0) {
+        console.log("Updating existing X-Form in LocalStorage:", window.currentXFormId);
+        xforms[existingIndex] = xformData;
+    } else {
+        console.log("Adding new X-Form to LocalStorage:", window.currentXFormId);
+        xforms.push(xformData);
+    }
+    
+    window.saveXForms(xforms); // Save the updated array
+    window.renderSavedList(); // Refresh the list
+    alert("X-Form saved to LocalStorage.");
+    return xformData; // Return data just in case
+}
+
+
 // --- Initial Setup Function (called from main script) ---
-function setupPersistence() {
-    initializeFilenameDisplay(); // Sets up filename mode and initial display
-    restoreState(); // Restore previous state from localStorage
-    renderSavedList(); // Render the list based on localStorage
-    setupStatePersistence(); // Add listeners that save state
+async function setupPersistence() { 
+    // REMOVE folder handle loading
+    // window.lastUsedDirHandle = await loadDirectoryHandle(); 
+    // listJsonFiles(null); // Show prompt in file list
 
-    // Setup file operation buttons if they exist
-    // const saveToFileButton = document.getElementById('saveToFileBtn'); // Moved to setupFilenameMode
-    const loadFromFileButton = document.getElementById('loadFromFileBtn'); 
-    // if (saveToFileButton) saveToFileButton.addEventListener('click', saveXFormToFile);
-    if (loadFromFileButton) loadFromFileButton.addEventListener('click', loadXFormFromFile);
+    initializeFilenameDisplay(); 
+    restoreState(); 
+    setupStatePersistence(); 
 
-     // Setup rename/delete controls for saved list (if they exist separately)
-     // This logic seems partially implemented or missing elements in the original HTML
-     // setupXFormManagement(); // Call this if the specific rename/delete/load buttons for the selected item exist
+    // REMOVE folder selection button setup
+    // const changeFolderButton = document.getElementById('changeFolderBtn');
+    // const folderDisplay = document.getElementById('currentFolderDisplay');
+    // ... 
 
+    // Setup Main Save button to save to LocalStorage
+    const saveFileButton = document.getElementById('saveFileBtn');
+    if (saveFileButton) {
+        saveFileButton.addEventListener('click', () => { 
+            console.log("Save button clicked - saving to LocalStorage...");
+            saveCurrentXFormToStorage(); // Call LocalStorage save function
+        });
+    }
+
+    // Setup sort button (still not implemented)
+    const sortButton = document.getElementById('sortFilesBtn');
+    if (sortButton) {
+        sortButton.addEventListener('click', () => alert("Sorting not implemented yet."));
+    }
+    
+    // Call renderSavedList initially
+    if(typeof window.renderSavedList === 'function') {
+         window.renderSavedList();
+    } else {
+         console.error("renderSavedList is not defined!");
+    }
 } 

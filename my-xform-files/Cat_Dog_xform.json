@@ -1,0 +1,37 @@
+{
+  "name": "Cat Dog",
+  "id": 1745633270935,
+  "timestamp": 1745633397552,
+  "startRect": {
+    "left": 119,
+    "top": 203,
+    "width": 75,
+    "height": 60
+  },
+  "endRect": {
+    "left": 287,
+    "top": 96,
+    "width": 75,
+    "height": 60
+  },
+  "waypoints": [
+    {
+      "x": 238.5,
+      "y": 303
+    },
+    {
+      "x": 260.5,
+      "y": 252
+    },
+    {
+      "x": 128.5,
+      "y": 100
+    }
+  ],
+  "rotations": {
+    "x": -1,
+    "y": -1,
+    "z": 1
+  },
+  "duration": 3050
+}

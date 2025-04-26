@@ -32,7 +32,9 @@ body {
 
 /* Filename section styles for Phase 1 & 2 */
 .filename-section {
-    margin-bottom: 15px;
+    margin-bottom: 5px;
+    /* padding-right: 5px; */ /* No padding needed here now */
+    /* box-sizing: border-box; */
 }
 
 .filename-header {
@@ -40,6 +42,9 @@ body {
     justify-content: space-between;
     align-items: center;
     margin-bottom: 5px;
+    /* padding-right: 17px; */ /* REMOVE padding */
+    /* box-sizing: border-box; */ /* REMOVE box-sizing */
+    position: relative; /* ADD for absolute child positioning */
 }
 
 .filename-header label {
@@ -50,35 +55,51 @@ body {
 .mode-icons {
     display: flex;
     gap: 5px;
-    padding-right: 11px;
+    /* padding-right: 11px; */ /* REMOVE - Handled by parent header */
 }
 
 .mode-icon {
-    background: none;
-    border: 1px solid var(--border-primary);
+    /* background: none; */ /* REMOVE */
+    /* border: 1px solid var(--border-primary); */ /* REMOVE */
+    border: none; /* ADDED */
+    background-color: var(--button-primary-bg); /* ADDED */
+    color: white; /* ADDED */
     border-radius: 4px;
-    padding: 2px 5px;
+    padding: 3px; 
+    width: 28px; 
+    height: 28px; 
+    display: flex; 
+    align-items: center;
+    justify-content: center;
     cursor: pointer;
-    font-size: 0.9em;
-    opacity: 0.6;
-    transition: all 0.2s ease;
-    color: var(--text-primary);
+    font-size: 1em; 
+    /* opacity: 0.6; */ /* REMOVE - No longer needed */
+    transition: background-color 0.2s ease; /* Changed transition property */
+    line-height: 1; 
+}
+.mode-icon img.btn-icon {
+    width: 20px; /* INCREASED icon image size */
+    height: 20px; /* INCREASED icon image size */
+    object-fit: contain;
+    filter: brightness(0) invert(1); /* Force icon white */
 }
 
-.mode-icon.active {
-    opacity: 1;
-    background-color: var(--button-primary-bg);
-    border-color: var(--button-primary-hover-bg);
-    color: white;
+/* REMOVE .mode-icon.active rule */
+/* .mode-icon.active { ... } */
+
+.mode-icon:hover {
+    background-color: var(--button-primary-hover-bg);
 }
 
 .filename-input-container {
     position: relative;
-    width: 100%;
+    display: flex; 
+    align-items: center; 
+    /* gap: 10px; */ /* REMOVE gap */
 }
 
 .time-based-filename {
-    width: 100%;
+    flex-grow: 1; 
     padding-top: 8px;
     padding-bottom: 8px;
     border: 1px solid var(--border-primary);
@@ -88,7 +109,8 @@ body {
     background-color: white;
     color: black;
     font-size: 14px;
-    margin-bottom: 0; /* Override default margin */
+    margin-bottom: 0; 
+    margin-right: 10px; /* ADD margin to create space */
 }
 
 /* Style for readonly input to ensure it doesn't look disabled */
@@ -102,33 +124,42 @@ body {
 }
 
 .file-list-section {
-    margin-top: 10px;
+    margin-top: 5px;
+    /* padding-right: 5px; */ /* No padding needed here now */
+    /* box-sizing: border-box; */
 }
 
 .file-list-header {
     display: flex;
-    justify-content: space-between;
-    align-items: center;
+    justify-content: space-between; 
+    align-items: center; 
     margin-bottom: 0px;
+    /* padding-right: 17px; */ /* REMOVE padding */
+    /* box-sizing: border-box; */ /* REMOVE box-sizing */
+    position: relative; /* ADD for absolute child positioning */
 }
 
-.files-sort-biutton {
-    background-color: var(--button-primary-bg);
-    width: 20px;
-    height:20px;
-    color: white;
-    border: none;
-    border-radius: 4px;
-    padding: 2px;
-    margin-right: 17px;
-    padding-bottom: 0px;
-    cursor: pointer;
-    font-weight: normal;
-    transition: background-color 0.2s;
+.file-list-header label {
+    /* margin-right: auto; */ /* REMOVE */
 }
+
+.file-list-header > div { /* Style the div wrapping the buttons */
+    display: flex;
+    gap: 5px; 
+    position: absolute; 
+    right: -50px; /* DIAGNOSTIC: Exaggerated shift right */
+    top: 50%; 
+    transform: translateY(-50%); 
+}
+
+/* Ensure icon-btn styles apply correctly */
+/* .icon-btn { ... } */
+
+/* Remove old sort button style if specific */
+/* .files-sort-biutton { ... } */
 
 .file-list-container {
-    width: 100%; /* UPDATED: Use full parent width */
+    width: 100%; /* REVERTED: Use full parent width */
     height: 245px; /* Fixed height for scrolling */
     border: 1px solid #ccc;
     overflow-y: auto; /* Enable vertical scrolling */
@@ -153,25 +184,78 @@ body {
     border-bottom: none;
 }
 
+/* Style for dynamically added file list items */
+.file-list-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 4px;
+    border-bottom: 1px solid #eee;
+    color: black;
+    cursor: pointer; /* Indicate clickable for loading */
+}
+.file-list-item:last-child {
+     border-bottom: none;
+}
+.file-list-item span {
+    flex-grow: 1; /* Allow filename to take space */
+    margin-right: 5px; 
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.delete-file-btn {
+    background-color: transparent;
+    border: none;
+    color: #dc3545; /* Danger color */
+    cursor: pointer;
+    padding: 0 5px;
+    font-size: 1.1em;
+    line-height: 1;
+    margin-left: 5px;
+    flex-shrink: 0; /* Prevent button from shrinking */
+}
+.delete-file-btn:hover {
+    color: #a71d2a;
+    font-weight: bold;
+}
+
+/* Style for selected file list item */
+.file-list-item.selected {
+    background-color: var(--button-primary-bg); /* Blue background */
+    color: white; /* White text */
+}
+.file-list-item.selected span {
+     color: white; /* Ensure span text is white too */
+}
+ .file-list-item.selected .delete-file-btn {
+     color: white; /* Make delete button white */
+ }
+ .file-list-item.selected .delete-file-btn:hover {
+     color: #f8d7da; /* Light pink/red on hover */
+ }
+
 /* Save button styles */
 .save-button-container {
-    margin-top: 5px;
-    margin-bottom: 20px;
-    display: flex;
-    justify-content: flex-end;
-    padding-right: 11px;
+   /* This container might no longer be needed if button is inline */
+   /* margin-top: 5px; ... */ 
 }
 
 .save-button {
     background-color: var(--button-primary-bg);
     color: white;
-    border: none;
+    border: 1px solid transparent; 
     border-radius: 4px;
-    padding: 8px 20px;
-    padding-top: 4px;
+    padding: 8px 15px; 
     cursor: pointer;
     font-weight: bold;
     transition: background-color 0.2s;
+    flex-shrink: 0; 
+    margin-left: auto; 
+    margin-right: 0; /* Ensure right margin is 0 */
+    box-sizing: border-box; 
+    position: relative; 
+    top: -5px; 
 }
 
 .save-button:hover {
@@ -196,7 +280,7 @@ body {
     height: calc(100vh - 60px); /* Full height minus header */
     width: calc(100% - 660px); /* REVERTED: Reserve 640px + 20px gap */
     min-width: 275px; 
-    padding: 0 20px 20px 20px; /* 0 top, 20 right, 20 bottom, 20 left */
+    padding: 0 0 20px 20px; /* UPDATED: Removed right padding */
     background-color: var(--background-secondary);
     border-radius: 0; /* Remove radius for fixed sidebar */
     box-shadow: var(--shadow-low);
@@ -253,10 +337,11 @@ body {
 }
 
 /* Adjust fieldset padding if needed */
-.left-column fieldset.persistence-fieldset {
-    padding: 15px; /* Reset padding if needed */
-    width: 100%;
-    box-sizing: border-box;
+.persistence-fieldset {
+    padding-right: 20px !important; 
+    padding-top: 15px;
+    padding-bottom: 15px;
+    padding-left: 15px;
 }
 
 /* Style the new labels as section headers */
@@ -633,40 +718,10 @@ button.danger:hover {
 }
 
 /* Icon buttons */
-.icon-btn {
-    padding: 6px;
-    min-width: 32px;
-    height: 32px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background-color: var(--button-primary-bg);
-}
-
-.btn-icon {
-    width: 16px;
-    height: 16px;
-}
+/* .icon-btn { ... } */
 
 /* List item icon buttons */
-.list-icon-btn {
-    padding: 3px;
-    min-width: 24px;
-    height: 24px;
-    background-color: transparent;
-    border: none;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
-    opacity: 0.7;
-    border-radius: 3px;
-}
-
-.list-icon-btn:hover {
-    opacity: 1;
-    background-color: rgba(0,0,0,0.1);
-}
+/* .list-icon-btn { ... } */
 
 .btn-icon-small {
     width: 14px;
@@ -674,9 +729,19 @@ button.danger:hover {
 }
 
 /* Dark theme icon switching */
+/* This generic rule might be okay if other icons use it */
 .dark-theme .btn-icon[data-dark-src] {
-    content: attr(data-dark-src);
+    /* content: attr(data-dark-src); */ 
 }
+
+/* REMOVE THESE RULES: Explicit image source switching for dark theme */
+/* .dark-theme #deleteFileBtn img {
+    content: attr(data-dark-src);
+} */
+/* REMOVE THIS RULE: Fallback for light theme */
+/* #deleteFileBtn img {
+     content: attr(src);
+} */
 
 .right-column fieldset {
     /* border: 1px solid var(--border-color-strong); Remove border */
@@ -743,4 +808,20 @@ button.danger:hover {
 }
 .rect-end:active {
     cursor: grabbing;
+}
+
+/* Specific button margins */
+#sortFilesBtn,
+#filenameModeManual {
+    margin-right: 0;
+}
+
+/* NEW: Folder Selection Area Styles */
+/* .folder-selection-area { ... } */
+/* .folder-display-container { ... } */
+/* #currentFolderDisplay { ... } */
+/* #changeFolderBtn { ... } */
+
+/* Filename section styles ... */
+.filename-section {
 }

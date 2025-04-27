@@ -107,7 +107,23 @@ function setupFilenameMode() {
         return;
     }
     
+    // If filename input is currently disabled (controls not available), keep it blank
+    if(filenameInput.disabled){
+        filenameInput.value='';
+        return;
+    }
+    
     console.log("Setting up filename mode...");
+    
+    // Ensure ATM button is always enabled and clickable
+    if (atmButton.disabled) {
+        atmButton.disabled = false;
+    }
+    // Remove is-disableable class that might prevent clicking
+    if (atmButton.classList.contains('is-disableable')) {
+        // Keep the class but make sure it doesn't affect functionality
+        atmButton.classList.remove('disabled');
+    }
     
     const savedMode = localStorage.getItem(FILENAME_MODE_KEY);
     const savedFilename = localStorage.getItem(FILENAME_VALUE_KEY);
@@ -127,6 +143,7 @@ function setupFilenameMode() {
     }
     
     atmButton.addEventListener('click', () => {
+        console.log("ATM button clicked, current mode:", window.isFilenameModeATM);
         if (!window.isFilenameModeATM) {
             window.isFilenameModeATM = true;
             atmButton.classList.add('active');
@@ -607,33 +624,38 @@ window.updateWaypointCounter = function() { // Define on window
 }
 
 // --- Make Waypoint Draggable (Needed by restoreState/applyXFormData) ---
-window.makeDraggableWaypoint = function(element, index) { // Define on window
+window.makeDraggableWaypoint = function(element) { // index inferred at mousedown
     let isDragging = false;
     if(!window.viewport) return;
 
     element.addEventListener('mousedown', (e) => {
+        // Determine current index of this element in the points array
+        const idx = window.intermediatePoints.findIndex(p => p.element === element);
+        if (idx === -1) {
+            console.warn('Waypoint element not found in intermediatePoints');
+            return;
+        }
         isDragging = true;
-        window.draggingPointIndex = index;
-        window.lastModifiedPointIndex = index; // Use window scope
+        window.draggingPointIndex = idx;
+        window.lastModifiedPointIndex = idx; // Use window scope
         window.wasDraggingPoint = false; // Use window scope & Reset flag
-        
+
         const vpRect = window.viewport.getBoundingClientRect();
-        // Ensure point exists before accessing coords
-        if(window.intermediatePoints[index]) {
-           // Assign to global offset vars
-           window.dragOffsetX = e.clientX - (vpRect.left + window.intermediatePoints[index].x); 
-           window.dragOffsetY = e.clientY - (vpRect.top + window.intermediatePoints[index].y);
+        // Assign to global offset vars based on current point coords
+        if(window.intermediatePoints[idx]) {
+           window.dragOffsetX = e.clientX - (vpRect.left + window.intermediatePoints[idx].x); 
+           window.dragOffsetY = e.clientY - (vpRect.top + window.intermediatePoints[idx].y);
         } else {
             // Fallback if point data isn't ready?
              window.dragOffsetX = e.clientX - vpRect.left - parseFloat(element.style.left || 0);
              window.dragOffsetY = e.clientY - vpRect.top - parseFloat(element.style.top || 0);
         }
-        
+
         // Select this point visually
         document.querySelectorAll('.point-marker.selected').forEach(el => el.classList.remove('selected'));
         element.classList.add('selected');
-        
-        window.selectedPointIndex = index; // Use window scope
+
+        window.selectedPointIndex = idx; // Use window scope
         e.stopPropagation();
         e.preventDefault();
     });
@@ -670,8 +692,59 @@ function saveCurrentXFormToStorage() {
     
     window.saveXForms(xforms); // Save the updated array
     window.renderSavedList(); // Refresh the list
-    alert("X-Form saved to LocalStorage.");
+    showInfoDialog("X-Form saved to LocalStorage.");
     return xformData; // Return data just in case
+}
+
+// === Generic Modal Dialog Helper ===
+// usage: const choice = await showModalDialog({ message:"…", buttons:[{id:'yes', label:'Yes', class:'primary'}] });
+function showModalDialog({ message = '', buttons = [] }) {
+    return new Promise(resolve => {
+        // Ensure at least one button
+        if (!buttons.length) buttons = [{ id: 'ok', label: 'OK', class: 'primary' }];
+
+        // Build or reuse backdrop
+        let backdrop = document.getElementById('genericModalBackdrop');
+        if (!backdrop) {
+            backdrop = document.createElement('div');
+            backdrop.id = 'genericModalBackdrop';
+            backdrop.className = 'modal-backdrop';
+            backdrop.innerHTML = `
+                <div class="custom-confirm-modal">
+                    <div class="custom-confirm-message"></div>
+                    <div class="custom-confirm-buttons"></div>
+                </div>`;
+            document.body.appendChild(backdrop);
+        }
+
+        // Update message
+        backdrop.querySelector('.custom-confirm-message').textContent = message;
+
+        // Create buttons
+        const btnContainer = backdrop.querySelector('.custom-confirm-buttons');
+        btnContainer.innerHTML = '';
+        buttons.forEach(btn => {
+            const el = document.createElement('button');
+            el.className = `modal-btn ${btn.class || ''}`.trim();
+            el.textContent = btn.label;
+            el.onclick = () => finish(btn.id);
+            btnContainer.appendChild(el);
+        });
+
+        // Show backdrop
+        backdrop.style.display = 'flex';
+
+        const finish = (result) => {
+            backdrop.style.display = 'none';
+            resolve(result);
+        };
+
+        // backdrop click dismiss
+        backdrop.onclick = (e) => { if (e.target === backdrop) finish('cancel'); };
+        // ESC key
+        const escHandler = (ev) => { if (ev.key === 'Escape') { finish('cancel'); document.removeEventListener('keydown', escHandler); } };
+        document.addEventListener('keydown', escHandler);
+    });
 }
 
 // NEW function containing the core file writing logic
@@ -687,7 +760,7 @@ async function _writeDataToHandle(fileHandle, xformData) { // fileHandle has the
         await writable.close();
 
         console.log(`X-Form data (name: ${xformData.name}) saved to file: ${fileHandle.name}`);
-        alert(`X-Form exported successfully as ${fileHandle.name}!`);
+        await showInfoDialog(`X-Form exported successfully as ${fileHandle.name}!`);
 
         // *** UPDATE global name state AFTER successful save ***
         // Use the actual filename used for saving (potentially numbered)
@@ -710,8 +783,8 @@ async function _writeDataToHandle(fileHandle, xformData) { // fileHandle has the
 
     } catch (error) {
         console.error('Error during file write:', error);
-        if (error.name !== 'AbortError') { 
-            alert(`Error writing file: ${error.message || 'Operation failed'}`);
+        if (error.name !== 'AbortError') {
+            await showInfoDialog(`Error writing file: ${error.message || 'Operation failed'}`);
         }
         return false;
     }
@@ -746,9 +819,39 @@ async function _findAvailableFilename(folderHandle, baseName) {
     }
 }
 
+// Utility to enable/disable filename mode controls
+function toggleFilenameControls(enable){
+    const fieldset=document.querySelector('.persistence-fieldset');
+    if(!fieldset) return;
+    fieldset.querySelectorAll('.is-disableable').forEach(el=>{
+        // Don't disable the ATM button
+        if (el.id === 'filenameModeATM') {
+            // Ensure the ATM button is always enabled
+            el.disabled = false;
+            return;
+        }
+        
+        el.disabled=!enable;
+        if(el.tagName==='INPUT' && el.type==='text'){
+            if(!enable){ el.value=''; }
+            el.readOnly=!enable;
+        }
+        if(!enable) el.classList.remove('active');
+    });
+    fieldset.querySelectorAll('.is-hideable').forEach(el=>{el.hidden=!enable});
+    if(!enable){
+        stopFilenameTimeUpdates && stopFilenameTimeUpdates();
+    } else {
+        if(window.isFilenameModeATM && window.lastUsedDirHandle){
+            startFilenameTimeUpdates && startFilenameTimeUpdates();
+        }
+    }
+}
+
 // --- Initial Setup Function (called from main script) ---
 async function setupPersistence() { 
     const folderDisplay = document.getElementById('currentFolderDisplay');
+    const sortButton = document.getElementById('sortFilesBtn');
 
     // Try loading directory handle first
     window.lastUsedDirHandle = await loadDirectoryHandle(); 
@@ -778,7 +881,9 @@ async function setupPersistence() {
     } else {
          // No handle loaded 
          listJsonFiles(null); 
+         if(sortButton) sortButton.style.display='none';
          if (folderDisplay) folderDisplay.textContent = "Select 'storage' folder -->";
+         toggleFilenameControls(false);
     }
 
     initializeFilenameDisplay(); 
@@ -790,7 +895,7 @@ async function setupPersistence() {
     if (saveFileButton) {
         saveFileButton.addEventListener('click', async () => { 
             if (!window.lastUsedDirHandle) {
-                alert("Please select the 'storage' folder first.");
+                await showInfoDialog("Please select the 'storage' folder first.");
                 return; 
             }
             
@@ -810,7 +915,7 @@ async function setupPersistence() {
             } catch (error) {
                 if (error.name !== 'NotFoundError') {
                     console.error("Error checking file existence:", finalSanitizedFilename, error); 
-                    alert(`Error checking file status: ${error.message}`);
+                    await showInfoDialog(`Error checking file status: ${error.message}`);
                     return; 
                 }
                 // NotFoundError means it's safe to create directly
@@ -821,29 +926,31 @@ async function setupPersistence() {
             let proceedWithSave = false;
 
             if (fileExists) {
-                // File exists - Ask user to overwrite or keep both
-                if (confirm(`File "${finalSanitizedFilename}" already exists. Overwrite? (Click Cancel to potentially keep both)`)) {
-                     proceedWithSave = true;
-                     fileHandleToSave = existingFileHandle; // Use the existing handle for overwrite
+                // Show custom 3-button dialog
+                const choice = await showModalDialog({
+                    message: `File "${finalSanitizedFilename}" already exists.`,
+                    buttons: [
+                        { id: 'overwrite', label: 'Overwrite', class: 'danger' },
+                        { id: 'keep', label: 'Keep Both', class: 'primary' },
+                        { id: 'cancel', label: 'Cancel', class: 'secondary' }
+                    ]
+                });
+                if (choice === 'overwrite') {
+                    proceedWithSave = true;
+                    fileHandleToSave = existingFileHandle;
+                } else if (choice === 'keep') {
+                    try {
+                        finalSanitizedFilename = await _findAvailableFilename(window.lastUsedDirHandle, sanitizedBase);
+                        fileHandleToSave = await window.lastUsedDirHandle.getFileHandle(finalSanitizedFilename, { create: true });
+                        proceedWithSave = true;
+                    } catch (findError) {
+                        console.error('Error finding available filename or getting handle:', findError);
+                        await showInfoDialog(`Could not prepare numbered filename: ${findError.message}`);
+                        proceedWithSave = false;
+                    }
                 } else {
-                     // User cancelled overwrite, ask about keeping both
-                     if (confirm("Keep both files?") ) {
-                          try {
-                              // Find the next available numbered filename
-                              finalSanitizedFilename = await _findAvailableFilename(window.lastUsedDirHandle, sanitizedBase);
-                              // Get a new handle for the numbered file
-                              fileHandleToSave = await window.lastUsedDirHandle.getFileHandle(finalSanitizedFilename, { create: true });
-                              proceedWithSave = true;
-                          } catch (findError) {
-                              console.error("Error finding available filename or getting handle:", findError);
-                              alert(`Could not prepare numbered filename: ${findError.message}`);
-                              proceedWithSave = false; // Abort
-                          }
-                     } else {
-                          // User cancelled keeping both as well
-                          console.log("Save operation cancelled by user.");
-                          proceedWithSave = false;
-                     }
+                    console.log('Save operation cancelled by user.');
+                    proceedWithSave = false;
                 }
             } else {
                 // File does not exist - Proceed to create
@@ -852,7 +959,7 @@ async function setupPersistence() {
                      proceedWithSave = true;
                  } catch (handleError) {
                       console.error("Error getting file handle for creation:", finalSanitizedFilename, handleError); 
-                      alert(`Failed to prepare file \"${finalSanitizedFilename}\": ${handleError.message}`);
+                      await showInfoDialog(`Failed to prepare file "${finalSanitizedFilename}": ${handleError.message}`);
                       proceedWithSave = false; // Abort
                  }
             }
@@ -869,7 +976,6 @@ async function setupPersistence() {
     }
 
     // Setup sort button 
-    const sortButton = document.getElementById('sortFilesBtn');
     if (sortButton) {
         // NEW: implement toggling sort order instead of placeholder alert
         window.fileListSortAsc = true; // default sort order tracker
@@ -891,6 +997,7 @@ async function setupPersistence() {
             sortButton.textContent = window.fileListSortAsc ? '↓' : '↑';
         });
     }
+
 }
 
 // --- NEW File System Functions ---
@@ -916,24 +1023,29 @@ async function selectDirectoryAndListFiles(isLineItem=false) {
 async function listJsonFiles(dirHandle) {
     const fileListUl = document.getElementById('savedList'); // Use correct ID
     const sortButton = document.getElementById('sortFilesBtn'); // capture once
-    if (!fileListUl) { console.error("#savedList element not found."); return; }
+    const saveBtn = document.getElementById('saveFileBtn');
 
     selectedFileListItem = null; 
     selectedFilename = null;
 
+    const atmButton = document.getElementById('filenameModeATM');
+    const memButton = document.getElementById('filenameModeManual');
+
     if (!dirHandle) {
+        if (saveBtn) saveBtn.disabled = true; // Disable save when no folder
         fileListUl.innerHTML = `<li id="changeFolderLineItem" class="folder-prompt"><span class="folder-prompt-text">Select the 'storage' folder first.</span> <select-folder-icon-btn>📁</select-folder-icon-btn></li>`;
-        // Hide sort button when no folder selected
-        if (sortButton) sortButton.style.display = 'none';
         // NEW: attach click listener directly on the list item so user can click it immediately
         const changeLi = document.getElementById('changeFolderLineItem');
         if (changeLi) {
             changeLi.addEventListener('click', () => selectDirectoryAndListFiles(true));
         }
-        window.lastUsedDirHandle = null;
+        toggleFilenameControls(false);
         return;
     }
 
+    if (saveBtn) saveBtn.disabled = false; // Enable once folder selected
+    // re-enable filename mode buttons
+    toggleFilenameControls(true);
     fileListUl.innerHTML = '<li>Loading files...</li>';
     // Show sort button by default while loading (will be adjusted later)
     if (sortButton) sortButton.style.display = 'none';
@@ -949,11 +1061,12 @@ async function listJsonFiles(dirHandle) {
         if (files.length === 0) {
             fileListUl.innerHTML = '<li>No X-Forms found in storage folder.</li>';
             if (sortButton) sortButton.style.display = 'none';
+            if (saveBtn) saveBtn.disabled = false; // still allow saving new files even if none exist
             return;
         }
 
         // Update sort button visibility based on count
-        if (sortButton) sortButton.style.display = files.length < 2 ? 'none' : 'inline-block';
+        if (sortButton) sortButton.style.display = files.length < 2 ? 'none' : 'flex';
 
         files.sort((a, b) => a.localeCompare(b, undefined, {numeric: true, sensitivity: 'base'}));
 
@@ -976,20 +1089,25 @@ async function listJsonFiles(dirHandle) {
             });
             li.appendChild(deleteBtn);
 
+            // Simplified click handler: only one item can be selected at any time.
             li.addEventListener('click', () => {
-                if (selectedFileListItem === li) {
-                    console.log("Second click detected, loading file:", filename);
-                    // *** TODO: Add check for unsaved changes ***
+                const alreadySelected = li.classList.contains('single-selected');
+
+                // Clear selection classes from all items first
+                document.querySelectorAll('#savedList li.file-list-item').forEach(el => {
+                    el.classList.remove('single-selected');
+                });
+
+                if (alreadySelected) {
+                    // If the user clicked the same selected item again → load it
                     loadFile(filename);
                 } else {
-                    if (selectedFileListItem) {
-                        selectedFileListItem.classList.remove('selected');
-                    }
-                    li.classList.add('selected');
-                    selectedFileListItem = li;
-                    selectedFilename = filename;
-                    console.log("Selected file:", selectedFilename);
+                    // Otherwise, simply select this one (blue)
+                    li.classList.add('single-selected');
                 }
+
+                // Maintain a single-element list of selected filenames for any other code
+                selectedFileListItem = li.classList.contains('single-selected') ? li : null;
             });
             fileListUl.appendChild(li);
         });
@@ -1000,8 +1118,9 @@ async function listJsonFiles(dirHandle) {
         if (err.name === 'NotAllowedError') {
              window.lastUsedDirHandle = null;
              await deleteStoredDirectoryHandle(); // Remove bad handle from DB
-             alert("Permission denied for storage folder. Please re-select it.");
+             await showInfoDialog("Permission denied for storage folder. Please re-select it.");
              listJsonFiles(null); // Update list display
+             if (saveBtn) saveBtn.disabled = true;
         }
         if (sortButton) sortButton.style.display = 'none';
     }
@@ -1009,7 +1128,7 @@ async function listJsonFiles(dirHandle) {
 
 async function loadFile(filename) {
      if (!window.lastUsedDirHandle) {
-        alert("Please select the storage folder first.");
+        await showInfoDialog("Please select the storage folder first.");
         return;
     }
     console.log(`Attempting to load: ${filename}`);
@@ -1034,22 +1153,131 @@ async function loadFile(filename) {
         const filenameInput = document.getElementById('filenameInput');
         if (filenameInput) {
             filenameInput.value = window.currentXFormName; 
-             // If in manual mode, save this name to local storage so it persists if user switches modes
-             if (!window.isFilenameModeATM) {
-                 localStorage.setItem(FILENAME_VALUE_KEY, filenameInput.value);
+             // Switch to Manual mode automatically upon file selection
+             const atmBtn = document.getElementById('filenameModeATM');
+             const memBtn = document.getElementById('filenameModeManual');
+             window.isFilenameModeATM = false;
+             
+             // Make sure the ATM button is not disabled
+             if (atmBtn) {
+                 atmBtn.classList.remove('active');
+                 atmBtn.disabled = false; // Ensure it's not disabled
+                 atmBtn.classList.remove('disabled'); // Also remove disabled class if present
              }
-             // If in ATM mode, stop the timer and maybe switch to MEM?
-             // else {
-             //    stopFilenameTimeUpdates(); 
-             // }
+             if (memBtn) {
+                 memBtn.classList.add('active');
+             }
+             
+             stopFilenameTimeUpdates();
+             filenameInput.removeAttribute('readonly');
+             localStorage.setItem(FILENAME_MODE_KEY, 'MEM');
+             localStorage.setItem(FILENAME_VALUE_KEY, filenameInput.value);
         }
-        // --- END Name Logic Update ---
+        
+        // Update visual selection in the list
+        // First clear all selections
+        document.querySelectorAll('#savedList li.file-list-item').forEach(el => {
+            el.classList.remove('single-selected');
+        });
+        
+        // Then find and highlight the loaded file
+        const fileElement = document.querySelector(`#savedList li[data-filename="${filename}"]`);
+        if (fileElement) {
+            fileElement.classList.add('single-selected');
+            // Update the global selected item reference
+            selectedFileListItem = fileElement;
+        }
+        
+        // Call setupFilenameMode to reinitialize the button event handlers if needed
+        setupFilenameMode();
 
     } catch (err) {
         console.error(`Error processing file ${filename}:`, err); 
-        alert(`Could not load or process file: ${filename}\nReason: ${err.name} - ${err.message}\nIt might be corrupted, moved, or permissions may have changed.`); // Ensure backtick is here
+        await showInfoDialog(`Could not load or process file: ${filename}\nReason: ${err.name} - ${err.message}\nIt might be corrupted, moved, or permissions may have changed.`);
 
         // Attempt to move the file to an 'errors' folder IF we had a handle 
         // ... rest of catch block
+    }
+}
+
+// Lightweight convenience wrapper for simple OK dialogs
+function showInfoDialog(message, btnLabel = 'OK') {
+    return showModalDialog({ message, buttons: [{ id: 'ok', label: btnLabel, class: 'primary' }] });
+}
+
+// === Delete file helper ===
+async function deleteFile(filename) {
+    if (!window.lastUsedDirHandle) {
+        await showInfoDialog('Please select the storage folder first.');
+        return;
+    }
+    const choice = await showModalDialog({
+        message: `Delete "${filename}"? This cannot be undone.`,
+        buttons: [
+            { id: 'delete', label: 'Delete', class: 'danger' },
+            { id: 'cancel', label: 'Cancel', class: 'secondary' }
+        ]
+    });
+    if (choice !== 'delete') return;
+    
+    try {
+        // Find the current file element in the list
+        const fileListUl = document.getElementById('savedList');
+        const currentFileElement = document.querySelector(`#savedList li[data-filename="${filename}"]`);
+        let nextFileToSelect = null;
+        
+        // Determine the next file to select before deleting this one
+        if (currentFileElement) {
+            // Get all file items to check position and count
+            const allFileItems = fileListUl.querySelectorAll('li.file-list-item');
+            const isLastItem = currentFileElement === allFileItems[allFileItems.length - 1];
+            
+            if (isLastItem && allFileItems.length > 1) {
+                // If this is the last item in the list and there are other items,
+                // select the first item in the list
+                nextFileToSelect = allFileItems[0];
+            } else {
+                // Otherwise try to get the next sibling first, if not available, try the previous sibling
+                nextFileToSelect = currentFileElement.nextElementSibling;
+                if (!nextFileToSelect || !nextFileToSelect.classList.contains('file-list-item')) {
+                    nextFileToSelect = currentFileElement.previousElementSibling;
+                    if (!nextFileToSelect || !nextFileToSelect.classList.contains('file-list-item')) {
+                        nextFileToSelect = null;
+                    }
+                }
+            }
+        }
+
+        // Delete the file
+        await window.lastUsedDirHandle.removeEntry(filename);
+        console.log('Deleted file:', filename);
+        
+        // Refresh the file list
+        await listJsonFiles(window.lastUsedDirHandle);
+        
+        // If we found a next file to select, select and load it
+        if (nextFileToSelect && nextFileToSelect.dataset.filename) {
+            // Find the same file in the refreshed list
+            const newFileElement = document.querySelector(`#savedList li[data-filename="${nextFileToSelect.dataset.filename}"]`);
+            if (newFileElement) {
+                // Simulate a click on the new file element to select it
+                newFileElement.click();
+                // Load the file
+                loadFile(nextFileToSelect.dataset.filename);
+                
+                // Scroll the newly selected item into view
+                setTimeout(() => {
+                    newFileElement.scrollIntoView({ 
+                        behavior: 'smooth', 
+                        block: 'nearest' 
+                    });
+                }, 100); // Small delay to ensure DOM is updated
+            }
+        }
+        
+        await showInfoDialog('File deleted.');
+    } catch (err) {
+        console.error('Failed to delete file:', err);
+        await showInfoDialog(`Could not delete file: ${err.message}`);
     }
 }

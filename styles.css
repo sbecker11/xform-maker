@@ -56,7 +56,7 @@ body {
     /* border: 1px solid var(--border-primary); */ /* REMOVE */
     border: none; /* ADDED */
     background-color: var(--button-primary-bg); /* ADDED */
-    color: white; /* ADDED */
+    color: var(--button-primary-color); /* ADDED */
     border-radius: 4px;
     padding: 3px; 
     width: 28px; 
@@ -211,7 +211,6 @@ body {
 }
 .delete-file-btn:hover {
     color: #a71d2a;
-    font-weight: bold;
 }
 
 .folder-prompt {
@@ -226,10 +225,10 @@ body {
 /* Style for selected file list item */
 .file-list-item.selected {
     background-color: var(--button-primary-bg); /* Blue background */
-    color: white; /* White text */
+    color: var(--button-primary-color); /* White text */
 }
 .file-list-item.selected span {
-     color: white; /* Ensure span text is white too */
+     color: var(--button-primary-color); /* Ensure span text is white too */
 }
  .file-list-item.selected .delete-file-btn {
      color: white; /* Make delete button white */
@@ -240,7 +239,7 @@ body {
 
 .save-button {
     background-color: var(--button-primary-bg);
-    color: white;
+    color: var(--button-primary-color);
     border: 1px solid transparent; 
     border-radius: 4px;
     padding: 8px 15px; 
@@ -252,11 +251,15 @@ body {
     margin-right: -15px; /* Ensure right margin is 0 */
     box-sizing: border-box; 
     position: relative; 
-    top: -5px; 
+    top: -2px; 
 }
 
 .save-button:hover {
     background-color: var(--button-primary-hover-bg);
+}
+.save-button:disabled {
+    background-color: grey;
+    pointer-events: none;
 }
 
 /* Styles for the center-right wrapper (now within main-content-area) */
@@ -671,6 +674,7 @@ button.danger:hover {
     --border-primary: #dddddd;
     --border-strong: #aaaaaa;
     --button-primary-bg: #007bff;
+    --button-primary-color: white;
     --button-primary-hover-bg: #0056b3;
     --button-danger-bg: #dc3545;
     --button-danger-hover-bg: #c82333;
@@ -694,6 +698,7 @@ button.danger:hover {
     --border-primary: #444c56;
     --border-strong: #586069;
     --button-primary-bg: #3081f7;
+    --button-primary-color: white;
     --button-primary-hover-bg: #458ff7;
     --button-danger-bg: #f85149;
     --button-danger-hover-bg: #fa675f;
@@ -921,4 +926,87 @@ button.danger:hover {
      display: flex;
      gap: 5px;
      /* Adjust width/height if needed */
+}
+
+/* === Custom modal backdrop and dialog === */
+.modal-backdrop {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: rgba(0,0,0,0.3);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+}
+.custom-confirm-modal {
+    background: var(--background-secondary);
+    padding: 20px 24px;
+    border-radius: 12px;
+    box-shadow: var(--shadow-medium);
+    width: 320px;
+    max-width: 90vw;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    font-family: system-ui, sans-serif;
+}
+.custom-confirm-message {
+    font-size: 15px;
+    color: var(--text-primary);
+}
+.custom-confirm-buttons {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+}
+.modal-btn {
+    padding: 6px 14px;
+    border-radius: 6px;
+    font-size: 14px;
+    cursor: pointer;
+    border: none;
+}
+.modal-btn.primary {
+    background: var(--button-primary-bg);
+    color: var(--button-primary-color);
+}
+.modal-btn.danger {
+    background: var(--button-danger-bg);
+    color: var(--button-danger-color);
+}
+.modal-btn.secondary {
+    background: #6c757d;
+    color: var(--button-secondary-color);
+}
+.modal-btn:hover { filter: brightness(1.1); }
+
+/* header control group */
+.file-header-controls {
+    display: flex;
+    gap: 5px;
+    flex-shrink: 0;
+}
+
+#changeFolderBtn {
+    display: none; /* shown only when needed */
+}
+
+.is-disableable[disabled]{
+    background-color: grey !important;
+    color: var(--button-primary-color) !important;
+    cursor: default !important;
+    pointer-events:none;
+    opacity:0.6;
+}
+.is-hideable[hidden]{
+    display:none !important;
+}
+
+/* === File list selection states === */
+.file-list-item.single-selected {
+    background-color: var(--button-primary-bg) !important; /* light blue */
+    color: var(--button-primary-color) !important;
 }

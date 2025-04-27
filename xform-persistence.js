@@ -299,6 +299,7 @@ function createXFormDataObject() {
         name: window.currentXFormName || generateXFormName(),
         id: window.currentXFormId || Date.now(),
         timestamp: Date.now(),
+        lastModified: Date.now(), // Add lastModified timestamp
         startRect: {
             left: window.startRect ? parseFloat(window.startRect.style.left) || 0 : 78.5, // Provide defaults
             top: window.startRect ? parseFloat(window.startRect.style.top) || 0 : 49.5,
@@ -755,6 +756,9 @@ async function _writeDataToHandle(fileHandle, xformData) { // fileHandle has the
             throw new Error("Invalid file handle received for writing.");
         }
 
+        // Update the lastModified timestamp before saving
+        xformData.lastModified = Date.now();
+
         const writable = await fileHandle.createWritable();
         await writable.write(JSON.stringify(xformData, null, 2)); // xformData still has original name
         await writable.close();
@@ -977,24 +981,63 @@ async function setupPersistence() {
 
     // Setup sort button 
     if (sortButton) {
-        // NEW: implement toggling sort order instead of placeholder alert
-        window.fileListSortAsc = true; // default sort order tracker
+        // Track sort modes: 0 = alphabetical ascending, 1 = alphabetical descending, 
+        // 2 = date newest first, 3 = date oldest first
+        window.fileListSortMode = 0; 
+        
         sortButton.addEventListener('click', () => {
-            window.fileListSortAsc = !window.fileListSortAsc;
+            // Cycle through sort modes
+            window.fileListSortMode = (window.fileListSortMode + 1) % 4;
+            
             const ul = document.getElementById('savedList');
             if (!ul) return;
+            
             const items = Array.from(ul.querySelectorAll('li.file-list-item'));
+            
+            // Sort based on current mode
             items.sort((a, b) => {
                 const nameA = a.dataset.filename || '';
                 const nameB = b.dataset.filename || '';
-                return window.fileListSortAsc
-                    ? nameA.localeCompare(nameB, undefined, { numeric: true, sensitivity: 'base' })
-                    : nameB.localeCompare(nameA, undefined, { numeric: true, sensitivity: 'base' });
+                
+                // For date-based sorting, use the lastModified data attribute
+                if (window.fileListSortMode >= 2) {
+                    const lastModifiedA = parseInt(a.dataset.lastModified || '0', 10);
+                    const lastModifiedB = parseInt(b.dataset.lastModified || '0', 10);
+                    
+                    // Sort newest first (mode 2) or oldest first (mode 3)
+                    return window.fileListSortMode === 2 
+                        ? lastModifiedB - lastModifiedA  // Newest first
+                        : lastModifiedA - lastModifiedB; // Oldest first
+                }
+                
+                // Default to alphabetical sorting for mode 0 and 1
+                return window.fileListSortMode === 1
+                    ? nameB.localeCompare(nameA, undefined, { numeric: true, sensitivity: 'base' })
+                    : nameA.localeCompare(nameB, undefined, { numeric: true, sensitivity: 'base' });
             });
+            
             // Append in new order
             items.forEach(li => ul.appendChild(li));
-            // Optionally update button label/icon to indicate order
-            sortButton.textContent = window.fileListSortAsc ? '↓' : '↑';
+            
+            // Update sort button indicator based on mode
+            switch(window.fileListSortMode) {
+                case 0: // A→Z
+                    sortButton.innerHTML = 'A↓Z';
+                    sortButton.title = 'Sort alphabetically (A to Z)';
+                    break;
+                case 1: // Z→A
+                    sortButton.innerHTML = 'Z↓A';
+                    sortButton.title = 'Sort alphabetically (Z to A)';
+                    break;
+                case 2: // Newest first
+                    sortButton.innerHTML = 'New↓';
+                    sortButton.title = 'Sort by date (newest first)';
+                    break;
+                case 3: // Oldest first
+                    sortButton.innerHTML = 'Old↓';
+                    sortButton.title = 'Sort by date (oldest first)';
+                    break;
+            }
         });
     }
 
@@ -1051,14 +1094,50 @@ async function listJsonFiles(dirHandle) {
     if (sortButton) sortButton.style.display = 'none';
 
     try {
-        const files = [];
+        const fileEntries = [];
+        
+        // First, collect all file entries
         for await (const entry of dirHandle.values()) {
-            if (entry.kind === 'file' && entry.name.endsWith('_xform.json')) { // Match suffix
-                files.push(entry.name);
+            if (entry.kind === 'file' && entry.name.endsWith('_xform.json')) {
+                try {
+                    // Get file information
+                    const fileHandle = await dirHandle.getFileHandle(entry.name);
+                    const fileObj = await fileHandle.getFile();
+                    
+                    // Try to read the file content to get lastModified from our JSON
+                    let xformData = null;
+                    let lastModified = fileObj.lastModified; // Default to file system lastModified
+                    
+                    try {
+                        const content = await fileObj.text();
+                        xformData = JSON.parse(content);
+                        
+                        // Use our stored lastModified if available, otherwise use file system timestamp
+                        if (xformData && xformData.lastModified) {
+                            lastModified = xformData.lastModified;
+                        }
+                    } catch (jsonError) {
+                        console.warn(`Could not parse JSON from ${entry.name}:`, jsonError);
+                        // Continue using the file system lastModified
+                    }
+                    
+                    fileEntries.push({
+                        name: entry.name,
+                        lastModified: lastModified
+                    });
+                } catch (fileError) {
+                    console.warn(`Error processing file ${entry.name}:`, fileError);
+                    // Add file with unknown lastModified
+                    fileEntries.push({
+                        name: entry.name,
+                        lastModified: 0
+                    });
+                }
             }
         }
+        
         fileListUl.innerHTML = ''; 
-        if (files.length === 0) {
+        if (fileEntries.length === 0) {
             fileListUl.innerHTML = '<li>No X-Forms found in storage folder.</li>';
             if (sortButton) sortButton.style.display = 'none';
             if (saveBtn) saveBtn.disabled = false; // still allow saving new files even if none exist
@@ -1066,26 +1145,29 @@ async function listJsonFiles(dirHandle) {
         }
 
         // Update sort button visibility based on count
-        if (sortButton) sortButton.style.display = files.length < 2 ? 'none' : 'flex';
+        if (sortButton) sortButton.style.display = fileEntries.length < 2 ? 'none' : 'flex';
 
-        files.sort((a, b) => a.localeCompare(b, undefined, {numeric: true, sensitivity: 'base'}));
+        // Apply initial alphabetical sort
+        fileEntries.sort((a, b) => a.name.localeCompare(b.name, undefined, {numeric: true, sensitivity: 'base'}));
 
-        files.forEach(filename => {
+        fileEntries.forEach(fileEntry => {
             const li = document.createElement('li');
             li.className = 'file-list-item';
-            li.dataset.filename = filename;
+            li.dataset.filename = fileEntry.name;
+            li.dataset.lastModified = fileEntry.lastModified; // Store lastModified as data attribute
+            
             const nameSpan = document.createElement('span');
-            nameSpan.textContent = filename.replace(/_xform\.json$/, ''); // Show base name
-            nameSpan.title = filename; 
+            nameSpan.textContent = fileEntry.name.replace(/_xform\.json$/, ''); // Show base name
+            nameSpan.title = fileEntry.name; 
             li.appendChild(nameSpan);
 
             const deleteBtn = document.createElement('button');
             deleteBtn.className = 'delete-file-btn';
             deleteBtn.innerHTML = '&times;'; 
-            deleteBtn.title = `Delete ${filename}`;
+            deleteBtn.title = `Delete ${fileEntry.name}`;
             deleteBtn.addEventListener('click', (e) => {
                 e.stopPropagation(); 
-                deleteFile(filename); // Call delete function
+                deleteFile(fileEntry.name); // Call delete function
             });
             li.appendChild(deleteBtn);
 
@@ -1100,7 +1182,7 @@ async function listJsonFiles(dirHandle) {
 
                 if (alreadySelected) {
                     // If the user clicked the same selected item again → load it
-                    loadFile(filename);
+                    loadFile(fileEntry.name);
                 } else {
                     // Otherwise, simply select this one (blue)
                     li.classList.add('single-selected');

@@ -886,6 +886,10 @@ button.danger:hover {
     flex-shrink: 0;
 }
 
+#sortFilesBtn {
+    width: 63px;
+}
+
 /* REMOVE Specific button margins */
 /* #sortFilesBtn,
 #filenameModeManual {

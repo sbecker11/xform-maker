@@ -166,6 +166,12 @@ function makeDraggable(element) {
 
         element.style.left = `${newX}px`;
         element.style.top = `${newY}px`;
+        
+        // Live update path while dragging, if path is visible
+        const pathVis = document.getElementById('path-visualization');
+        if (pathVis) {
+            drawPathVisualization();
+        }
     });
 
     document.addEventListener('mouseup', () => {
@@ -175,6 +181,12 @@ function makeDraggable(element) {
             element.style.cursor = 'grab';
             element.style.transition = '';
             console.log(`${element.id} Dropped at:`, element.style.left, element.style.top);
+            
+            // Update path visualization if it exists
+            const pathVis = document.getElementById('path-visualization');
+            if (pathVis) {
+                drawPathVisualization();
+            }
             
             if (typeof window.saveCurrentState === 'function') { // Check if save function exists
                 window.saveCurrentState();
@@ -368,10 +380,17 @@ function applyXFormAnimation() {
         const translateX = endLeft - startLeft;
         const translateY = endTop - startTop;
 
+        // Get the rectangle dimensions for waypoint adjustment
+        const rectWidth = startRectBounds.width;
+        const rectHeight = startRectBounds.height;
+
         const controlPoints = [
-            { x: startLeft, y: startTop },
-            ...window.intermediatePoints.map(p => ({ x: p.x, y: p.y })),
-            { x: endLeft, y: endTop }
+            { x: startLeft + (startRectBounds.width / 2), y: startTop + (startRectBounds.height / 2) },
+            ...window.intermediatePoints.map(p => ({ 
+                x: p.x + (rectWidth / 2), // Add half width to get center
+                y: p.y + (rectHeight / 2) // Add half height to get center
+            })),
+            { x: endLeft + (endRectBounds.width / 2), y: endTop + (endRectBounds.height / 2) }
         ];
 
         const smoothPath = generateSplinePath(controlPoints);
@@ -383,8 +402,9 @@ function applyXFormAnimation() {
 
             smoothPath.forEach((point, index) => {
                 const percentage = numPathPoints === 0 ? 100 : (index / numPathPoints) * 100;
-                const pointTranslateX = point.x - startLeft;
-                const pointTranslateY = point.y - startTop;
+                // Adjust for center point of rectangle
+                const pointTranslateX = point.x - (startLeft + startRectBounds.width / 2);
+                const pointTranslateY = point.y - (startTop + startRectBounds.height / 2);
                 const progress = percentage / 100;
                 const rotateXValue = window.xRotationDirection * 360 * progress;
                 const rotateYValue = window.yRotationDirection * 360 * progress;
@@ -424,15 +444,126 @@ function applyXFormAnimation() {
     }, 50);
 }
 
-// --- Viewport Action Buttons Setup ---
+// --- Path Visualization Logic ---
+function drawPathVisualization() {
+    // Remove any existing path visualization
+    const existingPath = document.getElementById('path-visualization');
+    if (existingPath) {
+        existingPath.remove();
+    }
+    
+    if (!window.startRect || !window.endRect || !window.viewport) {
+        console.warn('Cannot draw path: missing required elements');
+        return;
+    }
+    
+    const vpRect = window.viewport.getBoundingClientRect();
+    const startRectBounds = window.startRect.getBoundingClientRect();
+    const endRectBounds = window.endRect.getBoundingClientRect();
+    
+    // Calculate center points of rectangles
+    const startLeft = startRectBounds.left - vpRect.left + startRectBounds.width / 2;
+    const startTop = startRectBounds.top - vpRect.top + startRectBounds.height / 2;
+    const endLeft = endRectBounds.left - vpRect.left + endRectBounds.width / 2;
+    const endTop = endRectBounds.top - vpRect.top + endRectBounds.height / 2;
+
+    // Get the rectangle dimensions for waypoint adjustment
+    const rectWidth = startRectBounds.width;
+    const rectHeight = startRectBounds.height;
+    
+    // Create control points array including start, waypoints, and end
+    // Treat waypoints as center points of the rectangle
+    const controlPoints = [
+        { x: startLeft, y: startTop },
+        ...window.intermediatePoints.map(p => ({ 
+            x: p.x + (rectWidth / 2), // Add half width to get center
+            y: p.y + (rectHeight / 2) // Add half height to get center
+        })),
+        { x: endLeft, y: endTop }
+    ];
+    
+    // Generate the smooth path
+    const smoothPath = generateSplinePath(controlPoints);
+    
+    if (smoothPath.length <= 1) {
+        console.warn('Not enough points to draw a path');
+        return;
+    }
+    
+    // Create SVG element for drawing the path
+    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    svg.id = 'path-visualization';
+    svg.style.position = 'absolute';
+    svg.style.top = '0';
+    svg.style.left = '0';
+    svg.style.width = '100%';
+    svg.style.height = '100%';
+    svg.style.pointerEvents = 'none'; // Make it non-interactive
+    svg.style.zIndex = '2'; // Below markers and rects
+    
+    // Create the path element
+    const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    path.setAttribute('fill', 'none');
+    path.setAttribute('stroke', 'rgba(65, 105, 225, 0.7)'); // Royal blue with transparency
+    path.setAttribute('stroke-width', '2');
+    path.setAttribute('stroke-dasharray', '5,3'); // Dotted line
+    
+    // Build the path data
+    let pathData = `M ${smoothPath[0].x} ${smoothPath[0].y}`;
+    for (let i = 1; i < smoothPath.length; i++) {
+        pathData += ` L ${smoothPath[i].x} ${smoothPath[i].y}`;
+    }
+    
+    path.setAttribute('d', pathData);
+    svg.appendChild(path);
+    
+    // Append to viewport
+    window.viewport.appendChild(svg);
+}
+
+function togglePathVisualization() {
+    const pathVis = document.getElementById('path-visualization');
+    if (pathVis) {
+        pathVis.remove();
+    } else {
+        drawPathVisualization();
+    }
+    
+    // Update button state
+    const showPathButton = document.getElementById('showPathBtn');
+    if (showPathButton) {
+        if (pathVis) {
+            showPathButton.textContent = 'Show Path';
+        } else {
+            showPathButton.textContent = 'Hide Path';
+        }
+    }
+}
+
+// --- Modified Viewport Action Buttons Setup ---
 function setupViewportActions() {
     const startButton = document.getElementById('startAnimation');
     const resetButton = document.getElementById('resetPositions');
-
+    const themeToggle = document.getElementById('themeToggle');
+    
+    // Create and insert the Show Path button
+    const showPathButton = document.createElement('button');
+    showPathButton.id = 'showPathBtn';
+    showPathButton.textContent = 'Show Path';
+    showPathButton.title = 'Toggle path visualization';
+    
+    if (startButton && resetButton) {
+        const actionsDiv = startButton.parentElement;
+        if (actionsDiv && actionsDiv.classList.contains('viewport-actions')) {
+            actionsDiv.insertBefore(showPathButton, themeToggle);
+        }
+    }
+    
     if (startButton) {
         startButton.addEventListener('click', applyXFormAnimation);
         startButton.textContent = 'Play'; // Initial text
     }
+    
     if (resetButton) {
         resetButton.addEventListener('click', () => {
             if (window.startRect) {
@@ -440,14 +571,30 @@ function setupViewportActions() {
                 startRect.style.transform = '';
                 startRect.style.transition = '';
             }
+            
+            // Remove path visualization on reset
+            const pathVis = document.getElementById('path-visualization');
+            if (pathVis) {
+                pathVis.remove();
+            }
+            
+            // Reset the show path button text
+            if (showPathButton) {
+                showPathButton.textContent = 'Show Path';
+            }
+            
             initializeRects(); // Reset rectangles and waypoints
             console.log("Viewport reset complete");
-             if (typeof window.saveCurrentState === 'function') window.saveCurrentState(); // Save reset state
+            if (typeof window.saveCurrentState === 'function') window.saveCurrentState(); // Save reset state
         });
     }
-    console.log("Viewport action buttons set up");
+    
+    if (showPathButton) {
+        showPathButton.addEventListener('click', togglePathVisualization);
+    }
+    
+    console.log("Viewport action buttons set up with path visualization option");
 }
-
 
 // --- Waypoint Controls Setup --- //
 function setupWaypointControls() {
@@ -466,15 +613,20 @@ function setupWaypointControls() {
     
     function addWaypoint(clientX, clientY) {
         const vpRect = window.viewport.getBoundingClientRect();
+        
+        // Calculate the position in the viewport
         const x = clientX - vpRect.left;
         const y = clientY - vpRect.top;
         
+        // Visualize the waypoint marker at this position
         const marker = document.createElement('div');
         marker.className = 'point-marker';
         marker.style.left = `${x}px`;
         marker.style.top = `${y}px`;
         window.viewport.appendChild(marker);
         
+        // Store the waypoint position - this will be adjusted for center coordinates
+        // during path calculation in drawPathVisualization and applyXFormAnimation
         const pointData = { x, y, element: marker };
         window.intermediatePoints.push(pointData);
         window.lastModifiedPointIndex = window.intermediatePoints.length - 1;
@@ -488,6 +640,12 @@ function setupWaypointControls() {
         }
         if (typeof window.saveCurrentState === 'function') {
              window.saveCurrentState(); // Save after adding
+        }
+        
+        // Update path visualization if it's visible
+        const pathVis = document.getElementById('path-visualization');
+        if (pathVis) {
+            drawPathVisualization();
         }
         
         console.log(`Added waypoint at (${x.toFixed(1)}, ${y.toFixed(1)})`);
@@ -517,15 +675,46 @@ function setupWaypointControls() {
              }
         }
         // else lastModifiedPointIndex remains valid
-        
+         
         if (typeof window.updateWaypointCounter === 'function') {
             window.updateWaypointCounter();
         }
+        
+        // Always update path visualization if it exists
+        const pathVis = document.getElementById('path-visualization');
+        if (pathVis) {
+            drawPathVisualization();
+        }
+        
         if (typeof window.saveCurrentState === 'function') {
-             window.saveCurrentState(); // Save after deleting
+            window.saveCurrentState(); // Save after deleting
         }
         
         console.log(`Deleted waypoint at index ${indexToDelete}`);
+    }
+
+    function deleteWaypoint(index) {
+        if (index >= 0 && index < window.intermediatePoints.length) {
+            const point = window.intermediatePoints[index];
+            if (point.element) point.element.remove();
+            window.intermediatePoints.splice(index, 1);
+            
+            if (typeof window.updateWaypointCounter === 'function') {
+                window.updateWaypointCounter();
+            }
+            
+            // Always update path visualization if it exists
+            const pathVis = document.getElementById('path-visualization');
+            if (pathVis) {
+                drawPathVisualization();
+            }
+            
+            if (typeof window.saveCurrentState === 'function') {
+                window.saveCurrentState(); // Save after deleting
+            }
+            
+            console.log(`Deleted waypoint at index ${index}`);
+        }
     }
     
     // --- Waypoint Dragging Logic --- //
@@ -546,6 +735,12 @@ function setupWaypointControls() {
             if (marker) {
                 marker.style.left = `${newX}px`;
                 marker.style.top = `${newY}px`;
+            }
+            
+            // Update path visualization if it's visible
+            const pathVis = document.getElementById('path-visualization');
+            if (pathVis) {
+                drawPathVisualization();
             }
         }
     });
@@ -573,6 +768,13 @@ function setupWaypointControls() {
                  if (typeof window.updateWaypointCounter === 'function') window.updateWaypointCounter();
                  window.wasDraggingPoint = false; 
                  console.log('Waypoint deleted by dragging outside viewport');
+                 
+                 // Update path visualization if it exists
+                 const pathVis = document.getElementById('path-visualization');
+                 if (pathVis) {
+                     drawPathVisualization();
+                 }
+                 
                  if (typeof window.saveCurrentState === 'function') window.saveCurrentState();
              } else {
                  // Point is still within viewport - update last modified
@@ -619,7 +821,6 @@ function setupWaypointControls() {
     styleAddButton();
     console.log("Waypoint controls set up - permanently in WAM mode");
 }
-
 
 // --- Helper to update the rotation button UI ---
 // Needs access to window.x/y/zRotationDirection

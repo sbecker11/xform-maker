@@ -992,7 +992,41 @@ async function setupPersistence() {
             const ul = document.getElementById('savedList');
             if (!ul) return;
             
+            // Determine if we're in date sort mode
+            const isDateSortMode = window.fileListSortMode >= 2;
+            
+            // Add/remove the date-sort-mode class
+            if (isDateSortMode) {
+                ul.classList.add('date-sort-mode');
+            } else {
+                ul.classList.remove('date-sort-mode');
+            }
+            
+            // Apply column reordering to all items
             const items = Array.from(ul.querySelectorAll('li.file-list-item'));
+            items.forEach(li => {
+                const nameCol = li.querySelector('.file-name-column');
+                const dateCol = li.querySelector('.file-date-column');
+                const deleteBtn = li.querySelector('.delete-file-btn');
+                
+                if (nameCol && dateCol && deleteBtn) {
+                    // Remove all children
+                    li.innerHTML = '';
+                    
+                    if (isDateSortMode) {
+                        // Date should be first in date sort mode
+                        li.appendChild(dateCol);
+                        li.appendChild(nameCol);
+                    } else {
+                        // Name should be first in name sort mode
+                        li.appendChild(nameCol);
+                        li.appendChild(dateCol);
+                    }
+                    
+                    // Always put delete button last
+                    li.appendChild(deleteBtn);
+                }
+            });
             
             // Sort based on current mode
             items.sort((a, b) => {
@@ -1000,7 +1034,7 @@ async function setupPersistence() {
                 const nameB = b.dataset.filename || '';
                 
                 // For date-based sorting, use the lastModified data attribute
-                if (window.fileListSortMode >= 2) {
+                if (isDateSortMode) {
                     const lastModifiedA = parseInt(a.dataset.lastModified || '0', 10);
                     const lastModifiedB = parseInt(b.dataset.lastModified || '0', 10);
                     
@@ -1156,11 +1190,34 @@ async function listJsonFiles(dirHandle) {
             li.dataset.filename = fileEntry.name;
             li.dataset.lastModified = fileEntry.lastModified; // Store lastModified as data attribute
             
+            // Create filename column
             const nameSpan = document.createElement('span');
+            nameSpan.className = 'file-name-column';
             nameSpan.textContent = fileEntry.name.replace(/_xform\.json$/, ''); // Show base name
-            nameSpan.title = fileEntry.name; 
-            li.appendChild(nameSpan);
+            nameSpan.title = fileEntry.name;
+            
+            // Create date column
+            const dateSpan = document.createElement('span');
+            dateSpan.className = 'file-date-column';
+            const dateObj = new Date(parseInt(fileEntry.lastModified, 10));
+            const dateFormatted = dateObj.toLocaleDateString() + ' ' + 
+                                  dateObj.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+            dateSpan.textContent = dateFormatted;
+            dateSpan.title = `Last modified: ${dateObj.toLocaleString()}`;
+            
+            // Add columns in the correct order based on current sort mode
+            const isDateSortMode = window.fileListSortMode >= 2;
+            if (isDateSortMode) {
+                // Date first in date sort mode
+                li.appendChild(dateSpan);
+                li.appendChild(nameSpan);
+            } else {
+                // Name first in name sort mode
+                li.appendChild(nameSpan);
+                li.appendChild(dateSpan);
+            }
 
+            // Add delete button
             const deleteBtn = document.createElement('button');
             deleteBtn.className = 'delete-file-btn';
             deleteBtn.innerHTML = '&times;'; 

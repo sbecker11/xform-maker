@@ -363,14 +363,14 @@ function applyXFormAnimation() {
     const duration = parseInt(window.durationInput.value, 10);
     const durationSeconds = Math.max(0.1, duration / 1000);
     
-    startRect.style.animation = '';
-    startRect.style.transform = '';
-    startRect.style.transition = ''; // Ensure transition is cleared
+    window.startRect.style.animation = '';
+    window.startRect.style.transform = '';
+    window.startRect.style.transition = ''; // Ensure transition is cleared
     
     setTimeout(() => {
         const vpRect = window.viewport.getBoundingClientRect();
-        const startRectBounds = startRect.getBoundingClientRect();
-        const endRectBounds = endRect.getBoundingClientRect();
+        const startRectBounds = window.startRect.getBoundingClientRect();
+        const endRectBounds = window.endRect.getBoundingClientRect();
 
         const startLeft = startRectBounds.left - vpRect.left;
         const startTop = startRectBounds.top - vpRect.top;
@@ -424,21 +424,21 @@ function applyXFormAnimation() {
             }
             styleSheet.textContent = keyframesRule;
 
-            startRect.style.animation = `${keyframesName} ${durationSeconds}s ease-in-out forwards`;
+            window.startRect.style.animation = `${keyframesName} ${durationSeconds}s ease-in-out forwards`;
 
             setTimeout(() => {
                 // Don't reset transform here if using 'forwards'
-                startRect.style.animation = ''; 
+                window.startRect.style.animation = ''; 
                 if (styleSheet) styleSheet.remove();
             }, duration + 100);
         } else {
             const transformValue = `translateX(${translateX}px) translateY(${translateY}px) rotateX(${window.xRotationDirection*360}deg) rotateY(${window.yRotationDirection*360}deg) rotateZ(${window.zRotationDirection*360}deg)`;
-            startRect.style.transition = `transform ${durationSeconds}s ease-in-out`;
-            startRect.style.transform = transformValue;
+            window.startRect.style.transition = `transform ${durationSeconds}s ease-in-out`;
+            window.startRect.style.transform = transformValue;
             
             setTimeout(() => {
-                 startRect.style.transform = '';
-                 startRect.style.transition = '';
+                 window.startRect.style.transform = '';
+                 window.startRect.style.transition = '';
             }, duration + 100);
         }
     }, 50);
@@ -567,9 +567,9 @@ function setupViewportActions() {
     if (resetButton) {
         resetButton.addEventListener('click', () => {
             if (window.startRect) {
-                startRect.style.animation = '';
-                startRect.style.transform = '';
-                startRect.style.transition = '';
+                window.startRect.style.animation = '';
+                window.startRect.style.transform = '';
+                window.startRect.style.transition = '';
             }
             
             // Remove path visualization on reset

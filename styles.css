@@ -185,7 +185,7 @@ body {
     align-items: center;
     padding: 2px 8px !important; /* Reduced from 4px to 2px vertical padding */
     color: black;
-    cursor: pointer;
+    cursor: pointer; 
     min-height: 22px; /* Reduced from 24px */
 }
 .file-list-item:last-child {
@@ -1053,4 +1053,39 @@ button.danger:hover {
 .file-list-item.single-selected .file-name-column,
 .file-list-item.single-selected .file-date-column {
     color: white !important;
+}
+
+/* Folder Permission Status Styles */
+#currentFolderDisplay {
+    transition: all 0.2s ease;
+}
+
+#currentFolderDisplay.folder-needs-permission {
+    color: var(--warning-color);
+    font-weight: bold;
+    text-decoration: underline;
+    cursor: pointer;
+    padding: 4px 8px;
+    border-radius: 4px;
+    background-color: rgba(255, 204, 0, 0.1);
+}
+
+#currentFolderDisplay.folder-needs-permission:hover {
+    background-color: rgba(255, 204, 0, 0.2);
+}
+
+#currentFolderDisplay.folder-selected {
+    color: var(--success-color);
+}
+
+/* Add a checkmark icon for selected folder */
+#currentFolderDisplay.folder-selected::after {
+    content: " ✓";
+    font-weight: bold;
+    color: var(--success-color);
+}
+
+/* Add a warning icon for folder needing permission */
+#currentFolderDisplay.folder-needs-permission::before {
+    content: "⚠️ ";
 }

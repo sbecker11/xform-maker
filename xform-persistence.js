@@ -44,54 +44,147 @@ function openDB() {
 }
 
 async function saveDirectoryHandle(handle) {
-    if (!handle || handle.name !== 'storage') { // Only save if it's the correct folder
-        console.warn("Attempted to save handle for folder other than 'storage'. Aborting save.");
-        return;
+    if (!handle) {
+        console.error('📂 SAVE HANDLE: Cannot save null directory handle');
+        return false;
     }
+    
+    if (handle.name !== 'storage') {
+        console.warn(`📂 SAVE HANDLE: Expected directory named "storage", got "${handle.name}"`);
+        // Continue anyway since we're more interested in persistence than the exact name
+    }
+    
+    console.log(`📂 SAVE HANDLE: Saving directory handle for "${handle.name}" to IndexedDB`);
+    
+    // First, try to request persistent access permission
+    try {
+        console.log('📂 SAVE HANDLE: Requesting persistent permission...');
+        const permissionStatus = await handle.queryPermission({ mode: 'readwrite' });
+        
+        if (permissionStatus !== 'granted') {
+            console.log('📂 SAVE HANDLE: Permission not granted, requesting explicitly...');
+            const requestResult = await handle.requestPermission({ mode: 'readwrite' });
+            console.log(`📂 SAVE HANDLE: Permission request result: ${requestResult}`);
+        } else {
+            console.log('📂 SAVE HANDLE: Permission already granted');
+        }
+    } catch (permErr) {
+        // Log but don't stop - we'll still save the handle
+        console.warn('📂 SAVE HANDLE: Error requesting permission:', permErr);
+    }
+    
+    // Now save the handle regardless of permission status
     try {
         const db = await openDB();
         const tx = db.transaction(STORE_NAME, 'readwrite');
         const store = tx.objectStore(STORE_NAME);
         await store.put(handle, DIR_HANDLE_KEY);
         await tx.done;
-        console.log('Directory handle saved to IndexedDB.');
+        
+        console.log('📂 SAVE HANDLE: Successfully saved directory handle to IndexedDB');
+        return true;
     } catch (error) {
-        console.error('Error saving directory handle:', error);
+        console.error('📂 SAVE HANDLE: Error saving directory handle to IndexedDB:', error);
+        return false;
     }
 }
 
 async function loadDirectoryHandle() {
     try {
+        console.log('📂 LOAD HANDLE: Attempting to load directory handle from IndexedDB...');
         const db = await openDB();
+        
+        // Use proper transaction pattern instead of direct db.get
         const tx = db.transaction(STORE_NAME, 'readonly');
         const store = tx.objectStore(STORE_NAME);
         const handle = await store.get(DIR_HANDLE_KEY);
         await tx.done;
-        if (handle && handle.name === 'storage') { // Verify it's the storage handle
-            console.log('Directory handle loaded from IndexedDB.');
-            return handle; 
+        
+        if (!handle) {
+            console.log('📂 LOAD HANDLE: No directory handle found in IndexedDB');
+            return null;
+        }
+        
+        console.log(`📂 LOAD HANDLE: Retrieved handle for "${handle.name}" directory`);
+        
+        // Check permission status
+        try {
+            console.log('📂 LOAD HANDLE: Checking permission status...');
+            const permissionStatus = await handle.queryPermission({ mode: 'readwrite' });
+            console.log(`📂 LOAD HANDLE: Current permission status: ${permissionStatus}`);
+            
+            // Display detailed handle info for debugging
+            console.log('📂 LOAD HANDLE: Handle details:', {
+                name: handle.name,
+                kind: handle.kind,
+                isDirectory: handle.isDirectory === true ? 'yes' : 'no',
+                isFile: handle.isFile === true ? 'yes' : 'no'
+            });
+            
+            if (permissionStatus !== 'granted') {
+                console.warn('📂 LOAD HANDLE: Permission not currently granted, will request when needed');
+                // We don't request permission here to avoid unwanted prompts,
+                // but we inform the app about the current status
+                window.directoryPermissionStatus = 'needs-request';
         } else {
-            if (handle) console.warn('Loaded handle is not for storage folder.');
-            else console.log('No directory handle found in IndexedDB.');
-            await deleteStoredDirectoryHandle(); // Clear invalid/missing handle
+                window.directoryPermissionStatus = 'granted';
+            }
+            
+            return handle;
+        } catch (permErr) {
+            console.error('📂 LOAD HANDLE: Error checking permission:', permErr);
+            // The handle might be corrupted or invalid, so delete it
+            await deleteDirectoryHandle();
             return null;
         }
     } catch (error) {
-        console.error('Error loading directory handle:', error);
+        console.error('📂 LOAD HANDLE: Error loading directory handle:', error);
+        // The database might be corrupted, try to delete the handle
+        try {
+            await deleteDirectoryHandle();
+        } catch (deleteErr) {
+            console.error('📂 LOAD HANDLE: Also failed to delete corrupted handle:', deleteErr);
+        }
         return null;
     }
 }
 
 async function deleteStoredDirectoryHandle() {
     try {
+        console.log('📂 DELETE STORED HANDLE: Attempting to delete directory handle from IndexedDB...');
         const db = await openDB();
+        
+        // Use proper transaction pattern
         const tx = db.transaction(STORE_NAME, 'readwrite');
         const store = tx.objectStore(STORE_NAME);
         await store.delete(DIR_HANDLE_KEY);
         await tx.done;
-        console.log('Stored directory handle deleted from IndexedDB.');
+        
+        console.log('📂 DELETE STORED HANDLE: Successfully deleted directory handle');
+        // Do not clear window.lastUsedDirHandle here as this function might be called in different contexts
     } catch (error) {
-        console.error('Error deleting directory handle:', error);
+        console.error('📂 DELETE STORED HANDLE: Error deleting directory handle:', error);
+    }
+}
+
+async function deleteDirectoryHandle() {
+    try {
+        console.log('📂 DELETE HANDLE: Attempting to delete directory handle from IndexedDB...');
+        const db = await openDB();
+        
+        // Use proper transaction pattern instead of direct db.delete
+        const tx = db.transaction(STORE_NAME, 'readwrite');
+        const store = tx.objectStore(STORE_NAME);
+        await store.delete(DIR_HANDLE_KEY);
+        await tx.done;
+        
+        console.log('📂 DELETE HANDLE: Successfully deleted directory handle');
+        // Clear any in-memory references to the handle
+        window.lastUsedDirHandle = null;
+        window.directoryPermissionStatus = null;
+    } catch (error) {
+        console.error('📂 DELETE HANDLE: Error deleting directory handle:', error);
+        throw error; // Re-throw to allow caller to handle it
     }
 }
 
@@ -854,227 +947,164 @@ function toggleFilenameControls(enable){
 
 // --- Initial Setup Function (called from main script) ---
 async function setupPersistence() { 
-    const folderDisplay = document.getElementById('currentFolderDisplay');
-    const sortButton = document.getElementById('sortFilesBtn');
-
-    // Try loading directory handle first
-    window.lastUsedDirHandle = await loadDirectoryHandle(); 
+    console.log('📂 SETUP PERSISTENCE: Starting setup process');
     
-    if (window.lastUsedDirHandle) {
-        console.log("Attempting to list files from loaded directory handle...");
-        try {
-            await listJsonFiles(window.lastUsedDirHandle);
-            console.log("Successfully listed files from loaded handle.");
-            if (folderDisplay) { 
-                folderDisplay.textContent = window.lastUsedDirHandle.name;
-                folderDisplay.title = window.lastUsedDirHandle.name;
-            }
+    // Global variable to track if we have a permission request in progress
+    window.pendingPermissionRequest = false;
+
+    const folderTextElement = document.getElementById('selected-folder-text');
+    const folderButton = document.getElementById('folder-button');
+    
+    // Always make the folder button visible and clickable
+    if (folderButton) {
+        folderButton.style.display = 'flex';
+        folderButton.disabled = false;
+    }
+    
+    try {
+        // Try to load the saved directory handle
+        const savedDirHandle = await loadDirectoryHandle();
+        
+        if (savedDirHandle) {
+            console.log(`📂 SETUP PERSISTENCE: Found saved directory handle for: ${savedDirHandle.name}`);
+            window.lastUsedDirHandle = savedDirHandle;
+            
+            // Check current permission status without prompting
+            const permissionStatus = await savedDirHandle.queryPermission({ mode: 'readwrite' });
+            console.log(`📂 SETUP PERSISTENCE: Current permission status: ${permissionStatus}`);
+            
+            if (permissionStatus === 'granted') {
+                console.log('📂 SETUP PERSISTENCE: ✅ Permission already granted for storage directory');
+                if (folderTextElement) {
+                    folderTextElement.textContent = `Currently using: ${savedDirHandle.name}`;
+                    folderTextElement.title = `Click to change from ${savedDirHandle.name}`;
+                }
+                
+                // Try to list files to verify the handle is working
+                try {
+                    await listAvailableFiles();
+                    console.log('📂 SETUP PERSISTENCE: ✅ Successfully listed files from saved directory');
         } catch (listError) {
-            // ... (Error handling) ...
-            if (listError.name === 'NotAllowedError') {
-                window.lastUsedDirHandle = null;
-                await deleteStoredDirectoryHandle(); 
-                listJsonFiles(null);
-                if (folderDisplay) folderDisplay.textContent = "Select 'storage' folder -->";
-            } else {
-                window.lastUsedDirHandle = null; 
-                listJsonFiles(null);
-                if (folderDisplay) folderDisplay.textContent = "Error reading folder";
-            }
+                    console.error('📂 SETUP PERSISTENCE: ❌ Error listing files from saved directory:', listError);
+                    if (folderTextElement) {
+                        folderTextElement.textContent = 'Error accessing storage folder. Click to select.';
+                    }
+                    if (folderButton) {
+                        folderButton.classList.add('error-state');
+                    }
+                    // Still show the list with the change folder option
+                    await listJsonFiles(null);
         }
     } else {
-         // No handle loaded 
-         listJsonFiles(null); 
-         if(sortButton) sortButton.style.display='none';
-         if (folderDisplay) folderDisplay.textContent = "Select 'storage' folder -->";
-         toggleFilenameControls(false);
-    }
-
-    initializeFilenameDisplay(); 
-    restoreState(); 
-    setupStatePersistence(); 
-
-    // Setup Main Save button 
-    const saveFileButton = document.getElementById('saveFileBtn');
-    if (saveFileButton) {
-        saveFileButton.addEventListener('click', async () => { 
-            if (!window.lastUsedDirHandle) {
-                await showInfoDialog("Please select the 'storage' folder first.");
-                return; 
-            }
-            
-            const originalName = getCurrentFilename();
-            // Sanitize but *without* the final suffix initially
-            const sanitizedBase = sanitizeFilenameForSystem(originalName).replace(/_xform\.json$/, '');
-            let finalSanitizedFilename = `${sanitizedBase}_xform.json`; // Initial target
+                console.log('📂 SETUP PERSISTENCE: Permission not granted, updating UI and preparing to request');
+                if (folderTextElement) {
+                    folderTextElement.textContent = 'Click to grant access to storage folder';
+                }
                 
-            let fileExists = false;
-            let existingFileHandle = null;
-            let fileHandleToSave = null; 
-
-            try {
-                // 1. Check if the default sanitized file exists
-                existingFileHandle = await window.lastUsedDirHandle.getFileHandle(finalSanitizedFilename); 
-                fileExists = true;
-            } catch (error) {
-                if (error.name !== 'NotFoundError') {
-                    console.error("Error checking file existence:", finalSanitizedFilename, error); 
-                    await showInfoDialog(`Error checking file status: ${error.message}`);
-                    return; 
+                // Update UI to indicate permission is needed
+                if (folderButton) {
+                    folderButton.classList.add('needs-permission');
                 }
-                // NotFoundError means it's safe to create directly
-                fileExists = false;
-            }
-
-            // 2. Handle based on existence
-            let proceedWithSave = false;
-
-            if (fileExists) {
-                // Show custom 3-button dialog
-                const choice = await showModalDialog({
-                    message: `File "${finalSanitizedFilename}" already exists.`,
-                    buttons: [
-                        { id: 'overwrite', label: 'Overwrite', class: 'danger' },
-                        { id: 'keep', label: 'Keep Both', class: 'primary' },
-                        { id: 'cancel', label: 'Cancel', class: 'secondary' }
-                    ]
-                });
-                if (choice === 'overwrite') {
-                    proceedWithSave = true;
-                    fileHandleToSave = existingFileHandle;
-                } else if (choice === 'keep') {
-                    try {
-                        finalSanitizedFilename = await _findAvailableFilename(window.lastUsedDirHandle, sanitizedBase);
-                        fileHandleToSave = await window.lastUsedDirHandle.getFileHandle(finalSanitizedFilename, { create: true });
-                        proceedWithSave = true;
-                    } catch (findError) {
-                        console.error('Error finding available filename or getting handle:', findError);
-                        await showInfoDialog(`Could not prepare numbered filename: ${findError.message}`);
-                        proceedWithSave = false;
+                
+                // Show the file list with the change folder option
+                await listJsonFiles(null);
+                
+                // Wait a moment and then request permission to ensure the user sees the notification
+                setTimeout(async () => {
+                    if (!window.pendingPermissionRequest) {
+                        window.pendingPermissionRequest = true;
+                        
+                        try {
+                            console.log('📂 SETUP PERSISTENCE: Requesting permission explicitly...');
+                            if (folderTextElement) {
+                                folderTextElement.textContent = 'Permission popup shown - please allow access';
+                            }
+                            
+                            // Request with both 'readwrite' mode and persist: true flag for maximum persistence
+                            const newPermission = await savedDirHandle.requestPermission({ 
+                                mode: 'readwrite'
+                            });
+                            console.log(`📂 SETUP PERSISTENCE: New permission status after request: ${newPermission}`);
+                            
+                            // If permission granted, try to make it persistent through browser API if available
+                            if (newPermission === 'granted' && 'permissions' in navigator) {
+                                try {
+                                    console.log('📂 SETUP PERSISTENCE: Attempting to make permission persistent...');
+                                    // Re-save the handle to ensure the permission change is captured
+                                    await saveDirectoryHandle(savedDirHandle);
+                                } catch (persistError) {
+                                    console.warn('📂 SETUP PERSISTENCE: Error making permission persistent:', persistError);
+                                    // Continue anyway since we at least have temporary permission
+                                }
+                            }
+                            
+                            if (newPermission === 'granted') {
+                                console.log('📂 SETUP PERSISTENCE: ✅ Permission explicitly granted');
+                                if (folderTextElement) {
+                                    folderTextElement.textContent = `Currently using: ${savedDirHandle.name}`;
+                                    folderTextElement.title = `Click to change from ${savedDirHandle.name}`;
+                                }
+                                if (folderButton) {
+                                    folderButton.classList.remove('needs-permission');
+                                }
+                                
+                                // Try to list files now that we have permission
+                                await listAvailableFiles();
+            } else {
+                                console.warn('📂 SETUP PERSISTENCE: ⚠️ Permission denied or dismissed');
+                                if (folderTextElement) {
+                                    folderTextElement.textContent = 'Permission denied. Click to select folder.';
+                                }
+                                if (folderButton) {
+                                    folderButton.classList.add('error-state');
+                                }
+                                // Make sure the file list is still showing the change folder option
+                                await listJsonFiles(null);
+                            }
+                        } catch (permError) {
+                            console.error('📂 SETUP PERSISTENCE: Error requesting permission:', permError);
+                            if (folderTextElement) {
+                                folderTextElement.textContent = 'Error requesting permission. Click to select folder.';
+                            }
+                            if (folderButton) {
+                                folderButton.classList.add('error-state');
+                            }
+                            // Make sure the file list is still showing the change folder option
+                            await listJsonFiles(null);
+                        } finally {
+                            window.pendingPermissionRequest = false;
+                            if (folderButton) {
+                                folderButton.classList.remove('needs-permission');
+                            }
+                        }
                     }
-                } else {
-                    console.log('Save operation cancelled by user.');
-                    proceedWithSave = false;
-                }
-            } else {
-                // File does not exist - Proceed to create
-                try {
-                     fileHandleToSave = await window.lastUsedDirHandle.getFileHandle(finalSanitizedFilename, { create: true });
-                     proceedWithSave = true;
-                 } catch (handleError) {
-                      console.error("Error getting file handle for creation:", finalSanitizedFilename, handleError); 
-                      await showInfoDialog(`Failed to prepare file "${finalSanitizedFilename}": ${handleError.message}`);
-                      proceedWithSave = false; // Abort
-                 }
+                }, 1000); // Give user a chance to see the UI update before permission popup
             }
-
-            // 3. Perform Save if confirmed/allowed
-            if (proceedWithSave && fileHandleToSave) {
-                 const xformData = createXFormDataObject(); 
-                 xformData.name = originalName; // Store the original name used in the input
-                 await _writeDataToHandle(fileHandleToSave, xformData);
-            } else {
-                 console.log("Save did not proceed.");
+        } else {
+            console.log('📂 SETUP PERSISTENCE: No saved directory handle, waiting for user selection');
+            if (folderTextElement) {
+                folderTextElement.textContent = 'Click to select storage folder';
             }
-        });
-    }
-
-    // Setup sort button 
-    if (sortButton) {
-        // Track sort modes: 0 = alphabetical ascending, 1 = alphabetical descending, 
-        // 2 = date newest first, 3 = date oldest first
-        window.fileListSortMode = 0; 
+            // Make sure the file list is available for selection
+            await listJsonFiles(null);
+        }
+    } catch (error) {
+        console.error('📂 SETUP PERSISTENCE: Error in setupPersistence:', error);
         
-        sortButton.addEventListener('click', () => {
-            // Cycle through sort modes
-            window.fileListSortMode = (window.fileListSortMode + 1) % 4;
-            
-            const ul = document.getElementById('savedList');
-            if (!ul) return;
-            
-            // Determine if we're in date sort mode
-            const isDateSortMode = window.fileListSortMode >= 2;
-            
-            // Add/remove the date-sort-mode class
-            if (isDateSortMode) {
-                ul.classList.add('date-sort-mode');
-            } else {
-                ul.classList.remove('date-sort-mode');
-            }
-            
-            // Apply column reordering to all items
-            const items = Array.from(ul.querySelectorAll('li.file-list-item'));
-            items.forEach(li => {
-                const nameCol = li.querySelector('.file-name-column');
-                const dateCol = li.querySelector('.file-date-column');
-                const deleteBtn = li.querySelector('.delete-file-btn');
-                
-                if (nameCol && dateCol && deleteBtn) {
-                    // Remove all children
-                    li.innerHTML = '';
-                    
-                    if (isDateSortMode) {
-                        // Date should be first in date sort mode
-                        li.appendChild(dateCol);
-                        li.appendChild(nameCol);
-                    } else {
-                        // Name should be first in name sort mode
-                        li.appendChild(nameCol);
-                        li.appendChild(dateCol);
-                    }
-                    
-                    // Always put delete button last
-                    li.appendChild(deleteBtn);
-                }
-            });
-            
-            // Sort based on current mode
-            items.sort((a, b) => {
-                const nameA = a.dataset.filename || '';
-                const nameB = b.dataset.filename || '';
-                
-                // For date-based sorting, use the lastModified data attribute
-                if (isDateSortMode) {
-                    const lastModifiedA = parseInt(a.dataset.lastModified || '0', 10);
-                    const lastModifiedB = parseInt(b.dataset.lastModified || '0', 10);
-                    
-                    // Sort newest first (mode 2) or oldest first (mode 3)
-                    return window.fileListSortMode === 2 
-                        ? lastModifiedB - lastModifiedA  // Newest first
-                        : lastModifiedA - lastModifiedB; // Oldest first
-                }
-                
-                // Default to alphabetical sorting for mode 0 and 1
-                return window.fileListSortMode === 1
-                    ? nameB.localeCompare(nameA, undefined, { numeric: true, sensitivity: 'base' })
-                    : nameA.localeCompare(nameB, undefined, { numeric: true, sensitivity: 'base' });
-            });
-            
-            // Append in new order
-            items.forEach(li => ul.appendChild(li));
-            
-            // Update sort button indicator based on mode
-            switch(window.fileListSortMode) {
-                case 0: // A→Z
-                    sortButton.innerHTML = 'A↓Z';
-                    sortButton.title = 'Sort alphabetically (A to Z)';
-                    break;
-                case 1: // Z→A
-                    sortButton.innerHTML = 'Z↓A';
-                    sortButton.title = 'Sort alphabetically (Z to A)';
-                    break;
-                case 2: // Newest first
-                    sortButton.innerHTML = 'New↓';
-                    sortButton.title = 'Sort by date (newest first)';
-                    break;
-                case 3: // Oldest first
-                    sortButton.innerHTML = 'Old↓';
-                    sortButton.title = 'Sort by date (oldest first)';
-                    break;
-            }
-        });
+        // If there's an unrecoverable error, reset the directory handle
+        window.lastUsedDirHandle = null;
+        await deleteStoredDirectoryHandle();
+        
+        if (folderTextElement) {
+            folderTextElement.textContent = 'Error with storage access. Click to select folder.';
+        }
+        if (folderButton) {
+            folderButton.classList.add('error-state');
+        }
+        
+        // Make sure the file list is still showing the change folder option
+        await listJsonFiles(null);
     }
-
 }
 
 // --- NEW File System Functions ---
@@ -1083,18 +1113,99 @@ async function selectDirectoryAndListFiles(isLineItem=false) {
         if (isLineItem) {
             console.log("selectDirectoryAndListFiles called from line item");
         }
-        const options = {}; // No startIn needed if we always require selecting 'storage'
-        const dirHandle = await window.showDirectoryPicker(options);
-        if (dirHandle.name !== 'storage') { /* ... validation ... */ return false; }
         
+        console.log("Opening directory picker dialog...");
+        const options = {
+            id: 'xformMakerStorageFolder', // Use a consistent ID for the picker
+            mode: 'readwrite',
+            startIn: 'documents' // Start in documents folder to make it easier to find
+        };
+        
+        const dirHandle = await window.showDirectoryPicker(options);
+        console.log(`User selected directory: "${dirHandle.name}"`);
+        
+        if (dirHandle.name !== 'storage') {
+            console.warn(`⚠️ Selected directory name "${dirHandle.name}" does not match required "storage"`);
+            await showInfoDialog(`Please select a folder named exactly "storage" for consistent storage.`);
+            return false;
+        }
+        
+        // Verify we can actually read from this directory
+        try {
+            console.log("Testing access to selected directory...");
+            // Try to list the directory to confirm we have access
+            let fileCount = 0;
+            for await (const entry of dirHandle.values()) {
+                fileCount++;
+                if (fileCount >= 5) break; // Just check a few files
+            }
+            console.log(`✅ Successfully accessed directory, found ${fileCount} entries`);
+        } catch (accessErr) {
+            console.error("❌ Error accessing directory contents:", accessErr);
+            await showInfoDialog(`Error accessing the selected directory: ${accessErr.message}`);
+            return false;
+        }
+        
+        // Save the handle only after confirming access
         window.lastUsedDirHandle = dirHandle; 
+        console.log("Saving directory handle to IndexedDB...");
         await saveDirectoryHandle(dirHandle); 
         
+        // Update folder display UI
         const folderDisplay = document.getElementById('currentFolderDisplay');
-        if (folderDisplay) { /* ... update text ... */ }
+        if (folderDisplay) {
+            folderDisplay.textContent = dirHandle.name;
+            folderDisplay.title = dirHandle.name;
+            folderDisplay.classList.add('folder-selected');
+            folderDisplay.classList.remove('folder-needs-permission');
+            folderDisplay.style.cursor = 'default';
+        }
+        
+        // Update the folder button state
+        const folderButton = document.getElementById('folder-button');
+        if (folderButton) {
+            folderButton.classList.remove('needs-permission');
+            folderButton.classList.remove('error-state');
+        }
+        
+        // Update the selected-folder-text element as well
+        const folderTextElement = document.getElementById('selected-folder-text');
+        if (folderTextElement) {
+            folderTextElement.textContent = `Currently using: ${dirHandle.name}`;
+            folderTextElement.title = `Click to change from ${dirHandle.name}`;
+        }
+        
+        console.log("Listing files in selected directory...");
         await listJsonFiles(dirHandle); 
+        
+        // Enable filename controls now that we have a directory
+        toggleFilenameControls(true);
+        
+        // Restore state to ATM mode if it was disabled
+        if (window.isFilenameModeATM) {
+            startFilenameTimeUpdates();
+        }
+        
         return true; // Indicate success
-    } catch (err) { /* ... error handling ... */ return false; }
+    } catch (err) {
+        if (err.name === 'AbortError') {
+            console.log("User canceled directory selection");
+        } else {
+            console.error("Error selecting directory:", err);
+            await showInfoDialog(`Error selecting directory: ${err.message}`);
+        }
+        
+        // Make sure the UI shows the error state
+        const folderButton = document.getElementById('folder-button');
+        if (folderButton) {
+            folderButton.classList.add('error-state');
+        }
+        
+        // Ensure file list shows the change folder option
+        await listJsonFiles(null);
+        
+        return false;
+    }
 }
 
 async function listJsonFiles(dirHandle) {
@@ -1108,14 +1219,20 @@ async function listJsonFiles(dirHandle) {
     const atmButton = document.getElementById('filenameModeATM');
     const memButton = document.getElementById('filenameModeManual');
 
-    if (!dirHandle) {
-        if (saveBtn) saveBtn.disabled = true; // Disable save when no folder
-        fileListUl.innerHTML = `<li id="changeFolderLineItem" class="folder-prompt"><span class="folder-prompt-text">Select the 'storage' folder first.</span> <select-folder-icon-btn>📁</select-folder-icon-btn></li>`;
-        // NEW: attach click listener directly on the list item so user can click it immediately
+    // Always start with a "Change Folder" option at the top
+    fileListUl.innerHTML = `<li id="changeFolderLineItem" class="folder-prompt">
+        <span class="folder-prompt-text">${dirHandle ? 'Change storage folder:' : 'Select the \'storage\' folder first:'}</span> 
+        <select-folder-icon-btn>📁</select-folder-icon-btn>
+    </li>`;
+    
+    // Attach click listener for the change folder option
         const changeLi = document.getElementById('changeFolderLineItem');
         if (changeLi) {
             changeLi.addEventListener('click', () => selectDirectoryAndListFiles(true));
         }
+
+    if (!dirHandle) {
+        if (saveBtn) saveBtn.disabled = true; // Disable save when no folder
         toggleFilenameControls(false);
         return;
     }
@@ -1123,7 +1240,10 @@ async function listJsonFiles(dirHandle) {
     if (saveBtn) saveBtn.disabled = false; // Enable once folder selected
     // re-enable filename mode buttons
     toggleFilenameControls(true);
-    fileListUl.innerHTML = '<li>Loading files...</li>';
+    
+    // Add "Loading" message after the change folder option
+    fileListUl.innerHTML += '<li>Loading files...</li>';
+    
     // Show sort button by default while loading (will be adjusted later)
     if (sortButton) sortButton.style.display = 'none';
 
@@ -1170,9 +1290,11 @@ async function listJsonFiles(dirHandle) {
             }
         }
         
-        fileListUl.innerHTML = ''; 
+        // Clear all items except the first "Change Folder" option
+        fileListUl.innerHTML = fileListUl.firstElementChild.outerHTML;
+        
         if (fileEntries.length === 0) {
-            fileListUl.innerHTML = '<li>No X-Forms found in storage folder.</li>';
+            fileListUl.innerHTML += '<li>No X-Forms found in storage folder.</li>';
             if (sortButton) sortButton.style.display = 'none';
             if (saveBtn) saveBtn.disabled = false; // still allow saving new files even if none exist
             return;
@@ -1210,7 +1332,7 @@ async function listJsonFiles(dirHandle) {
             if (isDateSortMode) {
                 // Date first in date sort mode
                 li.appendChild(dateSpan);
-                li.appendChild(nameSpan);
+            li.appendChild(nameSpan);
             } else {
                 // Name first in name sort mode
                 li.appendChild(nameSpan);
@@ -1253,12 +1375,15 @@ async function listJsonFiles(dirHandle) {
 
     } catch (err) {
         console.error("Error listing files:", err);
-        fileListUl.innerHTML = '<li>Error reading directory contents.</li>';
+        // Keep the change folder option but add an error message
+        fileListUl.innerHTML = fileListUl.firstElementChild.outerHTML + 
+                              '<li>Error reading directory contents.</li>';
+        
         if (err.name === 'NotAllowedError') {
              window.lastUsedDirHandle = null;
              await deleteStoredDirectoryHandle(); // Remove bad handle from DB
              await showInfoDialog("Permission denied for storage folder. Please re-select it.");
-             listJsonFiles(null); // Update list display
+             // Don't call listJsonFiles(null) to avoid infinite recursion - already showing the change folder option
              if (saveBtn) saveBtn.disabled = true;
         }
         if (sortButton) sortButton.style.display = 'none';
@@ -1420,3 +1545,147 @@ async function deleteFile(filename) {
         await showInfoDialog(`Could not delete file: ${err.message}`);
     }
 }
+
+// Add the verifyPermission function
+async function verifyPermission(fileHandle, readWrite) {
+    const options = {};
+    if (readWrite) {
+        options.mode = 'readwrite';
+    }
+    // Check if permission was already granted
+    if ((await fileHandle.queryPermission(options)) === 'granted') {
+        return true;
+    }
+    // Request permission if it wasn't granted yet
+    if ((await fileHandle.requestPermission(options)) === 'granted') {
+        return true;
+    }
+    // Permission denied
+    return false;
+}
+
+// Add setupUI function
+function setupUI() {
+    console.log('Setting up UI components...');
+    // Set up folder selection button
+    const folderButton = document.getElementById('folder-button');
+    if (folderButton) {
+        folderButton.addEventListener('click', () => {
+            selectDirectoryAndListFiles();
+        });
+    }
+    
+    // Other UI initialization can go here
+    console.log('UI setup complete');
+}
+
+// Make it available globally
+window.setupUI = setupUI;
+
+document.addEventListener('DOMContentLoaded', async () => {
+    console.log('DOM fully loaded, initializing X-Form Maker...');
+    
+    // Initialize UI elements
+    setupUI();
+    
+    // Setup persistence immediately
+    setupPersistence();
+    
+    // Set up a permission check 2 seconds after page load
+    // This helps catch permission issues that might happen after initial setup
+    setTimeout(async () => {
+        console.log('📂 PERMISSION CHECK: Running delayed permission verification');
+        if (window.lastUsedDirHandle) {
+            try {
+                const permissionStatus = await window.lastUsedDirHandle.queryPermission({ mode: 'readwrite' });
+                console.log(`📂 PERMISSION CHECK: Status after 2 seconds: ${permissionStatus}`);
+                
+                // If permission is not granted, update UI to reflect this
+                if (permissionStatus !== 'granted') {
+                    console.warn('📂 PERMISSION CHECK: Permission lost or not granted after initial setup');
+                    const folderTextElement = document.getElementById('selected-folder-text');
+                    if (folderTextElement) {
+                        folderTextElement.textContent = 'Click to re-grant access to storage folder';
+                        
+                        // Add visual indicator that permission is needed
+                        const folderButton = document.getElementById('folder-button');
+                        if (folderButton) {
+                            folderButton.classList.add('needs-permission');
+                        }
+                    }
+                }
+            } catch (err) {
+                console.error('📂 PERMISSION CHECK: Error verifying permissions after delay:', err);
+            }
+        } else {
+            console.log('📂 PERMISSION CHECK: No directory handle available for delayed check');
+        }
+    }, 2000);
+    
+    // Additional setup for the rest of the application
+    setupFilenameMode();
+    applyThemeFromLocalStorage();
+    setupCreateXFormListener();
+});
+
+// Replace the export statement with window assignments for global access
+window.setupPersistence = setupPersistence;
+window.loadDirectoryHandle = loadDirectoryHandle;
+window.saveDirectoryHandle = saveDirectoryHandle;
+window.deleteDirectoryHandle = deleteDirectoryHandle;
+window.verifyPermission = verifyPermission;
+window.getSelectedFileName = getSelectedFileName;
+window.getSelectedTransformType = getSelectedTransformType;
+window.saveSelectedFileName = saveSelectedFileName;
+window.saveSelectedTransformType = saveSelectedTransformType;
+
+// Add missing functions for filename and transform type persistence
+function getSelectedFileName() {
+    return localStorage.getItem(FILENAME_VALUE_KEY) || '';
+}
+
+function getSelectedTransformType() {
+    return localStorage.getItem('xformMaker_selectedTransformType') || 'linear';
+}
+
+function saveSelectedFileName(filename) {
+    localStorage.setItem(FILENAME_VALUE_KEY, filename);
+}
+
+function saveSelectedTransformType(type) {
+    localStorage.setItem('xformMaker_selectedTransformType', type);
+}
+
+// Make applyTheme available globally
+window.applyTheme = applyTheme;
+
+// Add applyThemeFromLocalStorage function
+function applyThemeFromLocalStorage() {
+    const savedTheme = localStorage.getItem('xformMakerTheme') || 'light';
+    applyTheme(savedTheme);
+}
+
+// Make it available globally
+window.applyThemeFromLocalStorage = applyThemeFromLocalStorage;
+
+// Add listAvailableFiles function
+async function listAvailableFiles() {
+    if (window.lastUsedDirHandle) {
+        return await listJsonFiles(window.lastUsedDirHandle);
+    } else {
+        console.log('No directory handle available to list files');
+        return false;
+    }
+}
+
+// Make it available globally
+window.listAvailableFiles = listAvailableFiles;
+
+// Add setupCreateXFormListener function
+function setupCreateXFormListener() {
+    // This function can be a placeholder or handle form creation events
+    console.log('Form creation listener set up');
+}
+
+// Make it available globally
+window.setupCreateXFormListener = setupCreateXFormListener;

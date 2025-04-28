@@ -61,10 +61,29 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // --- Call Module Setup Functions --- 
     // Ensure functions are defined before calling
-    if (typeof setupPersistence === 'function') {
-        setupPersistence(); // Handles state restore, filename mode, list rendering
+    if (typeof setupIndexedDBPersistence === 'function') {
+        // Check if we need to reset the database
+        if (typeof resetDatabase === 'function' && localStorage.getItem('xformdb_initialized') !== 'true') {
+            console.log('First time setup detected - resetting database to ensure proper initialization');
+            resetDatabase().then(() => {
+                // Mark as initialized
+                localStorage.setItem('xformdb_initialized', 'true');
+                // Now set up persistence
+                setupIndexedDBPersistence();
+            }).catch(err => {
+                console.error('Error during database reset:', err);
+                setupIndexedDBPersistence();
+            });
+        } else {
+            // Normal setup
+            setupIndexedDBPersistence();
+        }
+    } else if (typeof setupPersistence === 'function') {
+        // Fall back to old file-based persistence if new one isn't available
+        console.log("Using legacy file-based persistence");
+        setupPersistence();
     } else {
-        console.error("Persistence setup function not found!");
+        console.error("No persistence setup function found!");
     }
 
     if (typeof setupControls === 'function') {

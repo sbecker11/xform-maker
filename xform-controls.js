@@ -117,9 +117,21 @@ function initializeRects() {
     if (startRect) makeDraggable(startRect);
     if (endRect) makeDraggable(endRect);
 
+    // Initialize or reset all state variables
     window.currentXFormName = "New X-Form";
     window.currentXFormId = null;
     window.currentXFormHasRun = false;
+    
+    // Set default rotations
+    window.xRotationDirection = window.xRotationDirection || 1;
+    window.yRotationDirection = window.yRotationDirection || 1;
+    window.zRotationDirection = window.zRotationDirection || 1;
+    
+    // Set default duration
+    if (window.durationInput) {
+        window.durationInput.value = window.durationInput.value || 500;
+    }
+    
     const startButton = document.getElementById('startAnimation');
     if (startButton) startButton.textContent = 'Play';
 
@@ -127,6 +139,13 @@ function initializeRects() {
     if (typeof window.updateWaypointCounter === 'function') {
         window.updateWaypointCounter();
     }
+    
+    // Update rotation UI if available
+    if (typeof window.updateRotationButtonsUI === 'function') {
+        window.updateRotationButtonsUI();
+    }
+    
+    console.log('Rects fully initialized with all properties');
 }
 
 // --- Dragging Logic for Rectangles ---

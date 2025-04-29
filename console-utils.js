@@ -284,6 +284,157 @@ function set_path_thickness(thickness) {
   return validThickness;
 }
 
+// *** NEW: Path Style Control ***
+window.set_path_style = function(styleName) {
+    if (!window.pathStyleModes || !Array.isArray(window.pathStyleModes)) {
+        console.error('❌ Path style modes not available (window.pathStyleModes is missing).');
+        return;
+    }
+    const targetStyle = styleName.toLowerCase();
+    const modeIndex = window.pathStyleModes.findIndex(mode => mode.style === targetStyle);
+
+    if (modeIndex === -1) {
+        console.error(`❌ Invalid path style: "${styleName}". Valid styles are: ${window.pathStyleModes.map(m => m.style).join(', ')}`);
+        console.log(`Current style index is: ${window.currentPathStyleIndex !== undefined ? window.pathStyleModes[window.currentPathStyleIndex].style : 'unknown'}`);
+        return;
+    }
+
+    const newMode = window.pathStyleModes[modeIndex];
+    window.currentPathStyleIndex = modeIndex;
+    console.log(`✅ Path style set to: ${newMode.style}`);
+
+    // Update button text if button exists
+    const pathStyleBtn = document.getElementById('pathStyleBtn');
+    if (pathStyleBtn) {
+        pathStyleBtn.textContent = newMode.label;
+    }
+
+    // Apply the style
+    if (typeof window.applyPathStyle === 'function') {
+        window.applyPathStyle(newMode.style);
+        console.log('Path visualization updated with new style.');
+    } else {
+        console.warn('⚠️ window.applyPathStyle function not found. Cannot apply style.');
+    }
+};
+window.style = window.set_path_style; // Alias
+
+// *** NEW: Path Interpolation Mode Control ***
+window.set_path_mode = function(mode) {
+    const validModes = ['passthrough', 'influencer'];
+    if (!mode || !validModes.includes(mode.toLowerCase())) {
+        console.error(`Invalid path mode: "${mode}". Please use 'passthrough' or 'influencer'.`);
+        console.log(`Current mode is: ${window.pathInterpolationMode || 'passthrough'}`);
+        return;
+    }
+    const newMode = mode.toLowerCase();
+    window.pathInterpolationMode = newMode;
+    console.log(`✅ Path interpolation mode set to: ${newMode}`);
+    // Trigger path redraw if possible
+    if (typeof window.drawPathVisualization === 'function') {
+        window.drawPathVisualization();
+        console.log('Path visualization redrawn.');
+    } else if (typeof window.applyPathStyle === 'function' && window.pathStyleModes && window.currentPathStyleIndex !== undefined) {
+         // Fallback to calling applyPathStyle directly
+        const currentStyle = window.pathStyleModes[window.currentPathStyleIndex].style;
+        window.applyPathStyle(currentStyle);
+        console.log('Path visualization redrawn via applyPathStyle.');
+    } else {
+        console.warn('Could not automatically redraw path visualization.');
+    }
+};
+window.path_mode = window.set_path_mode; // Alias
+
+// *** NEW: Shortcut Functions ***
+window.linear = function() { 
+    console.log('Setting path mode to: LINEAR (straight segments)');
+    window.forceLinearPath = true; // Set flag for applyPathStyle
+    // Redraw using the current *visual* style
+    if (typeof window.drawPathVisualization === 'function') {
+        window.drawPathVisualization();
+    } else if (typeof window.applyPathStyle === 'function' && window.pathStyleModes && window.currentPathStyleIndex !== undefined) {
+        const currentStyle = window.pathStyleModes[window.currentPathStyleIndex].style;
+        window.applyPathStyle(currentStyle);
+    }
+}; // Note: This doesn't change the underlying interpolation mode setting
+
+window.gravity = function() { window.set_path_mode('influencer'); }; // Alias for influencer
+window.pass_thru = function() { window.set_path_mode('passthrough'); };
+window.passthru = window.pass_thru; // Alias
+
+window.thick_1 = function() { window.set_path_thickness(1); };
+window.thick_10 = function() { window.set_path_thickness(10); };
+
+window.box_10 = function() { 
+    console.warn('⚠️ box_10() sets style to boxes. Marker size is fixed in CSS (not 10px).'); 
+    window.set_path_style('boxes'); 
+};
+window.circle_7 = function() { 
+    console.warn('⚠️ circle_7() sets style to circles. Marker size is fixed in CSS (not 7px).'); 
+    window.set_path_style('circles'); 
+};
+
+// *** NEW: Path Style Shortcuts ***
+window.none = function() { window.set_path_style('none'); };
+window.dotted = function() { window.set_path_style('dotted'); };
+window.dashed = function() { window.set_path_style('dashed'); };
+window.solid = function() { window.set_path_style('solid'); };
+window.circles = function() { window.set_path_style('circles'); };
+window.boxes = function() { window.set_path_style('boxes'); };
+
+// *** NEW: Command Parser Function ***
+window.xf = function(commandString) {
+    if (!commandString || typeof commandString !== 'string') {
+        console.error('❌ Invalid input. Usage: xf("command argument")');
+        return;
+    }
+    
+    const parts = commandString.trim().toLowerCase().split(/\s+/);
+    const command = parts[0];
+    const argument = parts[1]; // Argument might be undefined
+    
+    console.log(`⚙️ Parsing command: "${command}", argument: "${argument}"`);
+
+    switch (command) {
+        case 'thick':
+        case 'thickness':
+            const thickness = parseInt(argument, 10);
+            if (isNaN(thickness)) {
+                console.error(`❌ Invalid thickness value: "${argument}". Please provide a number.`);
+            } else {
+                window.set_path_thickness(thickness); // Let the function handle clamping
+            }
+            break;
+            
+        case 'style':
+            if (!argument) {
+                console.error('❌ Missing style name. Usage: xf("style <styleName>")');
+            } else {
+                window.set_path_style(argument);
+            }
+            break;
+            
+        case 'curve':
+        case 'mode':
+            if (!argument) {
+                console.error('❌ Missing curve mode. Usage: xf("curve <modeName>")');
+            } else if (argument === 'linear') {
+                window.linear(); // Use the linear shortcut
+            } else if (argument === 'passthrough' || argument === 'pass_thru' || argument === 'passthru') {
+                window.set_path_mode('passthrough');
+            } else if (argument === 'influencer' || argument === 'gravity') {
+                window.set_path_mode('influencer');
+            } else {
+                console.error(`❌ Invalid curve mode: "${argument}". Use 'linear', 'passthrough', or 'influencer'.`);
+            }
+            break;
+            
+        default:
+            console.error(`❌ Unknown command: "${command}". Use help() to see commands.`);
+            break;
+    }
+};
+
 // Instructions
 console.log('🛠️ XForm Console Utilities loaded!');
 console.log('Available commands:');
@@ -296,6 +447,7 @@ console.log('• help()                 - Show help for all available commands')
 
 // Help function to list and explain all available commands
 function help() {
+  console.log("--- help() function entered ---");
   console.clear();
   console.group('🛠️ XForm Maker - Console Utilities Help');
   
@@ -387,7 +539,27 @@ window.db_diagnose = db_diagnose;
 window.xforms_list = xforms_list;
 window.xform_details = xform_details;
 window.set_path_thickness = set_path_thickness;
+window.set_path_style = set_path_style; // Expose new style setter
+window.set_path_mode = set_path_mode; // Expose mode setter
 window.help = help; // Add the help function too
+
+// Add shortcut assignments to window
+window.linear = linear;
+window.gravity = gravity;
+window.pass_thru = pass_thru;
+window.passthru = passthru;
+window.thick_1 = thick_1;
+window.thick_10 = thick_10;
+window.box_10 = box_10;
+window.circle_7 = circle_7;
+
+// *** NEW: Add style shortcut assignments to window ***
+window.none = none;
+window.dotted = dotted;
+window.dashed = dashed;
+window.solid = solid;
+window.circles = circles;
+window.boxes = boxes;
 
 // If any UI elements with these functions already exist, remove them
 document.addEventListener('DOMContentLoaded', () => {
@@ -403,4 +575,197 @@ document.addEventListener('DOMContentLoaded', () => {
     console.log('Console utils loaded - removing diagnostics button from UI');
     diagBtn.remove();
   }
-}); 
+});
+
+// *** NEW: Path Interpolation Mode Control ***
+window.set_path_mode = function(mode) {
+    const validModes = ['passthrough', 'influencer'];
+    if (!mode || !validModes.includes(mode.toLowerCase())) {
+        console.error(`Invalid path mode: "${mode}". Please use 'passthrough' or 'influencer'.`);
+        console.log(`Current mode is: ${window.pathInterpolationMode || 'passthrough'}`);
+        return;
+    }
+    const newMode = mode.toLowerCase();
+    window.pathInterpolationMode = newMode;
+    console.log(`✅ Path interpolation mode set to: ${newMode}`);
+    // Trigger path redraw if possible
+    if (typeof window.drawPathVisualization === 'function') {
+        window.drawPathVisualization();
+        console.log('Path visualization redrawn.');
+    } else if (typeof window.applyPathStyle === 'function' && window.pathStyleModes && window.currentPathStyleIndex !== undefined) {
+         // Fallback to calling applyPathStyle directly
+        const currentStyle = window.pathStyleModes[window.currentPathStyleIndex].style;
+        window.applyPathStyle(currentStyle);
+        console.log('Path visualization redrawn via applyPathStyle.');
+    } else {
+        console.warn('Could not automatically redraw path visualization.');
+    }
+};
+window.path_mode = window.set_path_mode; // Alias
+
+// --- Help Function ---
+window.help = function(command) {
+    console.log("--- help() function entered ---");
+    // console.clear(); // Keep clear commented out for now
+    console.log('==== XForm Maker - Console Utilities Help ====');
+
+    // Specific keyword help messages
+    const keywordHelp = {
+        'curve_style': "curve style: with values none, dotted, dashed, circles, and boxes",
+        'style': "curve style: with values none, dotted, dashed, circles, and boxes",
+        'curve_type': "curve type: with values linear, passthru, gravity",
+        'type': "curve type: with values linear, passthru, gravity",
+        'curve_thickness': "curve thickness: with values that range from 1 to 10",
+        'thickness': "curve thickness: with values that range from 1 to 10"
+    };
+
+    // General command help
+    const commands = {
+        'db_reset': 'Delete all saved XForms and reset the database. Use with caution!',
+        'db_diagnose': 'Check the database for issues and list contents.',
+        'xforms_list': 'List all saved XForm names and IDs.',
+        'xform_details(id)': 'Show detailed info for an XForm.',
+        'xf("command arg")': 'Main parser for commands (e.g., xf("thick 5"), xf("style solid"), xf("curve linear"))',
+        'help(keyword?)': 'Show general help or help for a specific keyword (style, type, thickness).'
+    };
+
+    if (command) {
+        const lowerCommand = command.toLowerCase();
+        if (keywordHelp[lowerCommand]) {
+            // Show specific keyword help
+            console.log(`Help for keyword: ${lowerCommand}`);
+            console.log(`-> ${keywordHelp[lowerCommand]}`);
+            console.log(`   Use with xf(): xf('${lowerCommand} <value>')`);
+        } else if (commands[lowerCommand]) {
+             // Show specific command help (less likely needed now)
+             console.log(`Help for command: ${lowerCommand}`);
+             console.log(`  ${commands[lowerCommand]}`);
+        } else {
+            console.log(`Unknown command or keyword: "${command}". Use help() to see general commands.`);
+        }
+    } else {
+        // Show general help
+        console.log("General Commands:");
+        for (const cmd in commands) {
+            console.log(`- ${cmd}: ${commands[cmd]}`);
+        }
+        console.log("\nFor details on curve commands, use: help('style'), help('type'), or help('thickness')");
+        console.log("==============================================");
+    }
+    
+    // Return undefined implicitly
+}
+window.xform_help = window.help; // Alias 
+
+// *** NEW: Usage Modal Function ***
+window.showUsageModal = async function() {
+    let backdrop = document.getElementById('usageModalBackdrop');
+    if (!backdrop) {
+        backdrop = document.createElement('div');
+        backdrop.id = 'usageModalBackdrop';
+        // Combine classes for styling reuse
+        backdrop.className = 'modal-backdrop usage-modal-backdrop'; 
+        backdrop.innerHTML = `
+            <div class="custom-confirm-modal usage-modal">
+                <h3 class="usage-title">Usage Information</h3>
+                <div class="usage-content"></div>
+                <div class="custom-confirm-buttons usage-buttons">
+                    <button id="usageCloseBtn" class="modal-btn secondary">Close</button>
+                </div>
+            </div>`;
+        document.body.appendChild(backdrop);
+
+        // Add listener for the close button *once*
+        backdrop.querySelector('#usageCloseBtn').addEventListener('click', () => {
+            backdrop.style.display = 'none';
+            // Remove ESC listener when closed
+            document.removeEventListener('keydown', backdrop._escHandler); 
+        });
+        // Add backdrop click dismiss listener *once*
+        backdrop.addEventListener('click', (e) => {
+            if (e.target === backdrop) {
+                backdrop.style.display = 'none';
+                document.removeEventListener('keydown', backdrop._escHandler); 
+            }
+        });
+    }
+
+    // Populate content
+    const contentDiv = backdrop.querySelector('.usage-content');
+    // Load text from usage.txt
+    let text = '';
+    try {
+        const resp = await fetch('usage.txt');
+        if (resp.ok) {
+            text = await resp.text();
+        } else {
+            console.warn('Failed to fetch usage.txt:', resp.status);
+        }
+    } catch (e) {
+        console.warn('Could not load usage.txt, using built-in text');
+    }
+    contentDiv.innerText = text || 'Usage information not available.';
+    // Ensure scroll position is reset
+    contentDiv.scrollTop = 0;
+
+    // Define ESC handler specific to this modal instance
+    backdrop._escHandler = (ev) => {
+        if (ev.key === 'Escape') {
+            backdrop.style.display = 'none';
+            document.removeEventListener('keydown', backdrop._escHandler); // Remove this specific listener
+        }
+    };
+    // Remove potentially stale listener before adding
+    document.removeEventListener('keydown', backdrop._escHandler);
+    // Add listener when showing
+    document.addEventListener('keydown', backdrop._escHandler);
+   
+    // Show modal
+    backdrop.style.display = 'flex';
+};
+
+// Attach help button listener after DOM is ready
+document.addEventListener('DOMContentLoaded', () => {
+    const helpBtn = document.getElementById('helpBtn');
+    if (helpBtn) {
+        helpBtn.addEventListener('click', window.showUsageModal);
+    }
+});
+
+// IMPORTANT: Explicitly attach these functions to the window object
+window.set_path_thickness = set_path_thickness;
+window.set_path_style = set_path_style;
+window.set_path_mode = set_path_mode;
+window.help = help;
+window.xf = xf;
+window.showUsageModal = showUsageModal; // Expose Usage Modal function
+
+// Shortcuts
+window.linear = linear; 
+
+// *** NEW: Shortcut to delete all selected XForms via console ***
+window.delsel = async function() {
+    const selected = window.selectedXforms || [];
+    const count = selected.length;
+    if (count === 0) {
+        console.warn('No selected xforms to delete.');
+        return;
+    }
+    const result = await showModalDialog({
+        message: `Delete ${count} selected XForm${count > 1 ? 's' : ''}? This cannot be undone.`,
+        buttons: [
+            { id: 'delete', label: 'Delete Selected', class: 'danger' },
+            { id: 'cancel', label: 'Cancel', class: 'secondary' }
+        ]
+    });
+    if (result !== 'delete') {
+        console.log('Deletion canceled.');
+        return;
+    }
+    try {
+        const deleted = await deleteSelectedXForms();
+        console.log(`Deleted ${deleted} XForm${deleted > 1 ? 's' : ''}.`);
+    } catch (err) {
+        console.error('Error deleting selected XForms:', err);
+    }
+}; 

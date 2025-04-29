@@ -15,9 +15,114 @@
 // let dragOffsetX = 0; // Declared in main script
 // let dragOffsetY = 0;
 // let wasDraggingPoint = false; // Declared in main script
-// let isRectangleDragging = false; // Declared in main script
+let isRectangleDragging = false; // Declared in main script
 
-// --- Bezier/Spline Calculation Helpers ---
+// *** NEW: Global Drag State ***
+window.draggedElement = null; // Track the element being dragged
+window.dragStartX = 0;      // Initial element style.left
+window.dragStartY = 0;      // Initial element style.top
+window.dragInitialMouseX = 0; // Mouse X on mousedown
+window.dragInitialMouseY = 0; // Mouse Y on mousedown
+
+// --- Fallback Implementations for Potentially Missing Functions ---
+// These prevent console errors when the functions are not defined elsewhere
+
+// Fallback for updateWaypointCounter
+if (typeof window.updateWaypointCounter !== 'function') {
+    window.updateWaypointCounter = function() {
+        const counter = document.getElementById('waypointCounter');
+        if (counter) {
+            const count = window.intermediatePoints?.length || 0;
+            counter.textContent = count.toString();
+            console.log(`Waypoint counter updated (fallback): ${count}`);
+        }
+    };
+}
+
+// Fallback for saveCurrentState
+if (typeof window.saveCurrentState !== 'function') {
+    window.saveCurrentState = function() {
+        // Simple fallback that just logs the action
+        console.log('State save requested (fallback implementation)');
+        // In a real implementation, this would save to localStorage or indexedDB
+    };
+}
+
+// Fallback for updateDeleteWaypointButton
+if (typeof window.updateDeleteWaypointButton !== 'function') {
+    window.updateDeleteWaypointButton = function() {
+        const deleteBtn = document.getElementById('deleteLastWaypointBtn');
+        if (!deleteBtn) return;
+        
+        const count = window.intermediatePoints?.length || 0;
+        
+        if (count > 0) {
+            deleteBtn.disabled = false;
+            deleteBtn.style.opacity = '1';
+            deleteBtn.style.pointerEvents = 'auto';
+            deleteBtn.style.cursor = 'pointer';
+        } else {
+            deleteBtn.disabled = true;
+            deleteBtn.style.opacity = '0.5';
+            deleteBtn.style.pointerEvents = 'none';
+            deleteBtn.style.cursor = 'not-allowed';
+        }
+        
+        console.log(`Delete waypoint button state updated (fallback): ${count > 0 ? 'enabled' : 'disabled'} (${count} waypoints)`);
+    };
+}
+
+// Fallback for applyPathStyle
+if (typeof window.applyPathStyle !== 'function') {
+    window.applyPathStyle = function(style) {
+        // Only draw path if required elements exist
+        if (window.startRect && window.endRect && window.viewport) {
+            drawPathVisualization();
+        } else {
+            console.log('Cannot apply path style: required elements not initialized yet');
+        }
+    };
+}
+
+// --- Simple Bezier Helper Functions ---
+function getBezierPoint(p0, p1, p2, p3, t) {
+    // Cubic Bezier formula
+    const mt = 1 - t;
+    const mt2 = mt * mt;
+    const mt3 = mt2 * mt;
+    const t2 = t * t;
+    const t3 = t2 * t;
+    
+    return {
+        x: mt3 * p0.x + 3 * mt2 * t * p1.x + 3 * mt * t2 * p2.x + t3 * p3.x,
+        y: mt3 * p0.y + 3 * mt2 * t * p1.y + 3 * mt * t2 * p2.y + t3 * p3.y
+    };
+}
+
+// *** NEW: Quadratic Bezier Helper ***
+function getPointOnQuadraticBezier(p0, p1, p2, t) {
+    // Calculates a point on a quadratic Bezier curve defined by p0, p1, p2 at parameter t [0, 1]
+    const mt = 1 - t;
+    const mt2 = mt * mt;
+    const t2 = t * t;
+    return {
+        x: mt2 * p0.x + 2 * mt * t * p1.x + t2 * p2.x,
+        y: mt2 * p0.y + 2 * mt * t * p1.y + t2 * p2.y
+    };
+}
+
+// *** NEW: Helper function for Catmull-Rom interpolation ***
+function getPointOnCatmullRom(p0, p1, p2, p3, t) {
+    // Calculates a point on a Catmull-Rom spline segment between p1 and p2 at parameter t [0, 1]
+    const t2 = t * t;
+    const t3 = t2 * t;
+    return {
+        x: 0.5 * ((2 * p1.x) + (-p0.x + p2.x) * t + (2 * p0.x - 5 * p1.x + 4 * p2.x - p3.x) * t2 + (-p0.x + 3 * p1.x - 3 * p2.x + p3.x) * t3),
+        y: 0.5 * ((2 * p1.y) + (-p0.y + p2.y) * t + (2 * p0.y - 5 * p1.y + 4 * p2.y - p3.y) * t2 + (-p0.y + 3 * p1.y - 3 * p2.y + p3.y) * t3)
+    };
+}
+
+// *** NEW: Helper function for Bezier control point calculation from Catmull-Rom points ***
 function getControlPoints(p0, p1, p2, p3, tension = 0.5) {
     // Catmull-Rom to Cubic Bezier conversion formula
     const d1x = (p2.x - p0.x) * tension;
@@ -30,39 +135,335 @@ function getControlPoints(p0, p1, p2, p3, tension = 0.5) {
     return [cp1, cp2];
 }
 
-function getPointOnCubicBezier(p0, cp1, cp2, p1, t) {
-    const t2 = t * t;
-    const t3 = t2 * t;
-    const mt = 1 - t;
-    const mt2 = mt * mt;
-    const mt3 = mt2 * mt;
+// *** NEW: Spline Path Generation Function (Mode Aware) ***
+function generateSplinePath(points, samplesPerSegment = 20) {
+    if (!points || points.length < 2) return []; 
 
-    const x = mt3 * p0.x + 3 * mt2 * t * cp1.x + 3 * mt * t2 * cp2.x + t3 * p1.x;
-    const y = mt3 * p0.y + 3 * mt2 * t * cp1.y + 3 * mt * t2 * cp2.y + t3 * p1.y;
-    return { x, y };
-}
+    const path = [points[0]]; 
+    const n = points.length;
+    const mode = window.pathInterpolationMode || 'passthrough'; // Default to passthrough
 
-function generateSplinePath(points, samplesPerSegment = 30) {
-    if (points.length < 2) return points;
+    if (n === 2) {
+        // Straight line (same for both modes)
+        path.push(points[1]);
+        return path;
+    }
 
-    const path = [points[0]]; // Start with the first point
-    const numSegments = points.length - 1;
-
-    for (let i = 0; i < numSegments; i++) {
-        const p0 = points[Math.max(0, i - 1)]; // Previous point (or p0 if i=0)
-        const p1 = points[i];                     // Start of segment
-        const p2 = points[i + 1];                 // End of segment
-        const p3 = points[Math.min(numSegments, i + 2)]; // Next point (or pN if i=N-1)
-
-        const [cp1, cp2] = getControlPoints(p0, p1, p2, p3);
-
-        // Sample points along this cubic Bezier segment
-        for (let t = 1; t <= samplesPerSegment; t++) {
-            const sampleT = t / samplesPerSegment;
-            path.push(getPointOnCubicBezier(p1, cp1, cp2, p2, sampleT));
+    // --- Influencer Mode Logic --- 
+    if (mode === 'influencer') {
+        if (n === 3) {
+            // Quadratic Bezier (Start-P0, Waypoint1-P1, End-P2)
+            const [P0, P1, P2] = points;
+            for (let t = 1; t <= samplesPerSegment; t++) {
+                path.push(getPointOnQuadraticBezier(P0, P1, P2, t / samplesPerSegment));
+            }
+        } else if (n === 4) {
+            // Cubic Bezier (Start-P0, Waypoint1-P1, Waypoint2-P2, End-P3)
+            const [P0, P1, P2, P3] = points;
+            for (let t = 1; t <= samplesPerSegment; t++) {
+                path.push(getBezierPoint(P0, P1, P2, P3, t / samplesPerSegment));
+            }
+        } else { // n >= 5
+            console.warn(`generateSplinePath (influencer mode): 3+ waypoints not directly supported, falling back to 'passthrough' Bezier spline.`);
+            // Fallback to passthrough logic for 3+ waypoints
+            const numSegments = n - 1;
+            for (let i = 0; i < numSegments; i++) {
+                const p0 = points[Math.max(0, i - 1)]; 
+                const p1 = points[i];                    
+                const p2 = points[i + 1];                 
+                const p3 = points[Math.min(numSegments, i + 2)]; 
+                const [cp1, cp2] = getControlPoints(p0, p1, p2, p3);
+                for (let t = 1; t <= samplesPerSegment; t++) {
+                    path.push(getBezierPoint(p1, cp1, cp2, p2, t / samplesPerSegment));
+                }
+            }
+            if (path[path.length - 1].x !== points[n - 1].x || path[path.length - 1].y !== points[n - 1].y) {
+                 path.push(points[n - 1]);
+            }
         }
     }
+    // --- Passthrough Mode Logic --- 
+    else { // mode === 'passthrough'
+        if (n === 3) {
+            // Catmull-Rom for 1 waypoint
+            const p0 = points[0]; 
+            const p1 = points[0];
+            const p2 = points[1];
+            const p3 = points[2];
+            for (let t = 1; t <= samplesPerSegment; t++) {
+                path.push(getPointOnCatmullRom(p0, p1, p2, p3, t / samplesPerSegment));
+            }
+            const p0_seg2 = points[0];
+            const p1_seg2 = points[1];
+            const p2_seg2 = points[2];
+            const p3_seg2 = points[2]; 
+            for (let t = 1; t <= samplesPerSegment; t++) {
+                path.push(getPointOnCatmullRom(p0_seg2, p1_seg2, p2_seg2, p3_seg2, t / samplesPerSegment));
+            }
+            if (path[path.length - 1].x !== points[n - 1].x || path[path.length - 1].y !== points[n - 1].y) {
+                 path.push(points[n - 1]);
+            }
+        } else { // n >= 4: Bezier spline using Catmull-Rom derived control points
+            const numSegments = n - 1;
+            for (let i = 0; i < numSegments; i++) {
+                const p0 = points[Math.max(0, i - 1)]; 
+                const p1 = points[i];                    
+                const p2 = points[i + 1];                 
+                const p3 = points[Math.min(numSegments, i + 2)]; 
+                const [cp1, cp2] = getControlPoints(p0, p1, p2, p3);
+                for (let t = 1; t <= samplesPerSegment; t++) {
+                    path.push(getBezierPoint(p1, cp1, cp2, p2, t / samplesPerSegment));
+                }
+            }
+            if (path[path.length - 1].x !== points[n - 1].x || path[path.length - 1].y !== points[n - 1].y) {
+                 path.push(points[n - 1]);
+            }
+        }
+    }
+    
     return path;
+}
+
+// *** NEW: Expose quadratic helper globally ***
+window.getPointOnQuadraticBezier = getPointOnQuadraticBezier;
+
+// *** NEW: Global Mouse Move Handler ***
+function globalMouseMoveHandler(e) {
+    if (!window.draggedElement) return;
+
+    // Calculate new position based on stored initial values and mouse delta
+    const dx = e.clientX - window.dragInitialMouseX;
+    const dy = e.clientY - window.dragInitialMouseY;
+    let newX = window.dragStartX + dx;
+    let newY = window.dragStartY + dy;
+
+    // Boundary checks
+    const vpRect = window.viewport.getBoundingClientRect();
+    const elRect = window.draggedElement.getBoundingClientRect(); 
+    newX = Math.max(0, Math.min(newX, vpRect.width - elRect.width));
+    newY = Math.max(0, Math.min(newY, vpRect.height - elRect.height));
+
+    // Apply new position
+    window.draggedElement.style.left = `${newX}px`;
+    window.draggedElement.style.top = `${newY}px`;
+
+    // Live update path while dragging, if path is visible
+    const pathVis = document.getElementById('path-visualization');
+    if (pathVis && typeof drawPathVisualization === 'function') {
+        drawPathVisualization(); 
+    }
+}
+
+// *** NEW: Global Mouse Up Handler ***
+function globalMouseUpHandler(e) {
+    if (!window.draggedElement) return;
+
+    console.log(`globalMouseUpHandler: mouseup for ${window.draggedElement.id}`);
+
+    // Final updates for the dragged element
+    window.draggedElement.style.cursor = 'grab';
+    window.draggedElement.style.transition = ''; // Restore transitions if any
+    console.log(`${window.draggedElement.id} Dropped at:`, window.draggedElement.style.left, window.draggedElement.style.top);
+
+    // Update path visualization if it exists
+    const pathVis = document.getElementById('path-visualization');
+    if (pathVis && typeof drawPathVisualization === 'function') {
+        drawPathVisualization();
+    }
+
+    // Save state
+    if (typeof window.saveCurrentState === 'function') {
+        window.saveCurrentState();
+        // console.log("Rectangle positions saved after drag:", ...); // Keep console less noisy
+    }
+
+    // Clean up global state and listeners
+    window.isRectangleDragging = false; // Reset flag for viewport click check
+    window.draggedElement = null;
+    document.removeEventListener('mousemove', globalMouseMoveHandler);
+    document.removeEventListener('mouseup', globalMouseUpHandler);
+    console.log(`globalMouseUpHandler: cleaned up listeners and flags`);
+}
+
+// --- Path Visualization Logic with Bezier Curves ---
+function drawPathVisualization() {
+    // DELEGATE to applyPathStyle to handle drawing based on current mode
+    if (typeof window.applyPathStyle === 'function' && window.pathStyleModes && window.currentPathStyleIndex !== undefined) {
+        const currentStyleMode = window.pathStyleModes[window.currentPathStyleIndex];
+        if (currentStyleMode) {
+            // Check if required elements exist before calling applyPathStyle
+            if (!window.startRect || !window.endRect || !window.viewport) {
+                 console.warn('drawPathVisualization: Cannot delegate - missing required elements (startRect, endRect, or viewport).');
+                 // Optionally remove existing path if elements are missing
+                 const existingPath = document.getElementById('path-visualization');
+                 if (existingPath) existingPath.remove();
+                 return; 
+            }
+            // Proceed with delegation
+            applyPathStyle(currentStyleMode.style);
+        } else {
+             console.warn('drawPathVisualization: Current path style mode not found, cannot draw path.');
+             // Optionally remove existing path if style is invalid
+             const existingPath = document.getElementById('path-visualization');
+             if (existingPath) existingPath.remove();
+        }
+    } else {
+        console.warn('drawPathVisualization: Cannot delegate - applyPathStyle function or path styles not available.');
+        // Optionally remove existing path if functions are missing
+        const existingPath = document.getElementById('path-visualization');
+        if (existingPath) existingPath.remove();
+    }
+    // Ensure NO old drawing logic remains below this point in this function.
+}
+
+// Animation function with bezier paths but linear rotations
+function applyXFormAnimation() {
+    console.log("Starting X-Form animation...");
+    const startButton = document.getElementById('startAnimation');
+
+    // Check if elements exist, and try to initialize them if they don't
+    if (!window.startRect || !window.endRect) {
+        console.log("Start/End rectangle elements not found, attempting to initialize...");
+        initializeRects();
+        
+        // If still not initialized, show error and exit
+        if (!window.startRect || !window.endRect) {
+            console.error("Start/End rectangle elements not found!");
+            return;
+        }
+    }
+
+    if (!window.currentXFormHasRun) {
+        if (window.currentXFormName === "New X-Form" || !window.currentXFormId) {
+            window.currentXFormId = Date.now();
+            window.currentXFormName = `X-Form ${new Date(window.currentXFormId).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}`;
+        }
+        window.currentXFormHasRun = true;
+    }
+
+    if(startButton) startButton.textContent = 'Play';
+    
+    const duration = parseInt(window.durationInput?.value || 500, 10);
+    const durationSeconds = Math.max(0.1, duration / 1000);
+    
+    window.startRect.style.animation = '';
+    window.startRect.style.transform = '';
+    window.startRect.style.transition = ''; // Ensure transition is cleared
+    
+    setTimeout(() => {
+        // Double-check that elements still exist
+        if (!window.startRect || !window.endRect || !window.viewport) {
+            console.error("Required elements lost during animation prep!");
+            return;
+        }
+        
+        const vpRect = window.viewport.getBoundingClientRect();
+        const startRectBounds = window.startRect.getBoundingClientRect();
+        const endRectBounds = window.endRect.getBoundingClientRect();
+
+        // Calculate center points of rectangles (relative to viewport)
+        const startCenterX = startRectBounds.left - vpRect.left + startRectBounds.width / 2;
+        const startCenterY = startRectBounds.top - vpRect.top + startRectBounds.height / 2;
+        const endCenterX = endRectBounds.left - vpRect.left + endRectBounds.width / 2;
+        const endCenterY = endRectBounds.top - vpRect.top + endRectBounds.height / 2;
+
+        // Create path points including start, waypoints, and end
+        const pathPoints = [
+            { x: startCenterX, y: startCenterY }, // Using center point
+            ...window.intermediatePoints.map(p => ({ x: p.x, y: p.y })),
+            { x: endCenterX, y: endCenterY } // Using center point
+        ];
+
+        if (pathPoints.length >= 2) {
+            const keyframesName = `pathAnimation_${Date.now()}`;
+            let keyframesRule = `@keyframes ${keyframesName} {\n`;
+            
+            // Generate keyframes with bezier path for position, linear for rotation
+            const numSteps = 100;
+            for (let i = 0; i <= numSteps; i++) {
+                const percentage = i;
+                const progress = i / numSteps;
+                
+                // Calculate position based on bezier curves
+                let position;
+                
+                if (pathPoints.length === 2) {
+                    // Simple linear interpolation for just 2 points
+                    position = {
+                        x: pathPoints[0].x + (pathPoints[1].x - pathPoints[0].x) * progress,
+                        y: pathPoints[0].y + (pathPoints[1].y - pathPoints[0].y) * progress
+                    };
+                } else if (pathPoints.length === 3) {
+                    // Special case for 3 points - use quadratic bezier
+                    const midX = (pathPoints[0].x + pathPoints[2].x) / 2;
+                    const midY = (pathPoints[0].y + pathPoints[2].y) / 2;
+                    const ctrlX = pathPoints[1].x * 2 - midX;
+                    const ctrlY = pathPoints[1].y * 2 - midY;
+                    
+                    const t = progress;
+                    const mt = 1 - t;
+                    position = {
+                        x: mt * mt * pathPoints[0].x + 2 * mt * t * ctrlX + t * t * pathPoints[2].x,
+                        y: mt * mt * pathPoints[0].y + 2 * mt * t * ctrlY + t * t * pathPoints[2].y
+                    };
+                } else {
+                    // Multi-point path with cubic bezier segments
+                    const totalSegments = pathPoints.length - 1;
+                    const segmentProgress = progress * totalSegments;
+                    const segmentIndex = Math.min(Math.floor(segmentProgress), totalSegments - 1);
+                    const segmentT = segmentProgress - segmentIndex;
+                    
+                    // Get control points for this segment
+                    const [cp1, cp2] = getControlPoints(pathPoints, segmentIndex);
+                    const p0 = pathPoints[segmentIndex];
+                    const p3 = pathPoints[segmentIndex + 1];
+                    
+                    // Calculate position using cubic bezier formula
+                    position = getBezierPoint(p0, cp1, cp2, p3, segmentT);
+                }
+                
+                // Adjust for center point of rectangle
+                const pointTranslateX = position.x - startCenterX;
+                const pointTranslateY = position.y - startCenterY;
+                
+                // Calculate rotation based on linear progress (unchanged)
+                const rotateXValue = window.xRotationDirection * 360 * progress;
+                const rotateYValue = window.yRotationDirection * 360 * progress;
+                const rotateZValue = window.zRotationDirection * 360 * progress;
+                
+                const transformValue = `translateX(${pointTranslateX}px) translateY(${pointTranslateY}px) rotateX(${rotateXValue}deg) rotateY(${rotateYValue}deg) rotateZ(${rotateZValue}deg)`;
+                keyframesRule += `  ${percentage}% { transform: ${transformValue}; }\n`;
+            }
+            
+            keyframesRule += `}`;
+
+            const styleSheetId = `animStyle_${keyframesName}`;
+            let styleSheet = document.getElementById(styleSheetId);
+            if (!styleSheet) {
+                 styleSheet = document.createElement("style");
+                 styleSheet.id = styleSheetId;
+                 document.head.appendChild(styleSheet);
+            }
+            styleSheet.textContent = keyframesRule;
+
+            window.startRect.style.animation = `${keyframesName} ${durationSeconds}s ease-in-out forwards`;
+
+            setTimeout(() => {
+                window.startRect.style.animation = ''; 
+                if (styleSheet) styleSheet.remove();
+            }, duration + 100);
+        } else {
+            // Simple direct animation if no waypoints
+            const transformValue = `translateX(${endCenterX - startCenterX}px) translateY(${endCenterY - startCenterY}px) rotateX(${window.xRotationDirection*360}deg) rotateY(${window.yRotationDirection*360}deg) rotateZ(${window.zRotationDirection*360}deg)`;
+            window.startRect.style.transition = `transform ${durationSeconds}s ease-in-out`;
+            window.startRect.style.transform = transformValue;
+            
+            setTimeout(() => {
+                 window.startRect.style.transform = '';
+                 window.startRect.style.transition = '';
+            }, duration + 100);
+        }
+    }, 50);
 }
 
 // --- Initial Setup for Rectangles ---
@@ -114,8 +515,10 @@ function initializeRects() {
     }
     window.viewport.style.cursor = 'crosshair'; // Keep crosshair for WAM
 
+    console.log(`%cinitializeRects: Before makeDraggable: startRect exists? ${!!window.startRect}, endRect exists? ${!!window.endRect}`, 'color: orange;'); // *** ADDED PRE-CHECK LOG ***
     if (startRect) makeDraggable(startRect);
     if (endRect) makeDraggable(endRect);
+    console.log(`%cinitializeRects: Called makeDraggable for startRect and endRect`, 'color: green; font-weight: bold;'); // *** Existing LOG ***
 
     // Initialize or reset all state variables
     window.currentXFormName = "New X-Form";
@@ -148,76 +551,57 @@ function initializeRects() {
     console.log('Rects fully initialized with all properties');
 }
 
-// --- Dragging Logic for Rectangles ---
+// --- Dragging Logic Setup for Rectangles (Revised) ---
 function makeDraggable(element) {
-    let isDragging = false;
-    let startX, startY, initialMouseX, initialMouseY;
-    if (!window.viewport) return;
+    if (!window.viewport || !element) {
+        console.error("Cannot make element draggable: missing viewport or element", element?.id);
+        return;
+    }
 
     element.addEventListener('mousedown', (e) => {
-        if (!element) return;
-        isDragging = true;
-        window.isRectangleDragging = true; // Use global flag
-        element.style.cursor = 'grabbing';
-        element.style.transition = 'none';
+        console.log(`%cmakeDraggable: MOUSE DOWN event listener fired for ${element.id}`, 'color: blue; font-weight: bold;'); // *** ADDED VERY VISIBLE LOG ***
 
+        // Prevent starting a new drag if already dragging something else
+        // or if it wasn't a primary button click
+        if (window.draggedElement || e.button !== 0) {
+             console.log(`makeDraggable: mousedown exit - already dragging ${window.draggedElement?.id} or not primary button (${e.button})`);
+             return;
+        }
+
+        console.log(`makeDraggable: mousedown on ${element.id}`);
+        window.draggedElement = element; // Set the globally tracked element
+        window.isRectangleDragging = true; // Set flag for viewport click check
+
+        element.style.cursor = 'grabbing';
+        element.style.transition = 'none'; // Disable transitions during drag
+
+        // Store initial positions and mouse coordinates globally
         const rect = element.getBoundingClientRect();
         const viewportRect = window.viewport.getBoundingClientRect();
-        startX = rect.left - viewportRect.left;
-        startY = rect.top - viewportRect.top;
-        initialMouseX = e.clientX;
-        initialMouseY = e.clientY;
+        // Use parseFloat for potentially non-integer initial positions
+        window.dragStartX = parseFloat(element.style.left || '0'); 
+        window.dragStartY = parseFloat(element.style.top || '0');
+        window.dragInitialMouseX = e.clientX;
+        window.dragInitialMouseY = e.clientY;
+
+        // Add the global listeners to the document
+        document.addEventListener('mousemove', globalMouseMoveHandler);
+        document.addEventListener('mouseup', globalMouseUpHandler);
+        console.log(`makeDraggable: Added global listeners for ${element.id}`);
+
         e.preventDefault();
+        e.stopPropagation(); // Still important to prevent other actions like text selection
     });
 
-    document.addEventListener('mousemove', (e) => {
-        if (!isDragging || !element) return;
-
-        const dx = e.clientX - initialMouseX;
-        const dy = e.clientY - initialMouseY;
-        let newX = startX + dx;
-        let newY = startY + dy;
-
-        const vpRect = window.viewport.getBoundingClientRect();
-        const elRect = element.getBoundingClientRect(); // Re-get bounds in case size changed
-        newX = Math.max(0, Math.min(newX, vpRect.width - elRect.width));
-        newY = Math.max(0, Math.min(newY, vpRect.height - elRect.height));
-
-        element.style.left = `${newX}px`;
-        element.style.top = `${newY}px`;
-        
-        // Live update path while dragging, if path is visible
-        const pathVis = document.getElementById('path-visualization');
-        if (pathVis) {
-            drawPathVisualization();
-        }
-    });
-
-    document.addEventListener('mouseup', () => {
-        if (isDragging && element) {
-            isDragging = false;
-            window.isRectangleDragging = false; // Reset global flag
-            element.style.cursor = 'grab';
-            element.style.transition = '';
-            console.log(`${element.id} Dropped at:`, element.style.left, element.style.top);
-            
-            // Update path visualization if it exists
-            const pathVis = document.getElementById('path-visualization');
-            if (pathVis) {
-                drawPathVisualization();
-            }
-            
-            if (typeof window.saveCurrentState === 'function') { // Check if save function exists
-                window.saveCurrentState();
-                console.log("Rectangle positions saved to localStorage:", 
-                    JSON.parse(localStorage.getItem(window.STATE_STORAGE_KEY || 'xformMaker_currentState')));
-            }
-        }
-    });
-
+    // Prevent default browser drag behavior which can interfere
     element.addEventListener('dragstart', (e) => {
         e.preventDefault();
     });
+
+    // Ensure initial cursor is correct
+    element.style.cursor = 'grab';
+
+    console.log(`makeDraggable applied to ${element.id}`);
 }
 
 // --- Resize Logic ---
@@ -358,203 +742,17 @@ function setupDurationControl() {
     console.log("Duration control set up with range:", MIN_DURATION, "-", MAX_DURATION, "ms");
 }
 
-// --- Animation Logic ---
-function applyXFormAnimation() {
-    console.log("Starting X-Form animation...");
-    const startButton = document.getElementById('startAnimation');
-
-    if (!window.startRect || !window.endRect) {
-        console.error("Start/End rectangle elements not found!");
-        return;
-    }
-
-    if (!window.currentXFormHasRun) {
-        if (window.currentXFormName === "New X-Form" || !window.currentXFormId) {
-            window.currentXFormId = Date.now();
-            window.currentXFormName = `X-Form ${new Date(window.currentXFormId).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}`;
-        }
-        window.currentXFormHasRun = true;
-        // Potentially update display if needed (handled by persistence module?)
-    }
-
-    if(startButton) startButton.textContent = 'Play';
-    
-    const duration = parseInt(window.durationInput.value, 10);
-    const durationSeconds = Math.max(0.1, duration / 1000);
-    
-    window.startRect.style.animation = '';
-    window.startRect.style.transform = '';
-    window.startRect.style.transition = ''; // Ensure transition is cleared
-    
-    setTimeout(() => {
-        const vpRect = window.viewport.getBoundingClientRect();
-        const startRectBounds = window.startRect.getBoundingClientRect();
-        const endRectBounds = window.endRect.getBoundingClientRect();
-
-        const startLeft = startRectBounds.left - vpRect.left;
-        const startTop = startRectBounds.top - vpRect.top;
-        const endLeft = endRectBounds.left - vpRect.left;
-        const endTop = endRectBounds.top - vpRect.top;
-
-        const translateX = endLeft - startLeft;
-        const translateY = endTop - startTop;
-
-        // Get the rectangle dimensions for waypoint adjustment
-        const rectWidth = startRectBounds.width;
-        const rectHeight = startRectBounds.height;
-
-        const controlPoints = [
-            { x: startLeft + (startRectBounds.width / 2), y: startTop + (startRectBounds.height / 2) },
-            ...window.intermediatePoints.map(p => ({ 
-                x: p.x + (rectWidth / 2), // Add half width to get center
-                y: p.y + (rectHeight / 2) // Add half height to get center
-            })),
-            { x: endLeft + (endRectBounds.width / 2), y: endTop + (endRectBounds.height / 2) }
-        ];
-
-        const smoothPath = generateSplinePath(controlPoints);
-
-        if (smoothPath.length > 1) {
-            const keyframesName = `pathAnimation_${Date.now()}`;
-            let keyframesRule = `@keyframes ${keyframesName} {\n`;
-            const numPathPoints = smoothPath.length - 1;
-
-            smoothPath.forEach((point, index) => {
-                const percentage = numPathPoints === 0 ? 100 : (index / numPathPoints) * 100;
-                // Adjust for center point of rectangle
-                const pointTranslateX = point.x - (startLeft + startRectBounds.width / 2);
-                const pointTranslateY = point.y - (startTop + startRectBounds.height / 2);
-                const progress = percentage / 100;
-                const rotateXValue = window.xRotationDirection * 360 * progress;
-                const rotateYValue = window.yRotationDirection * 360 * progress;
-                const rotateZValue = window.zRotationDirection * 360 * progress;
-
-                const transformValue = `translateX(${pointTranslateX}px) translateY(${pointTranslateY}px) rotateX(${rotateXValue}deg) rotateY(${rotateYValue}deg) rotateZ(${rotateZValue}deg)`;
-                keyframesRule += `  ${percentage}% { transform: ${transformValue}; }\n`;
-            });
-            keyframesRule += `}`;
-
-            const styleSheetId = `animStyle_${keyframesName}`;
-            let styleSheet = document.getElementById(styleSheetId);
-            if (!styleSheet) {
-                 styleSheet = document.createElement("style");
-                 styleSheet.id = styleSheetId;
-                 document.head.appendChild(styleSheet);
-            }
-            styleSheet.textContent = keyframesRule;
-
-            window.startRect.style.animation = `${keyframesName} ${durationSeconds}s ease-in-out forwards`;
-
-            setTimeout(() => {
-                // Don't reset transform here if using 'forwards'
-                window.startRect.style.animation = ''; 
-                if (styleSheet) styleSheet.remove();
-            }, duration + 100);
-        } else {
-            const transformValue = `translateX(${translateX}px) translateY(${translateY}px) rotateX(${window.xRotationDirection*360}deg) rotateY(${window.yRotationDirection*360}deg) rotateZ(${window.zRotationDirection*360}deg)`;
-            window.startRect.style.transition = `transform ${durationSeconds}s ease-in-out`;
-            window.startRect.style.transform = transformValue;
-            
-            setTimeout(() => {
-                 window.startRect.style.transform = '';
-                 window.startRect.style.transition = '';
-            }, duration + 100);
-        }
-    }, 50);
-}
-
 // --- Path Visualization Logic ---
-function drawPathVisualization() {
-    // Remove any existing path visualization
-    const existingPath = document.getElementById('path-visualization');
-    if (existingPath) {
-        existingPath.remove();
-    }
-    
-    if (!window.startRect || !window.endRect || !window.viewport) {
-        console.warn('Cannot draw path: missing required elements');
-        return;
-    }
-    
-    const vpRect = window.viewport.getBoundingClientRect();
-    const startRectBounds = window.startRect.getBoundingClientRect();
-    const endRectBounds = window.endRect.getBoundingClientRect();
-    
-    // Calculate center points of rectangles
-    const startLeft = startRectBounds.left - vpRect.left + startRectBounds.width / 2;
-    const startTop = startRectBounds.top - vpRect.top + startRectBounds.height / 2;
-    const endLeft = endRectBounds.left - vpRect.left + endRectBounds.width / 2;
-    const endTop = endRectBounds.top - vpRect.top + endRectBounds.height / 2;
-
-    // Get the rectangle dimensions for waypoint adjustment
-    const rectWidth = startRectBounds.width;
-    const rectHeight = startRectBounds.height;
-    
-    // Create control points array including start, waypoints, and end
-    // Treat waypoints as center points of the rectangle
-    const controlPoints = [
-        { x: startLeft, y: startTop },
-        ...window.intermediatePoints.map(p => ({ 
-            x: p.x + (rectWidth / 2), // Add half width to get center
-            y: p.y + (rectHeight / 2) // Add half height to get center
-        })),
-        { x: endLeft, y: endTop }
-    ];
-    
-    // Generate the smooth path
-    const smoothPath = generateSplinePath(controlPoints);
-    
-    if (smoothPath.length <= 1) {
-        console.warn('Not enough points to draw a path');
-        return;
-    }
-    
-    // Create SVG element for drawing the path
-    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-    svg.id = 'path-visualization';
-    svg.style.position = 'absolute';
-    svg.style.top = '0';
-    svg.style.left = '0';
-    svg.style.width = '100%';
-    svg.style.height = '100%';
-    svg.style.pointerEvents = 'none'; // Make it non-interactive
-    svg.style.zIndex = '2'; // Below markers and rects
-    
-    // Create the path element
-    const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-    path.setAttribute('fill', 'none');
-    path.setAttribute('stroke', 'rgba(65, 105, 225, 0.7)'); // Royal blue with transparency
-    path.setAttribute('stroke-width', '2');
-    path.setAttribute('stroke-dasharray', '5,3'); // Dotted line
-    
-    // Build the path data
-    let pathData = `M ${smoothPath[0].x} ${smoothPath[0].y}`;
-    for (let i = 1; i < smoothPath.length; i++) {
-        pathData += ` L ${smoothPath[i].x} ${smoothPath[i].y}`;
-    }
-    
-    path.setAttribute('d', pathData);
-    svg.appendChild(path);
-    
-    // Append to viewport
-    window.viewport.appendChild(svg);
-}
-
 function togglePathVisualization() {
     const pathVis = document.getElementById('path-visualization');
     if (pathVis) {
         pathVis.remove();
     } else {
-        drawPathVisualization();
-    }
-    
-    // Update button state
-    const showPathButton = document.getElementById('showPathBtn');
-    if (showPathButton) {
-        if (pathVis) {
-            showPathButton.textContent = 'Show Path';
+        // Check if required elements exist before drawing
+        if (window.startRect && window.endRect && window.viewport) {
+            drawPathVisualization();
         } else {
-            showPathButton.textContent = 'Hide Path';
+            console.log('Cannot toggle path: required elements not initialized yet');
         }
     }
 }
@@ -564,19 +762,6 @@ function setupViewportActions() {
     const startButton = document.getElementById('startAnimation');
     const resetButton = document.getElementById('resetPositions');
     const themeToggle = document.getElementById('themeToggle');
-    
-    // Create and insert the Show Path button
-    const showPathButton = document.createElement('button');
-    showPathButton.id = 'showPathBtn';
-    showPathButton.textContent = 'Show Path';
-    showPathButton.title = 'Toggle path visualization';
-    
-    if (startButton && resetButton) {
-        const actionsDiv = startButton.parentElement;
-        if (actionsDiv && actionsDiv.classList.contains('viewport-actions')) {
-            actionsDiv.insertBefore(showPathButton, themeToggle);
-        }
-    }
     
     if (startButton) {
         startButton.addEventListener('click', applyXFormAnimation);
@@ -597,22 +782,14 @@ function setupViewportActions() {
                 pathVis.remove();
             }
             
-            // Reset the show path button text
-            if (showPathButton) {
-                showPathButton.textContent = 'Show Path';
-            }
-            
             initializeRects(); // Reset rectangles and waypoints
             console.log("Viewport reset complete");
+            
             if (typeof window.saveCurrentState === 'function') window.saveCurrentState(); // Save reset state
         });
     }
     
-    if (showPathButton) {
-        showPathButton.addEventListener('click', togglePathVisualization);
-    }
-    
-    console.log("Viewport action buttons set up with path visualization option");
+    console.log("Viewport action buttons set up");
 }
 
 // --- Waypoint Controls Setup --- //
@@ -648,26 +825,48 @@ function setupWaypointControls() {
         // during path calculation in drawPathVisualization and applyXFormAnimation
         const pointData = { x, y, element: marker };
         window.intermediatePoints.push(pointData);
-        window.lastModifiedPointIndex = window.intermediatePoints.length - 1;
+        const numPoints = window.intermediatePoints.length;
+        console.log("window.intermediatePoints.length:", numPoints);
+
+        const lastIndex = numPoints - 1;
+        console.log(`Adding waypoint at index ${lastIndex}`);
+
+        window.lastModifiedPointIndex = lastIndex;
         
         if (typeof window.makeDraggableWaypoint === 'function') {
              window.makeDraggableWaypoint(marker, window.intermediatePoints.length - 1);
         }
         
         if (typeof window.updateWaypointCounter === 'function') {
+            console.log("Calling updateWaypointCounter");
             window.updateWaypointCounter();
-        }
-        if (typeof window.saveCurrentState === 'function') {
-             window.saveCurrentState(); // Save after adding
+        } else {
+            console.warn("updateWaypointCounter is not a function");
         }
         
-        // Update path visualization if it's visible
+        // Also update the delete waypoint button state
+        if (typeof window.updateDeleteWaypointButton === 'function') {
+            console.log("Calling updateDeleteWaypointButton");
+            window.updateDeleteWaypointButton();
+        } else {
+            console.warn("updateDeleteWaypointButton is not a function");
+        }
+        
+        // Update path visualization after adding waypoint - check for required elements first
         const pathVis = document.getElementById('path-visualization');
-        if (pathVis) {
+        if (pathVis && window.startRect && window.endRect && window.viewport) {
             drawPathVisualization();
         }
         
         console.log(`Added waypoint at (${x.toFixed(1)}, ${y.toFixed(1)})`);
+
+        if (typeof window.saveCurrentState === 'function') {
+            console.log("Calling saveCurrentState");
+             window.saveCurrentState(); // Save after adding
+        } else {
+            console.warn("saveCurrentState is not a function");
+        }
+
         return pointData;
     }
     
@@ -699,9 +898,14 @@ function setupWaypointControls() {
             window.updateWaypointCounter();
         }
         
-        // Always update path visualization if it exists
+        // Also update the delete waypoint button state
+        if (typeof window.updateDeleteWaypointButton === 'function') {
+            window.updateDeleteWaypointButton();
+        }
+        
+        // Update path visualization after deleting waypoint - check for required elements first
         const pathVis = document.getElementById('path-visualization');
-        if (pathVis) {
+        if (pathVis && window.startRect && window.endRect && window.viewport) {
             drawPathVisualization();
         }
         
@@ -722,9 +926,14 @@ function setupWaypointControls() {
                 window.updateWaypointCounter();
             }
             
-            // Always update path visualization if it exists
+            // Also update the delete waypoint button state
+            if (typeof window.updateDeleteWaypointButton === 'function') {
+                window.updateDeleteWaypointButton();
+            }
+            
+            // Update path visualization after deleting waypoint - check for required elements first
             const pathVis = document.getElementById('path-visualization');
-            if (pathVis) {
+            if (pathVis && window.startRect && window.endRect && window.viewport) {
                 drawPathVisualization();
             }
             
@@ -756,7 +965,7 @@ function setupWaypointControls() {
                 marker.style.top = `${newY}px`;
             }
             
-            // Update path visualization if it's visible
+            // Update path visualization during drag
             const pathVis = document.getElementById('path-visualization');
             if (pathVis) {
                 drawPathVisualization();
@@ -785,16 +994,24 @@ function setupWaypointControls() {
                  }
 
                  if (typeof window.updateWaypointCounter === 'function') window.updateWaypointCounter();
+                 
+                 // Also update the delete waypoint button state
+                 if (typeof window.updateDeleteWaypointButton === 'function') {
+                     window.updateDeleteWaypointButton();
+                 }
+                 
                  window.wasDraggingPoint = false; 
                  console.log('Waypoint deleted by dragging outside viewport');
                  
-                 // Update path visualization if it exists
+                 // Update path visualization
                  const pathVis = document.getElementById('path-visualization');
                  if (pathVis) {
                      drawPathVisualization();
                  }
-                 
-                 if (typeof window.saveCurrentState === 'function') window.saveCurrentState();
+
+                 if (typeof window.saveCurrentState === 'function') {
+                     window.saveCurrentState();
+                 }
              } else {
                  // Point is still within viewport - update last modified
                  window.lastModifiedPointIndex = window.draggingPointIndex;
@@ -806,7 +1023,16 @@ function setupWaypointControls() {
                      point.element.style.left = `${point.x}px`;
                      point.element.style.top = `${point.y}px`;
                  }
-                  if (typeof window.saveCurrentState === 'function') window.saveCurrentState(); // Save final position
+                 
+                 // Update path visualization
+                 const pathVis = document.getElementById('path-visualization');
+                 if (pathVis) {
+                     drawPathVisualization();
+                 }
+                 
+                 if (typeof window.saveCurrentState === 'function') {
+                     window.saveCurrentState();
+                 }
              }
             
              window.draggingPointIndex = -1;
@@ -818,12 +1044,24 @@ function setupWaypointControls() {
 
     // Event: Viewport click to add waypoint
     window.viewport.addEventListener('click', (e) => {
+        console.log(`viewport click: target=${e.target.id || e.target.className}, isRectangleDragging=${window.isRectangleDragging}, wasDraggingPoint=${window.wasDraggingPoint}`); // Log click
+        
+        // *** MODIFIED Check: Prevent if target is rect OR if dragging flags are set ***
+        if (e.target === window.startRect || e.target === window.endRect) {
+            console.log('viewport click: prevented by target being startRect or endRect.'); 
+            return;
+        }
         if (window.wasDraggingPoint || window.isRectangleDragging) {
+            console.log('viewport click: prevented by dragging flag.'); // Log prevention
             return;
         }
-        if (e.target.classList.contains('point-marker') || e.target === window.startRect || e.target === window.endRect) {
+        // Original target check for markers (can likely be removed if covered above, but keep for safety)
+        if (e.target.classList.contains('point-marker')) {
+            console.log('viewport click: prevented by target being marker.'); // Log prevention
             return;
         }
+
+        console.log('viewport click: proceeding to addWaypoint.'); // Log proceed
         addWaypoint(e.clientX, e.clientY);
     });
 
@@ -881,5 +1119,13 @@ function setupControls() {
      if (window.heightInput) {
          window.heightInput.addEventListener('change', applyRectangleSize);
          window.heightInput.addEventListener('input', applyRectangleSize);
+     }
+     
+     // Initialize path style button if the function exists
+     if (typeof window.setupPathStyleButton === 'function') {
+         window.setupPathStyleButton();
+         console.log("Path style button initialized");
+     } else {
+         console.warn("Path style button initialization function not found");
      }
 } 

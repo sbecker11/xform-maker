@@ -40,6 +40,9 @@ window.currentXFormHasRun = false;
 window.isFilenameModeATM = true; // Default
 window.lastUsedDirHandle = null;
 
+// *** NEW: Path Interpolation Mode ***
+window.pathInterpolationMode = 'passthrough'; // Options: 'passthrough', 'influencer'
+
 
 // --- Initial Setup on DOMContentLoaded ---
 document.addEventListener('DOMContentLoaded', () => {
@@ -92,6 +95,13 @@ document.addEventListener('DOMContentLoaded', () => {
         console.error("Controls setup function not found!");
     }
 
+    // *** ADDED: Explicitly initialize rectangles after controls setup ***
+    if (typeof initializeRects === 'function') {
+        initializeRects(); 
+    } else {
+         console.error("initializeRects function not found!");
+    }
+
     // --- Final Initialization Steps ---
     // Initial applyRectangleSize might be needed if restoreState doesn't handle it fully
     // but initializeRects called within restoreState should cover initial setup.
@@ -113,6 +123,15 @@ document.addEventListener('DOMContentLoaded', () => {
     if (typeof updateIconsForTheme === 'function') updateIconsForTheme();
 
     console.log("Application initialization sequence complete.");
+
+    // *** NEW: Add Help Button Listener ***
+    const helpButton = document.getElementById('helpBtn');
+    if (helpButton && typeof window.showUsageModal === 'function') {
+        helpButton.addEventListener('click', window.showUsageModal);
+    } else {
+        if (!helpButton) console.warn('Help button (#helpBtn) not found.');
+        if (typeof window.showUsageModal !== 'function') console.warn('showUsageModal function not found.');
+    }
 
     // --- Global Helper Functions (Minimal set remaining) ---
     // Theme toggle listener might remain here if not moved

@@ -30,6 +30,29 @@ body {
     margin-bottom: 0; /* Adjust */
 }
 
+/* NEW: Generic styles for icon buttons in the header */
+.header-icon-btn {
+    background: none;
+    border: none;
+    color: var(--text-primary);
+    font-size: 1.5em; /* Make icon larger */
+    cursor: pointer;
+    padding: 0 5px; /* Add some horizontal padding */
+    margin-left: 10px; /* Space from previous element */
+    opacity: 0.8;
+    transition: opacity 0.2s;
+}
+
+.header-icon-btn:hover {
+    opacity: 1.0;
+}
+
+/* Specific style for the help button */
+#helpBtn {
+    /* Add any specific overrides if needed */
+    font-weight: bold;
+}
+
 /* Filename section styles for Phase 1 & 2 */
 .filename-section {
     margin-bottom: 5px;
@@ -797,7 +820,7 @@ button.danger:hover {
     box-sizing: border-box; 
     transform-style: preserve-3d; 
     transition: transform 0.5s ease-in-out; 
-    z-index: 5; /* Base z-index for rects */
+    z-index: 50; /* INCREASED from 5 - Ensure rects are above path/markers */
 }
 .rect-start {
     background-color: rgba(0, 128, 0, 0.8); /* Green, semi-transparent */
@@ -1089,3 +1112,45 @@ button.danger:hover {
 #currentFolderDisplay.folder-needs-permission::before {
     content: "⚠️ ";
 }
+
+/* NEW: Usage Modal Specific Styles */
+.usage-modal-backdrop {
+    /* Inherits from modal-backdrop */
+    /* Can add overrides here if needed */
+}
+
+.usage-modal {
+    /* Inherits from custom-confirm-modal */
+    width: 600px; /* Make it wider */
+    max-width: 90vw;
+    max-height: 80vh; /* Limit height */
+    font-family: sans-serif; /* Use standard sans-serif */
+}
+
+.usage-title {
+    font-size: 1.4em;
+    margin-bottom: 15px;
+    color: var(--text-primary);
+    text-align: center;
+    border-bottom: 1px solid var(--border-primary);
+    padding-bottom: 10px;
+}
+
+.usage-content {
+    flex-grow: 1; /* Allow content to take space */
+    overflow-y: auto; /* Enable vertical scroll */
+    max-height: calc(80vh - 150px); /* Adjust based on title/button height */
+    font-size: 0.95em;
+    line-height: 1.6;
+    color: var(--text-primary);
+    white-space: pre-wrap; /* Preserve whitespace and newlines from template literal */
+    padding-right: 10px; /* Space for scrollbar */
+    margin-bottom: 20px; /* Space before buttons */
+}
+
+.usage-buttons {
+     /* Inherits from custom-confirm-buttons */
+     /* Can add overrides like justify-content: flex-end; if needed */
+}
+
+/* header control group */

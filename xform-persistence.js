@@ -695,26 +695,55 @@ function updateIconsForTheme() {
 
 // --- Update Waypoint Counter UI ---
 window.updateWaypointCounter = function() { // Define on window
-    if (!window.intermediatePoints || !window.waypointCounter || !window.deleteLastWaypointButton || !window.addWaypointButton) {
-        // console.error("Required elements not defined for updateWaypointCounter"); // Reduce noise
-        return;
-    }
-    const count = window.intermediatePoints.length;
-    window.waypointCounter.textContent = count;
-    const isDisabled = count === 0;
-    window.deleteLastWaypointButton.disabled = isDisabled;
+    // Get the counter element - either from window object or by ID
+    console.log("Welcome to the UpdateWaypointCounter function");
+    const waypointCounter = window.waypointCounter || document.getElementById('waypointCounter');
+    const deleteLastWaypointButton = window.deleteLastWaypointButton || document.getElementById('deleteLastWaypointBtn');
+    const addWaypointButton = window.addWaypointButton || document.getElementById('addWaypointButton');
     
-    if (isDisabled) {
-        window.deleteLastWaypointButton.style.pointerEvents = 'none';
-        window.deleteLastWaypointButton.style.opacity = '0.5';
-        window.deleteLastWaypointButton.style.cursor = 'not-allowed';
+    // Exit if we don't have the required elements or intermediatePoints array
+    if (!window.intermediatePoints || !waypointCounter || !deleteLastWaypointButton) {
+        console.warn("Required elements not found for updateWaypointCounter");
+        return;
     } else {
-        window.deleteLastWaypointButton.style.pointerEvents = 'auto';
-        window.deleteLastWaypointButton.style.opacity = '1';
-        window.deleteLastWaypointButton.style.cursor = 'pointer';
+        console.log("Required elements found for updateWaypointCounter");
     }
-    window.addWaypointButton.disabled = count >= 99;
-    // console.log(`Waypoint counter updated: ${count} points`); // Reduce noise
+    
+    const count = window.intermediatePoints.length;
+    console.log(`**** Udating waypoint counter to ${count} ****`);
+
+    
+    // Update counter display
+    waypointCounter.textContent = count;
+    console.log("!!!! Waypoint counter count:", count, '!!!!');
+    console.log("!!!! waypointCounter.textContent:", waypointCounter.textContent, '!!!!');
+
+    
+    // Update delete button state
+    const isDisabled = count === 0;
+    deleteLastWaypointButton.disabled = isDisabled;
+    console.log("deleteLastWaypointButton.disabled:", deleteLastWaypointButton.disabled);
+
+    if (isDisabled) {
+        deleteLastWaypointButton.style.pointerEvents = 'none';
+        deleteLastWaypointButton.style.opacity = '0.5';
+        deleteLastWaypointButton.style.cursor = 'not-allowed';
+    } else {
+        deleteLastWaypointButton.style.pointerEvents = 'auto';
+        deleteLastWaypointButton.style.opacity = '1';
+        deleteLastWaypointButton.style.cursor = 'pointer';
+    }
+    
+    // Also update the add waypoint button if it exists
+    if (addWaypointButton) {
+        addWaypointButton.disabled = count >= 99;
+    }
+    console.log("addWaypointButton.disabled:", addWaypointButton.disabled);
+
+    // Cache references to DOM elements for future use
+    window.waypointCounter = waypointCounter;
+    window.deleteLastWaypointButton = deleteLastWaypointButton;
+    if (addWaypointButton) window.addWaypointButton = addWaypointButton;
 }
 
 // --- Make Waypoint Draggable (Needed by restoreState/applyXFormData) ---
@@ -723,16 +752,19 @@ window.makeDraggableWaypoint = function(element) { // index inferred at mousedow
     if(!window.viewport) return;
 
     element.addEventListener('mousedown', (e) => {
+        console.log(`%cmakeDraggableWaypoint: MOUSE DOWN on marker element`, 'color: purple; font-weight: bold;');
         // Determine current index of this element in the points array
         const idx = window.intermediatePoints.findIndex(p => p.element === element);
+        console.log(`makeDraggableWaypoint: Found index: ${idx}`); // Log index
         if (idx === -1) {
             console.warn('Waypoint element not found in intermediatePoints');
             return;
         }
-        isDragging = true;
+        isDragging = true; // This variable seems unused as mousemove/up are global now?
         window.draggingPointIndex = idx;
         window.lastModifiedPointIndex = idx; // Use window scope
         window.wasDraggingPoint = false; // Use window scope & Reset flag
+        console.log(`makeDraggableWaypoint: Set draggingPointIndex=${idx}, wasDraggingPoint=false`);
 
         const vpRect = window.viewport.getBoundingClientRect();
         // Assign to global offset vars based on current point coords

@@ -669,7 +669,7 @@ async function importXFormsFromFile(file) {
                     let parseMethod = "unknown";
                     
                     // Check if this is a JSONL file (each line is a separate JSON object)
-                    if (file.name.endsWith('.jsonl') || content.includes('\n')) {
+                    if (file.name.toLowerCase().endsWith('.jsonl')) {
                         parseMethod = "JSONL";
                         // Split by newlines and parse each line
                         const lines = content.split('\n').filter(line => line.trim());
@@ -977,13 +977,13 @@ async function renderXFormList(sortBy = 'lastModified', sortDirection = 'desc') 
                     // Clear all selections
                     clearAllSelections();
                     
-                    // Toggle selection state
+                    // Toggle selection state - only select if it wasn't already selected
                     if (!wasSelected) {
                         // If not previously selected, select it
                         li.classList.add('single-selected');
                         window.selectedXforms = [xform];
                     }
-                    // If it was already selected, leave it unselected (clearAllSelections already did this)
+                    // If it was already selected, it will remain unselected (clearAllSelections already did this)
                 }
                 
                 // Update the last clicked index
@@ -1167,8 +1167,12 @@ function updateWaypointCounterFallback() {
 
 // Update the delete waypoint button state based on waypoint count
 function updateDeleteWaypointButton() {
-    const deleteBtn = document.getElementById('deleteLastWaypointBtn');
-    if (!deleteBtn) return;
+    // Find the delete button - either from window object or by ID
+    const deleteBtn = window.deleteLastWaypointButton || document.getElementById('deleteLastWaypointBtn');
+    if (!deleteBtn) {
+        console.warn("Delete waypoint button not found");
+        return;
+    }
     
     const count = window.intermediatePoints?.length || 0;
     
@@ -1184,7 +1188,10 @@ function updateDeleteWaypointButton() {
         deleteBtn.style.cursor = 'not-allowed';
     }
     
-    console.log(`Delete waypoint button state updated: ${count > 0 ? 'enabled' : 'disabled'}`);
+    // Cache the button element for future use
+    window.deleteLastWaypointButton = deleteBtn;
+    
+    console.log(`Delete waypoint button state updated: ${count > 0 ? 'enabled' : 'disabled'} (${count} waypoints)`);
 }
 
 // Delete an xform with confirmation dialog
@@ -1877,6 +1884,7 @@ window.initDbResetButton = initDbResetButton;
 window.refreshListWithEmptyState = refreshListWithEmptyState;
 window.runDatabaseDiagnostics = runDatabaseDiagnostics;
 window.addDiagnosticsButton = addDiagnosticsButton;
+window.updateDeleteWaypointButton = updateDeleteWaypointButton;
 
 // Add the missing createXFormDataObject function
 function createXFormDataObject() {
@@ -2419,6 +2427,12 @@ function setupPathStyleButton() {
     // Add styles for path visualization if not already present
     addPathVisualizationStyles();
     
+    // *** Check if listener already added ***
+    if (pathStyleBtn.dataset.listenerAttached === 'true') {
+        console.log('Path style button listener already attached.');
+        return; // Avoid adding multiple listeners
+    }
+    
     // Add click handler
     pathStyleBtn.addEventListener('click', () => {
         // Cycle to next style
@@ -2433,6 +2447,9 @@ function setupPathStyleButton() {
         
         console.log(`Path style changed to: ${newMode.style}`);
     });
+    
+    // *** Mark as attached ***
+    pathStyleBtn.dataset.listenerAttached = 'true';
     
     // Initial path style application (if not 'none')
     const initialMode = window.pathStyleModes[window.currentPathStyleIndex];
@@ -2549,16 +2566,36 @@ function applyPathStyle(style) {
     // Add end point
     points.push({ x: endX, y: endY });
     
-    // Draw based on style
+    // *** MODIFIED: Generate smooth path *unless* linear mode is forced ***
+    let finalPoints = points; // Default to raw points
+    if (window.forceLinearPath === true) {
+        console.log('applyPathStyle: Using raw points due to forceLinearPath flag.');
+        window.forceLinearPath = false; // Reset the flag after use
+    } else if (typeof window.generateSplinePath === 'function') {
+        try {
+            const smoothPath = window.generateSplinePath(points); // Use the function from xform-controls
+            if (smoothPath && smoothPath.length > 0) {
+                finalPoints = smoothPath;
+            } else {
+                 console.warn('generateSplinePath returned empty or invalid path, using raw points.');
+            }
+        } catch (error) {
+             console.error('Error calling generateSplinePath:', error);
+        }
+    } else {
+         console.warn('generateSplinePath function not found, using raw points.');
+    }
+    
+    // Draw based on style using finalPoints
     if (style === 'dotted' || style === 'dashed' || style === 'solid') {
         // Create path element
         const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
         path.setAttribute('class', `path-line ${style}`);
         
-        // Generate path data
-        let pathData = `M ${points[0].x},${points[0].y}`;
-        for (let i = 1; i < points.length; i++) {
-            pathData += ` L ${points[i].x},${points[i].y}`;
+        // Generate path data from finalPoints
+        let pathData = `M ${finalPoints[0].x},${finalPoints[0].y}`;
+        for (let i = 1; i < finalPoints.length; i++) {
+            pathData += ` L ${finalPoints[i].x},${finalPoints[i].y}`;
         }
         
         path.setAttribute('d', pathData);
@@ -2566,57 +2603,35 @@ function applyPathStyle(style) {
     }
     
     if (style === 'circles') {
-        // Add circles at each point
-        points.forEach((point, index) => {
+        // Add circles at each point in finalPoints
+        finalPoints.forEach((point, index) => {
             const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
             circle.setAttribute('class', 'path-marker-circle');
             circle.setAttribute('cx', point.x);
             circle.setAttribute('cy', point.y);
             
             // Start/end points are larger
-            const radius = (index === 0 || index === points.length - 1) ? 6 : 4;
+            const radius = (index === 0 || index === finalPoints.length - 1) ? 6 : 4;
             circle.setAttribute('r', radius);
             
             svg.appendChild(circle);
-            
-            // Connect with lines
-            if (index > 0) {
-                const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
-                line.setAttribute('class', 'path-line');
-                line.setAttribute('x1', points[index - 1].x);
-                line.setAttribute('y1', points[index - 1].y);
-                line.setAttribute('x2', point.x);
-                line.setAttribute('y2', point.y);
-                svg.appendChild(line);
-            }
         });
     }
     
     if (style === 'boxes') {
-        // Add rectangles at each point
-        points.forEach((point, index) => {
+        // Add rectangles at each point in finalPoints
+        finalPoints.forEach((point, index) => {
             const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
             rect.setAttribute('class', 'path-marker-box');
             
             // Start/end points are larger
-            const size = (index === 0 || index === points.length - 1) ? 10 : 7;
+            const size = (index === 0 || index === finalPoints.length - 1) ? 10 : 7;
             rect.setAttribute('width', size);
             rect.setAttribute('height', size);
             rect.setAttribute('x', point.x - size / 2);
             rect.setAttribute('y', point.y - size / 2);
             
             svg.appendChild(rect);
-            
-            // Connect with lines
-            if (index > 0) {
-                const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
-                line.setAttribute('class', 'path-line');
-                line.setAttribute('x1', points[index - 1].x);
-                line.setAttribute('y1', points[index - 1].y);
-                line.setAttribute('x2', point.x);
-                line.setAttribute('y2', point.y);
-                svg.appendChild(line);
-            }
         });
     }
     

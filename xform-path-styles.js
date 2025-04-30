@@ -57,6 +57,7 @@ function setupPathStyleButton () {
       window.currentPathStyleIndex = (window.currentPathStyleIndex + 1) % pathStyleModes.length;
       const mode = pathStyleModes[window.currentPathStyleIndex];
       btn.textContent = mode.label;
+      console.log(`[Style] now: ${mode.id}`);
       applyPathStyle(mode.style);
     });
 

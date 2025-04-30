@@ -5,11 +5,11 @@
 
 // ------------- Configuration -------------
 const widthModes = [
-  { id: 'w1', label: 'Width-1', width: 1 },
-  { id: 'w3', label: 'Width-3', width: 3 },
-  { id: 'w5', label: 'Width-5', width: 5 },
-  { id: 'w7', label: 'Width-7', width: 7 },
-  { id: 'w9', label: 'Width-9', width: 9 }
+  { id: 'w1',  label: 'Width-1',  width: 1  },
+  { id: 'w5',  label: 'Width-5',  width: 5  },
+  { id: 'w10', label: 'Width-10', width: 10 },
+  { id: 'w15', label: 'Width-15', width: 15 },
+  { id: 'w20', label: 'Width-20', width: 20 }
 ];
 
 if (window.currentPathWidthIndex === undefined) window.currentPathWidthIndex = 0;
@@ -37,6 +37,7 @@ function setupPathWidthButton() {
     window.currentPathWidthIndex = (window.currentPathWidthIndex + 1) % widthModes.length;
     const mode = widthModes[window.currentPathWidthIndex];
     btn.textContent = mode.label;
+    console.log(`[Width] now: ${mode.width}px`);
     applyPathWidth(mode.width);
   });
   btn.dataset.pathWidthInit = 'true';

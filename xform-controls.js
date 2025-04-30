@@ -509,6 +509,12 @@ function initializeRects() {
     }
     
     console.log('Rects fully initialized with all properties');
+
+    // Force filename back to ATM auto-clock
+    if (typeof window.startFilenameTimeUpdates==='function') {
+        window.isFilenameModeATM = true;
+        window.startFilenameTimeUpdates();
+    }
 }
 
 // --- Dragging Logic Setup for Rectangles (Revised) ---
@@ -745,6 +751,11 @@ function setupViewportActions() {
             console.log("Viewport reset complete");
             
             if (typeof window.saveCurrentState === 'function') window.saveCurrentState(); // Save reset state
+
+            if (typeof window.startFilenameTimeUpdates==='function') {
+                window.isFilenameModeATM = true;
+                window.startFilenameTimeUpdates();
+            }
         });
     }
     

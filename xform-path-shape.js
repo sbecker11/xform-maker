@@ -5,7 +5,7 @@
 const shapeModes=[
   {id:'linear', label:'Linear'},
   {id:'passthrough', label:'Pass-thru'},
-  {id:'gravity', label:'Gravity'}
+  {id:'bezier', label:'Bezier'}
 ];
 if(window.currentPathShapeIndex===undefined) window.currentPathShapeIndex=0;
 window.shapeModes=shapeModes;
@@ -22,10 +22,13 @@ function setupPathShapeButton(){
     btn.textContent=mode.label;
     if(mode.id==='linear'){
       window.forceLinearPath=true;
-      window.pathInterpolationMode='passthrough'; // fallback value but linear flag dominates
+      window.pathInterpolationMode='passthrough';
+    }else if(mode.id==='bezier'){
+      window.forceLinearPath=false;
+      window.pathInterpolationMode='bezier';
     }else{
       window.forceLinearPath=false;
-      window.pathInterpolationMode=mode.id;
+      window.pathInterpolationMode='passthrough';
     }
     if(typeof window.applyPathStyle==='function' && window.pathStyleModes){
       const curStyle=window.pathStyleModes[window.currentPathStyleIndex||0].style;
@@ -37,6 +40,7 @@ function setupPathShapeButton(){
   btn.addEventListener('click',()=>{
     window.currentPathShapeIndex=(window.currentPathShapeIndex+1)%shapeModes.length;
     applyCurrent();
+    console.log(`[Shape] now: ${shapeModes[window.currentPathShapeIndex].id}`);
   });
   btn.dataset.shapeInit='true';
 

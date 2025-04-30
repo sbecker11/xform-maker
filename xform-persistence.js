@@ -1721,3 +1721,5 @@ function setupCreateXFormListener() {
 
 // Make it available globally
 window.setupCreateXFormListener = setupCreateXFormListener;
+
+window.filenameUpdateInterval = filenameUpdateInterval;

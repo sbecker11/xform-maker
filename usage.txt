@@ -23,7 +23,7 @@ This tool allows you to define and visualize 2D transformations.
 
 **Path Interpolation Mode (Console Only):**
 *   Passthrough (Default): Curve passes smoothly through all waypoints. Use `pass_thru()` or `xf("curve passthrough")`.
-*   Influencer/Gravity: Waypoints act as Bezier control points (1 waypoint = Quadratic, 2 = Cubic). Curve doesn't necessarily pass through waypoints. Use `gravity()` or `xf("curve influencer")`.
+*   Influencer/Gravity: Waypoints act as Bezier control points (1 waypoint = Quadratic, 2 = Cubic). Curve doesn't necessarily pass through waypoints. Use `gravity()` or `xf("curve gravity")`.
 *   Linear: Straight lines connect points. Use `linear()` or `xf("curve linear")`.
 
 **File Management:**
@@ -32,4 +32,6 @@ This tool allows you to define and visualize 2D transformations.
 
 **Console Utilities:**
 *   Type `help()` in the console for a list of debug commands.
-*   delsel() - Delete all currently selected XForms via confirmation dialog 
+*   delsel() - Delete all currently selected XForms via confirmation dialog
+*   previewEditorState() - Preview current editor state (rectangles, rotations, duration, waypoints)
+*   previewSelectedXForms() - Preview data of currently selected XForms in the listing 

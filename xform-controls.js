@@ -137,92 +137,43 @@ function getControlPoints(p0, p1, p2, p3, tension = 0.5) {
 
 // *** NEW: Spline Path Generation Function (Mode Aware) ***
 function generateSplinePath(points, samplesPerSegment = 20) {
-    if (!points || points.length < 2) return []; 
-
-    const path = [points[0]]; 
-    const n = points.length;
-    const mode = window.pathInterpolationMode || 'passthrough'; // Default to passthrough
-
-    if (n === 2) {
-        // Straight line (same for both modes)
-        path.push(points[1]);
-        return path;
-    }
-
-    // --- Influencer Mode Logic --- 
-    if (mode === 'influencer') {
-        if (n === 3) {
-            // Quadratic Bezier (Start-P0, Waypoint1-P1, End-P2)
-            const [P0, P1, P2] = points;
-            for (let t = 1; t <= samplesPerSegment; t++) {
-                path.push(getPointOnQuadraticBezier(P0, P1, P2, t / samplesPerSegment));
-            }
-        } else if (n === 4) {
-            // Cubic Bezier (Start-P0, Waypoint1-P1, Waypoint2-P2, End-P3)
-            const [P0, P1, P2, P3] = points;
-            for (let t = 1; t <= samplesPerSegment; t++) {
-                path.push(getBezierPoint(P0, P1, P2, P3, t / samplesPerSegment));
-            }
-        } else { // n >= 5
-            console.warn(`generateSplinePath (influencer mode): 3+ waypoints not directly supported, falling back to 'passthrough' Bezier spline.`);
-            // Fallback to passthrough logic for 3+ waypoints
-            const numSegments = n - 1;
-            for (let i = 0; i < numSegments; i++) {
-                const p0 = points[Math.max(0, i - 1)]; 
-                const p1 = points[i];                    
-                const p2 = points[i + 1];                 
-                const p3 = points[Math.min(numSegments, i + 2)]; 
-                const [cp1, cp2] = getControlPoints(p0, p1, p2, p3);
-                for (let t = 1; t <= samplesPerSegment; t++) {
-                    path.push(getBezierPoint(p1, cp1, cp2, p2, t / samplesPerSegment));
-                }
-            }
-            if (path[path.length - 1].x !== points[n - 1].x || path[path.length - 1].y !== points[n - 1].y) {
-                 path.push(points[n - 1]);
-            }
-        }
-    }
-    // --- Passthrough Mode Logic --- 
-    else { // mode === 'passthrough'
-        if (n === 3) {
-            // Catmull-Rom for 1 waypoint
-            const p0 = points[0]; 
-            const p1 = points[0];
-            const p2 = points[1];
-            const p3 = points[2];
-            for (let t = 1; t <= samplesPerSegment; t++) {
-                path.push(getPointOnCatmullRom(p0, p1, p2, p3, t / samplesPerSegment));
-            }
-            const p0_seg2 = points[0];
-            const p1_seg2 = points[1];
-            const p2_seg2 = points[2];
-            const p3_seg2 = points[2]; 
-            for (let t = 1; t <= samplesPerSegment; t++) {
-                path.push(getPointOnCatmullRom(p0_seg2, p1_seg2, p2_seg2, p3_seg2, t / samplesPerSegment));
-            }
-            if (path[path.length - 1].x !== points[n - 1].x || path[path.length - 1].y !== points[n - 1].y) {
-                 path.push(points[n - 1]);
-            }
-        } else { // n >= 4: Bezier spline using Catmull-Rom derived control points
-            const numSegments = n - 1;
-            for (let i = 0; i < numSegments; i++) {
-                const p0 = points[Math.max(0, i - 1)]; 
-                const p1 = points[i];                    
-                const p2 = points[i + 1];                 
-                const p3 = points[Math.min(numSegments, i + 2)]; 
-                const [cp1, cp2] = getControlPoints(p0, p1, p2, p3);
-                for (let t = 1; t <= samplesPerSegment; t++) {
-                    path.push(getBezierPoint(p1, cp1, cp2, p2, t / samplesPerSegment));
-                }
-            }
-            if (path[path.length - 1].x !== points[n - 1].x || path[path.length - 1].y !== points[n - 1].y) {
-                 path.push(points[n - 1]);
-            }
-        }
-    }
-    
+  if (!points || points.length < 2) return Array.from(points);
+  const path = [points[0]];
+  const n = points.length;
+  if (n === 2) {
+    path.push(points[1]);
     return path;
+  }
+  const mode = window.pathInterpolationMode || 'passthrough';
+  const segments = n - 1;
+  for (let i = 0; i < segments; i++) {
+    const i0 = Math.max(0, i - 1);
+    const i1 = i;
+    const i2 = i + 1;
+    const i3 = Math.min(n - 1, i + 2);
+    const p0 = points[i0], p1 = points[i1], p2 = points[i2], p3 = points[i3];
+    if (mode === 'gravity' && n === 3) {
+      for (let t = 1; t <= samplesPerSegment; t++) {
+        path.push(getPointOnQuadraticBezier(p0, p1, p2, t / samplesPerSegment));
+      }
+      break;
+    } else if (mode === 'gravity') {
+      const [cp1, cp2] = getControlPoints(p0, p1, p2, p3);
+      for (let s = 1; s <= samplesPerSegment; s++) {
+        path.push(getBezierPoint(p1, cp1, cp2, p2, s / samplesPerSegment));
+      }
+    } else {
+      for (let s = 1; s <= samplesPerSegment; s++) {
+        path.push(getPointOnCatmullRom(p0, p1, p2, p3, s / samplesPerSegment));
+      }
+    }
+  }
+  path.push(points[n - 1]);
+  return path;
 }
+
+// Expose spline function to window
+window.generateSplinePath = generateSplinePath;
 
 // *** NEW: Expose quadratic helper globally ***
 window.getPointOnQuadraticBezier = getPointOnQuadraticBezier;
@@ -413,13 +364,22 @@ function applyXFormAnimation() {
                     const segmentIndex = Math.min(Math.floor(segmentProgress), totalSegments - 1);
                     const segmentT = segmentProgress - segmentIndex;
                     
-                    // Get control points for this segment
-                    const [cp1, cp2] = getControlPoints(pathPoints, segmentIndex);
-                    const p0 = pathPoints[segmentIndex];
-                    const p3 = pathPoints[segmentIndex + 1];
-                    
-                    // Calculate position using cubic bezier formula
-                    position = getBezierPoint(p0, cp1, cp2, p3, segmentT);
+                    // Determine four points for Catmull-Rom to Bezier conversion
+                    const totalPoints = pathPoints.length;
+                    const i0 = Math.max(0, segmentIndex - 1);
+                    const i1 = segmentIndex;
+                    const i2 = segmentIndex + 1;
+                    const i3 = Math.min(totalPoints - 1, segmentIndex + 2);
+                    const p0 = pathPoints[i0];
+                    const p1 = pathPoints[i1];
+                    const p2 = pathPoints[i2];
+                    const p3 = pathPoints[i3];
+
+                    // Get control points for this segment between p1 and p2
+                    const [cp1, cp2] = getControlPoints(p0, p1, p2, p3);
+
+                    // Calculate position using cubic bezier formula between p1 and p2
+                    position = getBezierPoint(p1, cp1, cp2, p2, segmentT);
                 }
                 
                 // Adjust for center point of rectangle
@@ -599,7 +559,7 @@ function makeDraggable(element) {
     });
 
     // Ensure initial cursor is correct
-    element.style.cursor = 'grab';
+            element.style.cursor = 'grab';
 
     console.log(`makeDraggable applied to ${element.id}`);
 }
@@ -761,7 +721,6 @@ function togglePathVisualization() {
 function setupViewportActions() {
     const startButton = document.getElementById('startAnimation');
     const resetButton = document.getElementById('resetPositions');
-    const themeToggle = document.getElementById('themeToggle');
     
     if (startButton) {
         startButton.addEventListener('click', applyXFormAnimation);
@@ -1127,5 +1086,21 @@ function setupControls() {
          console.log("Path style button initialized");
      } else {
          console.warn("Path style button initialization function not found");
+     }
+
+     // Initialize path width button if available
+     if (typeof window.setupPathWidthButton === 'function') {
+         window.setupPathWidthButton();
+         console.log("Path width button initialized");
+     } else {
+         console.warn("Path width button initialization function not found");
+     }
+
+     // Initialize path shape button
+     if(typeof window.setupPathShapeButton==='function'){
+        window.setupPathShapeButton();
+        console.log('Path shape button initialized');
+     }else{
+        console.warn('Path shape button initialization function not found');
      }
 } 

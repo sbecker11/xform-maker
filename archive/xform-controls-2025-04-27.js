@@ -573,7 +573,6 @@ function togglePathVisualization() {
 function setupViewportActions() {
     const startButton = document.getElementById('startAnimation');
     const resetButton = document.getElementById('resetPositions');
-    const themeToggle = document.getElementById('themeToggle');
     
     // Create and insert the Show Path button
     const showPathButton = document.createElement('button');
@@ -583,9 +582,6 @@ function setupViewportActions() {
     
     if (startButton && resetButton) {
         const actionsDiv = startButton.parentElement;
-        if (actionsDiv && actionsDiv.classList.contains('viewport-actions')) {
-            actionsDiv.insertBefore(showPathButton, themeToggle);
-        }
     }
     
     if (startButton) {

@@ -41,7 +41,7 @@ window.isFilenameModeATM = true; // Default
 window.lastUsedDirHandle = null;
 
 // *** NEW: Path Interpolation Mode ***
-window.pathInterpolationMode = 'passthrough'; // Options: 'passthrough', 'influencer'
+window.pathInterpolationMode = 'passthrough'; // Options: 'passthrough', 'gravity'
 
 
 // --- Initial Setup on DOMContentLoaded ---

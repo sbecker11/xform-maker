@@ -5,6 +5,9 @@ const XFORMS_STORE = 'xformsStore'; // Store for all xform data
 const XFORM_SETTINGS_STORE = 'settingsStore'; // Store for app settings
 const XFORM_DIR_HANDLE_KEY = 'lastDirectoryHandle'; // Keep for backward compatibility
 
+// Access path-style helpers attached by xform-path-styles.js
+const xformPathStyles = window.xformPathStyles || {};
+
 let dbPromise = null;
 
 // Force database reset (for development/testing)
@@ -343,8 +346,8 @@ async function saveXForm(xformData) {
     }
     
     try {
-        // Always update the lastModified timestamp
-        xformData.lastModified = Date.now();
+        // Always update modification timestamp
+        xformData.lastModifiedOnDateTime = new Date().toISOString();
         
         const db = await openDB();
         const tx = db.transaction(XFORMS_STORE, 'readwrite');
@@ -486,8 +489,13 @@ async function listXForms(sortBy = 'name', sortDirection = 'asc') {
 async function exportXFormToFile(xformData) {
     try {
         const filename = sanitizeFilenameForSystem(xformData.name);
-        // Use compact JSON (single line) for JSONL format
-        const json = JSON.stringify(xformData);
+        
+        // Compute integrity hash and attach if missing / refresh
+        const hash = await _computeHashKey(xformData);
+        const xformToWrite = { ...xformData, exportHashKey: hash };
+        
+        // Use compact JSON (single line)
+        const json = JSON.stringify(xformToWrite);
         
         // Create a Blob with the JSON data
         const blob = new Blob([json], { type: 'application/x-jsonlines' });
@@ -535,8 +543,7 @@ async function exportAllXFormsToFile() {
         }
         
         // Ensure each xform has all required properties and correct formatting
-        const formattedXforms = xformsToExport.map(xform => {
-            // Create a clean copy with only the essential properties
+        const formattedXforms = xformsToExport.map(async xform => {
             const cleanXform = {
                 id: xform.id,
                 name: xform.name || 'Untitled',
@@ -548,16 +555,14 @@ async function exportAllXFormsToFile() {
                 rotations: xform.rotations || { x: 1, y: 1, z: 1 },
                 duration: xform.duration || 500
             };
-            
-            // Remove any circular references or non-serializable values
-            return JSON.parse(JSON.stringify(cleanXform));
+            const hash = await _computeHashKey(cleanXform);
+            cleanXform.exportHashKey = hash;
+            return cleanXform;
         });
         
-        // Convert each xform to a JSON string and join with newlines
-        // Make sure each line ends with just one newline character
-        const jsonlContent = formattedXforms
-            .map(xform => JSON.stringify(xform))
-            .join('\n');
+        // need await Promise.all
+        const resolvedXforms = await Promise.all(formattedXforms);
+        const jsonlContent = resolvedXforms.map(x => JSON.stringify(x)).join('\n');
         
         // Create a Blob with the JSONL data
         const blob = new Blob([jsonlContent], { type: 'application/x-jsonlines' });
@@ -744,6 +749,18 @@ async function importXFormsFromFile(file) {
                     // Process each xform and collect results
                     const importPromises = xformsToImport.map(async (xform, idx) => {
                         try {
+                            // inside importXFormsFromFile processing each xform before save
+                            // Verify hash if present
+                            if (xform.exportHashKey) {
+                                const expected = xform.exportHashKey;
+                                delete xform.exportHashKey;
+                                const actual = await _computeHashKey(xform);
+                                if (expected !== actual) {
+                                    console.warn(`Hash mismatch for xform "${xform.name}". Skipping import.`);
+                                    return false;
+                                }
+                            }
+                            
                             // ALWAYS generate new unique IDs for ALL imported xforms
                             // to prevent duplicates overwriting each other
                             const originalId = xform.id;
@@ -1101,17 +1118,8 @@ async function loadXForm(id) {
             // Update delete waypoint button state
             updateDeleteWaypointButton();
             
-            // Reapply path visualization if a style is set
-            if (window.currentPathStyleIndex !== undefined && 
-                window.pathStyleModes && 
-                window.pathStyleModes[window.currentPathStyleIndex] &&
-                window.pathStyleModes[window.currentPathStyleIndex].style !== 'none') {
-                
-                const currentStyle = window.pathStyleModes[window.currentPathStyleIndex].style;
-                if (typeof applyPathStyle === 'function') {
-                    applyPathStyle(currentStyle);
-                    console.log(`Reapplied path visualization style: ${currentStyle}`);
-                }
+            if (typeof xformPathStyles.updateSelectedPathStyle === 'function') {
+                xformPathStyles.updateSelectedPathStyle();
             }
             
             // Update path visualization if it exists and no style is set
@@ -1815,7 +1823,7 @@ async function setupIndexedDBPersistence() {
         setupSaveButtonHandler();
         setupSelectionKeyboardShortcuts();
         setupSortButton();
-        setupPathStyleButton(); // Add path style button setup
+        xformPathStyles.setupPathStyleButton(); // Add path style button setup
         setupFilenameModeButtons(); // Add filename mode button setup
         
         // Only initialize these buttons if the console utility functions don't exist
@@ -1911,8 +1919,8 @@ function createXFormDataObject() {
     return {
         name: name || window.currentXFormName || new Date().toISOString(),
         id: window.currentXFormId || Date.now(),
-        timestamp: Date.now(),
-        lastModified: Date.now(), // Add lastModified timestamp
+        createdOnDateTime: new Date().toISOString(),
+        lastModifiedOnDateTime: new Date().toISOString(),
         startRect: {
             left: window.startRect ? parseFloat(window.startRect.style.left) || 0 : 78.5, // Provide defaults
             top: window.startRect ? parseFloat(window.startRect.style.top) || 0 : 49.5,
@@ -2378,88 +2386,6 @@ function updateUIForSelectionCount() {
     }
 }
 
-// Setup path style button function
-function setupPathStyleButton() {
-    // Check if the button already exists, if not, create it
-    let pathStyleBtn = document.getElementById('pathStyleBtn');
-    
-    if (!pathStyleBtn) {
-        // Find a suitable location to add the button
-        const viewportActions = document.querySelector('.viewport-actions');
-        if (!viewportActions) {
-            console.error('Could not find viewport actions to add path style button');
-            return;
-        }
-        
-        // Create the button
-        pathStyleBtn = document.createElement('button');
-        pathStyleBtn.id = 'pathStyleBtn';
-        pathStyleBtn.title = 'Change Path Style';
-        pathStyleBtn.textContent = 'Path: None';
-        
-        // Add it after the reset button
-        const resetBtn = document.getElementById('resetPositions');
-        if (resetBtn && resetBtn.nextSibling) {
-            viewportActions.insertBefore(pathStyleBtn, resetBtn.nextSibling);
-        } else {
-            viewportActions.appendChild(pathStyleBtn);
-        }
-        
-        console.log('Path style button created and added to viewport actions');
-    }
-    
-    // Path style modes
-    window.pathStyleModes = [
-        { id: 'none', label: 'Path: None', style: 'none' },
-        { id: 'dotted', label: 'Path: Dotted', style: 'dotted' },
-        { id: 'dashed', label: 'Path: Dashed', style: 'dashed' },
-        { id: 'solid', label: 'Path: Solid', style: 'solid' },
-        { id: 'circles', label: 'Path: Circles', style: 'circles' },
-        { id: 'boxes', label: 'Path: Boxes', style: 'boxes' }
-    ];
-    
-    // Current mode index
-    window.currentPathStyleIndex = window.currentPathStyleIndex || 0;
-    
-    // Set initial button text
-    pathStyleBtn.textContent = window.pathStyleModes[window.currentPathStyleIndex].label;
-    
-    // Add styles for path visualization if not already present
-    addPathVisualizationStyles();
-    
-    // *** Check if listener already added ***
-    if (pathStyleBtn.dataset.listenerAttached === 'true') {
-        console.log('Path style button listener already attached.');
-        return; // Avoid adding multiple listeners
-    }
-    
-    // Add click handler
-    pathStyleBtn.addEventListener('click', () => {
-        // Cycle to next style
-        window.currentPathStyleIndex = (window.currentPathStyleIndex + 1) % window.pathStyleModes.length;
-        const newMode = window.pathStyleModes[window.currentPathStyleIndex];
-        
-        // Update button text
-        pathStyleBtn.textContent = newMode.label;
-        
-        // Apply the new style
-        applyPathStyle(newMode.style);
-        
-        console.log(`Path style changed to: ${newMode.style}`);
-    });
-    
-    // *** Mark as attached ***
-    pathStyleBtn.dataset.listenerAttached = 'true';
-    
-    // Initial path style application (if not 'none')
-    const initialMode = window.pathStyleModes[window.currentPathStyleIndex];
-    if (initialMode.id !== 'none') {
-        applyPathStyle(initialMode.style);
-    }
-    
-    console.log('Path style button handler set up');
-}
-
 // Add CSS styles for path visualization
 function addPathVisualizationStyles() {
     let style = document.getElementById('path-visualization-styles');
@@ -2509,134 +2435,6 @@ function addPathVisualizationStyles() {
             }
         `;
     }
-}
-
-// Apply the selected path style
-function applyPathStyle(style) {
-    const viewport = document.getElementById('viewport');
-    if (!viewport) return;
-    
-    // Remove any existing path visualization
-    const existingPath = document.getElementById('path-visualization');
-    if (existingPath) {
-        existingPath.remove();
-    }
-    
-    // If style is 'none', we're done
-    if (style === 'none') {
-        return;
-    }
-    
-    // Create SVG container
-    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-    svg.setAttribute('id', 'path-visualization');
-    svg.setAttribute('class', 'path-visualization');
-    svg.setAttribute('width', '100%');
-    svg.setAttribute('height', '100%');
-    
-    // Get start, end, and waypoints
-    const startRect = document.getElementById('startRect');
-    const endRect = document.getElementById('endRect');
-    
-    if (!startRect || !endRect) {
-        console.error('Start or end rectangle not found');
-        return;
-    }
-    
-    // Get center points
-    const startRectStyle = window.getComputedStyle(startRect);
-    const endRectStyle = window.getComputedStyle(endRect);
-    
-    const startX = parseFloat(startRectStyle.left) + parseFloat(startRectStyle.width) / 2;
-    const startY = parseFloat(startRectStyle.top) + parseFloat(startRectStyle.height) / 2;
-    
-    const endX = parseFloat(endRectStyle.left) + parseFloat(endRectStyle.width) / 2;
-    const endY = parseFloat(endRectStyle.top) + parseFloat(endRectStyle.height) / 2;
-    
-    // Collect all points in order
-    const points = [{ x: startX, y: startY }];
-    
-    // Add waypoints if they exist
-    if (window.intermediatePoints && window.intermediatePoints.length > 0) {
-        window.intermediatePoints.forEach(point => {
-            points.push({ x: point.x, y: point.y });
-        });
-    }
-    
-    // Add end point
-    points.push({ x: endX, y: endY });
-    
-    // *** MODIFIED: Generate smooth path *unless* linear mode is forced ***
-    let finalPoints = points; // Default to raw points
-    if (window.forceLinearPath === true) {
-        console.log('applyPathStyle: Using raw points due to forceLinearPath flag.');
-        window.forceLinearPath = false; // Reset the flag after use
-    } else if (typeof window.generateSplinePath === 'function') {
-        try {
-            const smoothPath = window.generateSplinePath(points); // Use the function from xform-controls
-            if (smoothPath && smoothPath.length > 0) {
-                finalPoints = smoothPath;
-            } else {
-                 console.warn('generateSplinePath returned empty or invalid path, using raw points.');
-            }
-        } catch (error) {
-             console.error('Error calling generateSplinePath:', error);
-        }
-    } else {
-         console.warn('generateSplinePath function not found, using raw points.');
-    }
-    
-    // Draw based on style using finalPoints
-    if (style === 'dotted' || style === 'dashed' || style === 'solid') {
-        // Create path element
-        const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-        path.setAttribute('class', `path-line ${style}`);
-        
-        // Generate path data from finalPoints
-        let pathData = `M ${finalPoints[0].x},${finalPoints[0].y}`;
-        for (let i = 1; i < finalPoints.length; i++) {
-            pathData += ` L ${finalPoints[i].x},${finalPoints[i].y}`;
-        }
-        
-        path.setAttribute('d', pathData);
-        svg.appendChild(path);
-    }
-    
-    if (style === 'circles') {
-        // Add circles at each point in finalPoints
-        finalPoints.forEach((point, index) => {
-            const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
-            circle.setAttribute('class', 'path-marker-circle');
-            circle.setAttribute('cx', point.x);
-            circle.setAttribute('cy', point.y);
-            
-            // Start/end points are larger
-            const radius = (index === 0 || index === finalPoints.length - 1) ? 6 : 4;
-            circle.setAttribute('r', radius);
-            
-            svg.appendChild(circle);
-        });
-    }
-    
-    if (style === 'boxes') {
-        // Add rectangles at each point in finalPoints
-        finalPoints.forEach((point, index) => {
-            const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
-            rect.setAttribute('class', 'path-marker-box');
-            
-            // Start/end points are larger
-            const size = (index === 0 || index === finalPoints.length - 1) ? 10 : 7;
-            rect.setAttribute('width', size);
-            rect.setAttribute('height', size);
-            rect.setAttribute('x', point.x - size / 2);
-            rect.setAttribute('y', point.y - size / 2);
-            
-            svg.appendChild(rect);
-        });
-    }
-    
-    // Add to viewport
-    viewport.appendChild(svg);
 }
 
 // Create the delete selected button
@@ -2819,4 +2617,42 @@ function setupFilenameModeButtons() {
     // Apply initial state
     updateButtonStates();
     console.log(`Filename mode buttons initialized. Current mode: ${window.isFilenameModeATM ? 'ATM' : 'MEM'}`);
+}
+
+// === Integrity-Hash Helpers (simple SHA-256) ===
+
+// Recursively sort object keys for stable JSON output
+function _stableStringify(value) {
+    if (Array.isArray(value)) {
+        return '[' + value.map(v => _stableStringify(v)).join(',') + ']';
+    } else if (value && typeof value === 'object') {
+        const keys = Object.keys(value).sort();
+        return '{' + keys.map(k => JSON.stringify(k) + ':' + _stableStringify(value[k])).join(',') + '}';
+    } else {
+        return JSON.stringify(value);
+    }
+}
+
+// Create a shallow copy that includes only user-defined fields (everything except bookkeeping)
+function _stripBookkeepingFields(xform) {
+    const {
+        id,
+        lastModified,
+        timestamp,
+        lastModifiedOnDateTime,
+        lastExportedOnDateTime,
+        lastImportedOnDateTime,
+        exportHashKey,
+        ...userFields
+    } = xform;
+    return userFields;
+}
+
+async function _computeHashKey(xform) {
+    const userFields = _stripBookkeepingFields(xform);
+    const json = _stableStringify(userFields);
+    const data = new TextEncoder().encode(json);
+    const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+    const hashArray = Array.from(new Uint8Array(hashBuffer));
+    return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
 }

@@ -109,12 +109,70 @@ function exportXFormAsJSON(xform) {
   return xform;
 }
 
+// New: Preview current editor state
+async function previewEditorState() {
+  try {
+    const data = {
+      id: window.currentXFormId,
+      name: window.currentXFormName,
+      // Rectangles from editor
+      startRect: window.startRect ? {
+        left: parseInt(window.startRect.style.left, 10),
+        top: parseInt(window.startRect.style.top, 10),
+        width: window.startRect.offsetWidth,
+        height: window.startRect.offsetHeight
+      } : null,
+      endRect: window.endRect ? {
+        left: parseInt(window.endRect.style.left, 10),
+        top: parseInt(window.endRect.style.top, 10),
+        width: window.endRect.offsetWidth,
+        height: window.endRect.offsetHeight
+      } : null,
+      rotations: {
+        x: window.xRotationDirection,
+        y: window.yRotationDirection,
+        z: window.zRotationDirection
+      },
+      duration: window.durationInput ? Number(window.durationInput.value) : null,
+      waypoints: window.intermediatePoints ? window.intermediatePoints.map(pt => ({ x: pt.x, y: pt.y })) : []
+    };
+    console.group('📋 XForm Editor Preview');
+    console.log(data);
+    console.groupEnd();
+    return data;
+  } catch (error) {
+    console.error('Error in previewEditorState:', error);
+    return null;
+  }
+}
+
+// New: Preview selected XForms in the listing
+async function previewSelectedXForms() {
+  const selected = window.selectedXforms || [];
+  if (selected.length === 0) {
+    console.warn('No XForms selected for preview');
+    return [];
+  }
+  console.group('📋 Preview of Selected XForms');
+  const previews = [];
+  for (const xform of selected) {
+    const data = await inspectXFormById(xform.id);
+    previews.push(data);
+  }
+  console.groupEnd();
+  return previews;
+}
+
 // Make functions available in window scope
 window.inspectAllXForms = inspectAllXForms;
 window.inspectXFormById = inspectXFormById;
 window.exportXFormAsJSON = exportXFormAsJSON;
+window.previewEditorState = previewEditorState;
+window.previewSelectedXForms = previewSelectedXForms;
 
 console.log('✅ XForm Inspector loaded. Available commands:');
 console.log('• inspectAllXForms() - View all XForms');
 console.log('• inspectXFormById(id) - View a specific XForm by ID');
 console.log('• exportXFormAsJSON(xform) - Export an XForm as JSON (also copies to clipboard)'); 
+console.log('• previewEditorState() - Preview current editor state');
+console.log('• previewSelectedXForms() - Preview selected XForms in the listing');

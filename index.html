@@ -152,6 +152,7 @@
 
     <header class="app-header">
         <h1>X-Form Maker</h1>
+        <button id="themeToggle" class="header-icon-btn" title="Toggle Light/Dark Theme">🌙</button>
         <button id="helpBtn" class="header-icon-btn" title="Show Usage Help">?</button>
     </header>
 
@@ -222,7 +223,9 @@
             <div class="viewport-actions">
                 <button id="startAnimation">Play</button>
                 <button id="resetPositions">Reset</button>
-                <button id="themeToggle" title="Toggle Theme"></button>
+                <button id="pathStyleBtn">Style</button>
+                <button id="pathWidthBtn">Width-1</button>
+                <button id="pathShapeBtn">Linear</button>
             </div>
         </div>
 
@@ -284,7 +287,11 @@
         </div> <!-- End of center-right-wrapper -->
     </div> <!-- End of main-content-area -->
 
-    <!-- Load Module Scripts First -->
+    <!-- Load Path & Thickness modules first so other modules can use them -->
+    <script src="xform-path-styles.js" defer></script>
+    <script src="xform-path-width.js" defer></script>
+    <script src="xform-path-shape.js" defer></script>
+    <!-- Load Module Scripts -->
     <script src="xform-indexeddb.js" defer></script>
     <!-- Legacy persistence script is now optional and loaded with a special flag -->
     <script>

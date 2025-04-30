@@ -284,7 +284,7 @@ function set_path_thickness(thickness) {
   return validThickness;
 }
 
-// *** NEW: Path Style Control ***
+// *** NEW: Style Control ***
 window.set_path_style = function(styleName) {
     if (!window.pathStyleModes || !Array.isArray(window.pathStyleModes)) {
         console.error('❌ Path style modes not available (window.pathStyleModes is missing).');
@@ -321,9 +321,9 @@ window.style = window.set_path_style; // Alias
 
 // *** NEW: Path Interpolation Mode Control ***
 window.set_path_mode = function(mode) {
-    const validModes = ['passthrough', 'influencer'];
+    const validModes = ['passthrough', 'gravity'];
     if (!mode || !validModes.includes(mode.toLowerCase())) {
-        console.error(`Invalid path mode: "${mode}". Please use 'passthrough' or 'influencer'.`);
+        console.error(`Invalid path mode: "${mode}". Please use 'passthrough' or 'gravity'.`);
         console.log(`Current mode is: ${window.pathInterpolationMode || 'passthrough'}`);
         return;
     }
@@ -358,7 +358,7 @@ window.linear = function() {
     }
 }; // Note: This doesn't change the underlying interpolation mode setting
 
-window.gravity = function() { window.set_path_mode('influencer'); }; // Alias for influencer
+window.gravity = function() { window.set_path_mode('gravity'); }; // Alias for gravity
 window.pass_thru = function() { window.set_path_mode('passthrough'); };
 window.passthru = window.pass_thru; // Alias
 
@@ -374,7 +374,7 @@ window.circle_7 = function() {
     window.set_path_style('circles'); 
 };
 
-// *** NEW: Path Style Shortcuts ***
+// *** NEW: Style Shortcuts ***
 window.none = function() { window.set_path_style('none'); };
 window.dotted = function() { window.set_path_style('dotted'); };
 window.dashed = function() { window.set_path_style('dashed'); };
@@ -422,10 +422,10 @@ window.xf = function(commandString) {
                 window.linear(); // Use the linear shortcut
             } else if (argument === 'passthrough' || argument === 'pass_thru' || argument === 'passthru') {
                 window.set_path_mode('passthrough');
-            } else if (argument === 'influencer' || argument === 'gravity') {
-                window.set_path_mode('influencer');
+            } else if (argument === 'gravity' || argument === 'gravity') {
+                window.set_path_mode('gravity');
             } else {
-                console.error(`❌ Invalid curve mode: "${argument}". Use 'linear', 'passthrough', or 'influencer'.`);
+                console.error(`❌ Invalid curve mode: "${argument}". Use 'linear', 'passthrough', or 'gravity'.`);
             }
             break;
             
@@ -579,9 +579,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
 // *** NEW: Path Interpolation Mode Control ***
 window.set_path_mode = function(mode) {
-    const validModes = ['passthrough', 'influencer'];
+    const validModes = ['passthrough', 'gravity'];
     if (!mode || !validModes.includes(mode.toLowerCase())) {
-        console.error(`Invalid path mode: "${mode}". Please use 'passthrough' or 'influencer'.`);
+        console.error(`Invalid path mode: "${mode}". Please use 'passthrough' or 'gravity'.`);
         console.log(`Current mode is: ${window.pathInterpolationMode || 'passthrough'}`);
         return;
     }
@@ -729,6 +729,14 @@ document.addEventListener('DOMContentLoaded', () => {
     const helpBtn = document.getElementById('helpBtn');
     if (helpBtn) {
         helpBtn.addEventListener('click', window.showUsageModal);
+    }
+    const themeToggle = document.getElementById('themeToggle');
+    if (themeToggle) {
+        themeToggle.addEventListener('click', () => {
+            const currentTheme = document.documentElement.getAttribute('data-theme');
+            const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+            document.documentElement.setAttribute('data-theme', newTheme);
+        });
     }
 });
 

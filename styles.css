@@ -577,6 +577,7 @@ button.danger:hover {
 .point-marker.selected {
     background-color: rgba(0, 255, 255, 0.9); /* Cyan when selected */
     border: 2px solid teal;
+    z-index: 51; /* Ensure selected is above others */
 }
 
 #themeToggle {

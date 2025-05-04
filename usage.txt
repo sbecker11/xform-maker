@@ -1,37 +1,66 @@
-## XForm Maker Usage
+# XForm Maker - Usage Guide
 
-This tool allows you to define and visualize 2D transformations.
+This tool allows you to define and visualize 2D transformations with precise control over movement, rotation, and timing.
 
-**Main Areas:**
-*   Left Panel: Manage saved transformations (XForms). Select, sort, import, export, delete.
-*   Center Panel: Visual viewport showing the Start (green) and End (red) states. Click background to add waypoints. Drag rectangles or waypoints to adjust.
-*   Right Panel: Controls for transformation parameters (Rotation, Size, Duration, Waypoints).
+## Main Areas
 
-**Workflow:**
-1.  Adjust Rectangles: Drag the Start and End rectangles to desired positions.
-2.  Set Size/Duration: Use controls in the right panel.
-3.  Add Waypoints (Optional): Click in the viewport to add intermediate points. Drag waypoints to refine the path.
-4.  Set Rotation: Use the X/Y/Z controls.
-5.  Name XForm: Use the input field at the top-left. Switch between time-based (ATM) and manual (MEM) naming using the clock/T icons.
-6.  Save XForm: Click the "Save" button (disk icon) next to the name field.
-7.  Load XForm: Double-click an item in the Saved X-Forms list.
-8.  Animate: Click "Play" below the viewport.
+* **Left Panel**: Manage saved transformations (XForms). Select, sort, import, export, delete.
+* **Center Panel**: Visual viewport showing the Start (green) and End (red) states. Click background to add waypoints. Drag rectangles or waypoints to adjust.
+* **Right Panel**: Controls for transformation parameters (Rotation, Size, Duration, Waypoints).
 
-**Path Visualization:**
-*   Use the "Path: ..." button below the viewport to cycle through visual styles (dotted, dashed, solid, circles, boxes, none).
-*   Use console commands like `set_path_thickness(n)` to change line thickness.
+## Workflow
 
-**Path Interpolation Mode (Console Only):**
-*   Passthrough (Default): Curve passes smoothly through all waypoints. Use `pass_thru()` or `xf("curve passthrough")`.
-*   Influencer/Gravity: Waypoints act as Bezier control points (1 waypoint = Quadratic, 2 = Cubic). Curve doesn't necessarily pass through waypoints. Use `gravity()` or `xf("curve gravity")`.
-*   Linear: Straight lines connect points. Use `linear()` or `xf("curve linear")`.
+* **Adjust Rectangles**: Drag the Start and End rectangles to desired positions.
+* **Set Size/Duration**: Use controls in the right panel.
+* **Add Waypoints** (Optional): Click in the viewport to add intermediate points. Drag waypoints to refine the path.
+* **Set Rotation**: Use the X/Y/Z controls.
+* **Name XForm**: Use the input field at the top-left. Switch between time-based (ATM) and manual (MEM) naming using the clock/T icons.
+* **Save XForm**: Click the "Save" button (disk icon) next to the name field.
+* **Load XForm**: Double-click an item in the Saved X-Forms list.
+* **Animate**: Click "Play" below the viewport.
 
-**File Management:**
-*   Save: Saves the current state to the browser's IndexedDB.
-*   Import/Export: Use buttons in the Saved X-Forms header to import/export `*.jsonl` files containing one or more XForms.
+## Path Visualization
 
-**Console Utilities:**
-*   Type `help()` in the console for a list of debug commands.
-*   delsel() - Delete all currently selected XForms via confirmation dialog
-*   previewEditorState() - Preview current editor state (rectangles, rotations, duration, waypoints)
-*   previewSelectedXForms() - Preview data of currently selected XForms in the listing 
+* Use the "Path: ..." button below the viewport to cycle through visual styles (dotted, dashed, solid, circles, boxes, none).
+* Use console commands like `set_path_thickness(n)` to change line thickness.
+
+## Path Interpolation Mode (Console Only)
+
+* passthrough (Default): Curve passes smoothly through all waypoints. Use pass_thru() or xf("curve passthrough").
+* gravity: Waypoints act as Bezier control points (1 waypoint = Quadratic, 2 = Cubic). Curve doesn't necessarily pass through waypoints. Use gravity() or xf("curve gravity").
+* linear: Straight lines connect points. Use linear() or xf("curve linear").
+
+## File Management
+
+* **Save**: Saves the current state to the browser's IndexedDB.
+* **Import/Export**: Use buttons in the Saved X-Forms header to import/export `*.jsonl` files containing one or more XForms.
+
+## Console Utilities
+
+* Type help() in the console for a list of debug commands.
+* delsel() - Delete all currently selected XForms via confirmation dialog
+* previewEditorState() - Preview current editor state (rectangles, rotations, duration, waypoints)
+* previewSelectedXForms() - Preview data of currently selected XForms in the listing
+* getXFormValues() - Display only the essential data values of the currently loaded XForm
+* listXFormsAsJsonl() - List all XForms in the database in JSONL format for easy copying
+* inspectXFormElements() - Show detailed information about all UI elements representing XForm data
+* debugXFormLoading() - Diagnose and attempt to fix issues with XForm loading
+* verifyXFormUIConsistency() - Check if the UI elements match the currently selected XForm data
+
+## System Administration
+
+* dumpDatabaseInfo() - Inspects and displays the current state of the IndexedDB database without making changes
+* diagnoseAndRepairDatabase() - Diagnoses database issues and attempts to repair them while preserving data
+* completeReset() - Performs a full system reset by deleting the database, clearing localStorage, and reloading the page
+* fixXFormList() - Diagnose and fix issues with XForm list display
+* Use these functions from the browser console if you encounter issues with XForms not being saved or displayed
+
+## Troubleshooting
+
+If you encounter issues with the database or saved XForms:
+
+1. First try the "Fix DB" button which appears in the top toolbar
+2. If that doesn't resolve the issue, open the browser console (F12) and type: diagnoseAndRepairDatabase()
+3. If XForms aren't loading properly, try debugXFormLoading() to diagnose and fix display issues
+4. To verify the UI matches the loaded XForm data, use verifyXFormUIConsistency()
+5. For a complete reset, type completeReset() in the console (warning: this will delete all saved XForms) 

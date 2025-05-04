@@ -238,17 +238,46 @@ function globalMouseUpHandler(e) {
 
 // --- Path Visualization Logic with Bezier Curves ---
 function drawPathVisualization() {
-    // DELEGATE to applyPathStyle to handle drawing based on current mode
-    if (typeof window.applyPathStyle === 'function' && window.pathStyleModes && window.currentPathStyleIndex !== undefined) {
-        const currentStyleMode = window.pathStyleModes[window.currentPathStyleIndex];
+    // Delegate to applyPathStyle if it exists (modern approach)
+    if (typeof applyPathStyle === 'function' && window.pathStyleModes) {
+        const currentPathStyleIndex = window.currentPathStyleIndex !== undefined ?
+            window.currentPathStyleIndex : 0;
+        
+        const currentStyleMode = window.pathStyleModes[currentPathStyleIndex];
+        
         if (currentStyleMode) {
             // Check if required elements exist before calling applyPathStyle
             if (!window.startRect || !window.endRect || !window.viewport) {
-                 console.warn('drawPathVisualization: Cannot delegate - missing required elements (startRect, endRect, or viewport).');
-                 // Optionally remove existing path if elements are missing
-                 const existingPath = document.getElementById('path-visualization');
-                 if (existingPath) existingPath.remove();
-                 return; 
+                console.warn('drawPathVisualization: Cannot delegate - missing required elements (startRect, endRect, or viewport).');
+                
+                // Try to recover by finding or recreating elements
+                if (!window.viewport) {
+                    window.viewport = document.getElementById('viewport');
+                }
+                
+                // If still no viewport, we can't continue
+                if (!window.viewport) {
+                    console.error("Critical: Cannot find viewport element for path visualization");
+                    return;
+                }
+                
+                // Try to recover rectangles if needed
+                if (!window.startRect || !window.endRect) {
+                    if (typeof window.initializeRects === 'function') {
+                        console.log("Attempting to recover rectangles using initializeRects");
+                        window.initializeRects();
+                    }
+                }
+                
+                // If still missing elements after recovery attempt, remove path and exit
+                if (!window.startRect || !window.endRect) {
+                    console.error("Recovery failed - cannot draw path without rectangles");
+                    const existingPath = document.getElementById('path-visualization');
+                    if (existingPath) existingPath.remove();
+                    return;
+                }
+                
+                console.log("Recovery succeeded - proceeding with path visualization");
             }
             // Proceed with delegation
             applyPathStyle(currentStyleMode.style);
@@ -427,28 +456,96 @@ function applyXFormAnimation() {
 }
 
 // --- Initial Setup for Rectangles ---
-function initializeRects() {
-    if (!window.viewport || !window.widthInput || !window.heightInput) return;
+function initializeRects(makeVisible = false, isLoading = false) {
+    console.log(`Initializing rectangles (visible: ${makeVisible}, isLoading: ${isLoading})...`);
+    if (!window.viewport || !window.widthInput || !window.heightInput) {
+        console.error("Cannot initialize rectangles - missing required elements:", {
+            viewport: !!window.viewport,
+            widthInput: !!window.widthInput,
+            heightInput: !!window.heightInput
+        });
+        
+        // Try to find viewport if not already set
+        if (!window.viewport) {
+            window.viewport = document.getElementById('viewport');
+            if (!window.viewport) {
+                console.error("Fatal: Viewport element not found during initialization!");
+                return false;
+            } else {
+                console.log("Successfully retrieved viewport element");
+            }
+        }
+        
+        // Try to find other elements
+        if (!window.widthInput) {
+            window.widthInput = document.getElementById('rectWidth');
+            if (!window.widthInput) {
+                console.warn("Width input not found - using default width 100px");
+            }
+        }
+        
+        if (!window.heightInput) {
+            window.heightInput = document.getElementById('rectHeight');
+            if (!window.heightInput) {
+                console.warn("Height input not found - using default height 60px");
+            }
+        }
+    }
 
+    // *** Ensure inputs have default values BEFORE reading them ***
+    if (window.widthInput && !window.widthInput.value) {
+        window.widthInput.value = 100; 
+    }
+    if (window.heightInput && !window.heightInput.value) {
+        window.heightInput.value = 60;
+    }
+    
     // Clear existing rects if any (for reset)
-    window.viewport.innerHTML = '';
+    const existingStart = document.getElementById('startRect');
+    const existingEnd = document.getElementById('endRect');
+    if (existingStart) existingStart.remove();
+    if (existingEnd) existingEnd.remove();
+    
+    // Reset references to ensure clean state
+    window.startRect = null;
+    window.endRect = null;
+
+    // Get viewport dimensions
+    const vpRect = window.viewport.getBoundingClientRect();
+    const vpCenterX = vpRect.width / 2;
+    const vpCenterY = vpRect.height / 2;
+    
+    // Get rectangle dimensions FROM the inputs (now guaranteed to have a value)
+    const currentWidth = parseInt(window.widthInput.value, 10) || 100;
+    const currentHeight = parseInt(window.heightInput.value, 10) || 60;
 
     // Create and Style Start Rect (Green)
     window.startRect = document.createElement('div'); // Use window scope
     startRect.id = 'startRect';
     startRect.className = 'rect rect-start';
     startRect.textContent = 'Start';
-    window.viewport.appendChild(startRect);
-    const vpRect = window.viewport.getBoundingClientRect();
-    const currentWidth = parseInt(window.widthInput.value, 10);
-    const currentHeight = parseInt(window.heightInput.value, 10);
+    if (makeVisible) {
+        window.viewport.appendChild(startRect);
+    }
+    
     if (!isNaN(currentWidth) && currentWidth >= 10) startRect.style.width = `${currentWidth}px`;
     if (!isNaN(currentHeight) && currentHeight >= 10) startRect.style.height = `${currentHeight}px`;
-    const sRect = startRect.getBoundingClientRect();
-    const initialX = (vpRect.width - sRect.width) / 2;
-    const initialY = (vpRect.height - sRect.height) / 2;
-    startRect.style.left = `${initialX}px`;
-    startRect.style.top = `${initialY}px`;
+    
+    // Use polar coordinates for random positioning
+    // Padding to keep rectangles fully within viewport
+    const padding = 20;
+    const maxRadius = Math.min(vpRect.width, vpRect.height) / 2 - Math.max(currentWidth, currentHeight) / 2 - padding;
+    
+    // Generate random position for start rectangle using polar coordinates
+    const startRadius = Math.random() * maxRadius;
+    const startAngle = Math.random() * 2 * Math.PI; // 0 to 2π radians (0-360 degrees)
+    
+    // Convert polar to Cartesian coordinates
+    const startX = vpCenterX + startRadius * Math.cos(startAngle) - currentWidth / 2;
+    const startY = vpCenterY + startRadius * Math.sin(startAngle) - currentHeight / 2;
+    
+    startRect.style.left = `${startX}px`;
+    startRect.style.top = `${startY}px`;
     startRect.style.transform = '';
 
     // Create and Style End Rect (Red)
@@ -458,30 +555,55 @@ function initializeRects() {
     endRect.textContent = 'End';
     if (!isNaN(currentWidth) && currentWidth >= 10) endRect.style.width = `${currentWidth}px`;
     if (!isNaN(currentHeight) && currentHeight >= 10) endRect.style.height = `${currentHeight}px`;
-    window.viewport.appendChild(endRect);
-    endRect.style.left = `${initialX}px`;
-    endRect.style.top = `${initialY}px`;
+    if (makeVisible) {
+        window.viewport.appendChild(endRect);
+    }
+    
+    // Generate different random position for end rectangle
+    // Add 90-270 degrees to start angle to place end rect on opposite side
+    const endRadius = Math.random() * maxRadius;
+    const endAngle = startAngle + Math.PI + (Math.random() - 0.5) * Math.PI; // ~180° ±90° from start
+    
+    // Convert polar to Cartesian coordinates
+    const endX = vpCenterX + endRadius * Math.cos(endAngle) - currentWidth / 2;
+    const endY = vpCenterY + endRadius * Math.sin(endAngle) - currentHeight / 2;
+    
+    endRect.style.left = `${endX}px`;
+    endRect.style.top = `${endY}px`;
     endRect.style.transform = '';
 
-    console.log('Rects Initialized at:', initialX, initialY);
+    console.log('Rects Initialized at:', {
+        start: { 
+            x: startX, 
+            y: startY,
+            radius: startRadius,
+            angle: Math.round(startAngle * 180 / Math.PI) + '°'
+        },
+        end: { 
+            x: endX, 
+            y: endY,
+            radius: endRadius,
+            angle: Math.round(endAngle * 180 / Math.PI) + '°'
+        },
+        randomized: 'using polar coordinates'
+    });
+    
+    // Clear waypoints
     window.intermediatePoints.forEach(p => p.element && p.element.remove());
     window.intermediatePoints = [];
     window.selectedPointIndex = -1;
     window.lastModifiedPointIndex = -1;
-    // window.isAddingPoints = false; // WAM mode is always true now
-    if (window.addWaypointButton) {
-      // window.addWaypointButton.textContent = 'Add';
-      // window.addWaypointButton.style.backgroundColor = '#28a745';
-    }
     window.viewport.style.cursor = 'crosshair'; // Keep crosshair for WAM
 
     console.log(`%cinitializeRects: Before makeDraggable: startRect exists? ${!!window.startRect}, endRect exists? ${!!window.endRect}`, 'color: orange;'); // *** ADDED PRE-CHECK LOG ***
-    if (startRect) makeDraggable(startRect);
-    if (endRect) makeDraggable(endRect);
-    console.log(`%cinitializeRects: Called makeDraggable for startRect and endRect`, 'color: green; font-weight: bold;'); // *** Existing LOG ***
+    if (makeVisible) {
+        if (startRect) makeDraggable(startRect);
+        if (endRect) makeDraggable(endRect);
+        console.log(`%cinitializeRects: Called makeDraggable for startRect and endRect`, 'color: green; font-weight: bold;');
+    }
 
     // Initialize or reset all state variables
-    window.currentXFormName = "New X-Form";
+    window.currentXFormName = null; // Set to null instead of "New X-Form" to allow ATM to take over
     window.currentXFormId = null;
     window.currentXFormHasRun = false;
     
@@ -508,13 +630,49 @@ function initializeRects() {
         window.updateRotationButtonsUI();
     }
     
-    console.log('Rects fully initialized with all properties');
+    console.log(`Rects fully initialized with all properties, visibility: ${makeVisible ? 'visible' : 'hidden'}`);
 
-    // Force filename back to ATM auto-clock
-    if (typeof window.startFilenameTimeUpdates==='function') {
-        window.isFilenameModeATM = true;
-        window.startFilenameTimeUpdates();
+    // --- Conditional Filename Mode Handling --- 
+    // Only force ATM mode if NOT loading from file
+    console.log(`>>> CHECKING isLoading: Value = ${isLoading}, Type = ${typeof isLoading}`);
+    if (!isLoading) {
+        console.log("Forcing ATM mode for automatic time-based naming");
+        // Set to ATM mode if controller exists
+        if (window.filenameController && typeof window.filenameController._setMode === 'function') {
+            // Clear the filename input first
+            const filenameInput = document.getElementById('filenameInput');
+            if (filenameInput) {
+                filenameInput.value = ''; // Let ATM generate it
+                console.log("Cleared filename input field to let ATM handle updates");
+            }
+            
+            // Set the mode to ATM using the controller
+            window.filenameController._setMode(true); 
+            console.log("Called filenameController._setMode(true) to ensure system recognizes ATM mode");
+
+            // Explicitly start the timer via controller
+            if (typeof window.filenameController._startTimer === 'function') {
+                window.filenameController._startTimer();
+                console.log("Started automatic filename time updates via controller");
+            } else {
+                 console.warn("filenameController._startTimer not found");
+            }
+            
+            // Ensure save button state reflects ATM mode (likely enabled)
+            if (typeof window.updateSaveButtonState === 'function') {
+                window.updateSaveButtonState();
+                console.log("Ensured Save button state updated after ATM mode activation.");
+            }
+
+        } else {
+            console.warn("Filename controller not found, cannot force ATM mode.");
+        }
+    } else {
+         console.log("Skipping ATM mode force because isLoading is true.");
     }
+    // --- End Conditional Filename Mode --- 
+    
+    return { startRect: window.startRect, endRect: window.endRect };
 }
 
 // --- Dragging Logic Setup for Rectangles (Revised) ---
@@ -572,25 +730,64 @@ function makeDraggable(element) {
 
 // --- Resize Logic ---
 function applyRectangleSize() {
-    if (!window.widthInput || !window.heightInput || !window.startRect || !window.endRect) return;
-    if (!window.viewport) return;
+    console.log("--- applyRectangleSize called ---"); // Log entry
+    if (!window.widthInput || !window.heightInput || !window.startRect || !window.endRect) {
+        console.warn("applyRectangleSize: Missing required elements.");
+        return;
+    }
+    if (!window.viewport) {
+         console.warn("applyRectangleSize: Missing viewport element.");
+        return;
+    }
 
-    const newWidth = parseInt(window.widthInput.value, 10);
-    const newHeight = parseInt(window.heightInput.value, 10);
+    const rawWidthValue = window.widthInput.value;
+    const rawHeightValue = window.heightInput.value;
+    console.log(`Raw input values: Width='${rawWidthValue}', Height='${rawHeightValue}'`);
+
+    const newWidth = parseInt(rawWidthValue, 10);
+    const newHeight = parseInt(rawHeightValue, 10);
+    console.log(`Parsed values: newWidth=${newWidth}, newHeight=${newHeight}`);
 
     const validWidth = Math.max(50, Math.min(400, newWidth));
     const validHeight = Math.max(50, Math.min(400, newHeight));
+    console.log(`Clamped values: validWidth=${validWidth}, validHeight=${validHeight}`);
+
+    let widthChanged = false;
+    let heightChanged = false;
+
+    if (validWidth !== newWidth) {
+        console.log(`Clamping occurred for Width: ${newWidth} -> ${validWidth}. Updating input.`);
+        window.widthInput.value = validWidth;
+        widthChanged = true;
+    }
+    if (validHeight !== newHeight) {
+        console.log(`Clamping occurred for Height: ${newHeight} -> ${validHeight}. Updating input.`);
+        window.heightInput.value = validHeight;
+        heightChanged = true;
+    }
     
-    if (validWidth !== newWidth) window.widthInput.value = validWidth;
-    if (validHeight !== newHeight) window.heightInput.value = validHeight;
+    if (!widthChanged) console.log("Width value is valid, not changing input.");
+    if (!heightChanged) console.log("Height value is valid, not changing input.");
 
     if (isNaN(validWidth) || isNaN(validHeight)) {
-        console.warn('Invalid rectangle dimensions');
+        console.warn('Invalid rectangle dimensions AFTER clamping (This should not happen!). Input was reset?');
+        // Attempt to reset to default if invalid after clamping
+        window.widthInput.value = 100;
+        window.heightInput.value = 60;
+        // Re-run applyRectangleSize to apply the default (prevent infinite loop)
+        // Apply default size directly instead of re-running
+        [window.startRect, window.endRect].forEach(rect => {
+            if (rect) {
+                 rect.style.width = `100px`;
+                 rect.style.height = `60px`;
+            }
+        });
         return;
     }
 
     const vpRect = window.viewport.getBoundingClientRect();
 
+    console.log(`Applying styles: W=${validWidth}, H=${validHeight}`);
     [window.startRect, window.endRect].forEach(rect => {
         if (!rect) return;
         
@@ -747,14 +944,35 @@ function setupViewportActions() {
                 pathVis.remove();
             }
             
-            initializeRects(); // Reset rectangles and waypoints
-            console.log("Viewport reset complete");
+            // Reset rectangles and waypoints, and make them VISIBLE
+            initializeRects(true); // Pass true to show rectangles
+            console.log("Viewport reset complete - rectangles now visible");
             
-            if (typeof window.saveCurrentState === 'function') window.saveCurrentState(); // Save reset state
-
-            if (typeof window.startFilenameTimeUpdates==='function') {
+            // *** Use FilenameController to set up for a new XForm ***
+            if (window.filenameController) {
+                window.filenameController.setNewXform();
+                console.log("Initialized filename state using FilenameController for new XForm");
+            } else {
+                // Fallback logic if controller isn't available (shouldn't happen now)
+                console.error("FilenameController not found during New button click!");
                 window.isFilenameModeATM = true;
-                window.startFilenameTimeUpdates();
+                const filenameInput = document.getElementById('filenameInput');
+                if (filenameInput) filenameInput.value = ''; 
+                // Manually try to start timer if possible
+                if (typeof window.startFilenameTimer === 'function') {
+                    window.startFilenameTimer();
+                }
+            }
+            
+            // Save the initial state
+            if (typeof window.saveCurrentState === 'function') window.saveCurrentState();
+            
+            // *** Explicitly update save button state AFTER setting ATM mode ***
+            if (typeof updateSaveButtonState === 'function') {
+                updateSaveButtonState();
+                console.log("Ensured Save button state updated after ATM mode activation.");
+            } else {
+                 console.warn("updateSaveButtonState function not found after ATM activation.");
             }
         });
     }
@@ -1084,11 +1302,9 @@ function setupControls() {
      // Setup resize listeners
      if (window.widthInput) {
         window.widthInput.addEventListener('change', applyRectangleSize);
-        window.widthInput.addEventListener('input', applyRectangleSize);
      }
      if (window.heightInput) {
          window.heightInput.addEventListener('change', applyRectangleSize);
-         window.heightInput.addEventListener('input', applyRectangleSize);
      }
      
      // Initialize path style button if the function exists
@@ -1115,3 +1331,20 @@ function setupControls() {
         console.warn('Path shape button initialization function not found');
      }
 } 
+
+// Export all needed functions to the global namespace
+window.makeDraggable = makeDraggable;
+window.applyRectangleSize = applyRectangleSize;
+window.initializeRects = initializeRects; // Export initializeRects to make it accessible globally
+window.setupRotationControls = setupRotationControls;
+window.setupDurationControl = setupDurationControl;
+window.togglePathVisualization = togglePathVisualization;
+window.setupViewportActions = setupViewportActions;
+window.setupWaypointControls = setupWaypointControls;
+window.makeDraggableWaypoint = makeDraggableWaypoint;
+window.applyXFormAnimation = applyXFormAnimation;
+window.updateRotationButtonsUI = updateRotationButtonsUI;
+window.setupControls = setupControls;
+window.globalMouseMoveHandler = globalMouseMoveHandler;  
+window.globalMouseUpHandler = globalMouseUpHandler;
+window.drawPathVisualization = drawPathVisualization; 

@@ -17,7 +17,7 @@ body {
     padding: 10px 20px;
     box-sizing: border-box;
     margin-bottom: 5px;
-    background-color: var(--background-secondary); /* Give header background */
+    background-color: var(--background-primary); 
     box-shadow: var(--shadow-low);
     position: fixed; /* Fix header */
     top: 0;
@@ -100,11 +100,40 @@ body {
     filter: brightness(0) invert(1); /* Force icon white */
 }
 
-/* REMOVE .mode-icon.active rule */
-/* .mode-icon.active { ... } */
+/* Add clear active state styles for mode buttons */
+.mode-icon.active {
+    background-color: var(--button-primary-bg);
+    box-shadow: 0 0 0 2px var(--button-primary-hover-bg);
+    position: relative;
+}
 
+/* Add indicator dot for active mode */
+.mode-icon.active::after {
+    content: '';
+    position: absolute;
+    bottom: -4px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 6px;
+    height: 6px;
+    background-color: var(--button-primary-color);
+    border-radius: 50%;
+}
+
+/* Distinct styling for inactive mode */
+.mode-icon:not(.active) {
+    background-color: #6c757d;
+    opacity: 0.7;
+}
+
+/* Enhance hover states */
 .mode-icon:hover {
     background-color: var(--button-primary-hover-bg);
+}
+
+.mode-icon:not(.active):hover {
+    opacity: 0.9;
+    background-color: #5a6268;
 }
 
 .filename-input-container {
@@ -129,14 +158,47 @@ body {
     margin-right: 10px; /* ADD margin to create space */
 }
 
-/* Style for readonly input to ensure it doesn't look disabled */
+/* More distinct styling for the ATM/MEM mode input field */
 .time-based-filename[readonly] {
     opacity: 1; 
-    background-color: var(--background-secondary);
-    color: var(--text-primary);
+    background-color: #101010;
+    color: #ffffff;
+    border: 1px solid #444;
+    font-family: 'Courier New', monospace;
     cursor: pointer; /* Indicates it can be clicked for MEM mode */
     -webkit-user-select: text; /* Ensures text is selectable */
     user-select: text;
+    letter-spacing: 0.5px;
+    font-weight: bold;
+    text-align: center;
+    position: relative;
+    overflow: hidden;
+}
+
+/* Add subtle glow effect to ATM clock */
+.time-based-filename[readonly]::after {
+    content: '';
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    top: 0;
+    left: 0;
+    box-shadow: inset 0 0 8px rgba(0, 123, 255, 0.5);
+    pointer-events: none;
+    animation: clockPulse 1s infinite;
+}
+
+@keyframes clockPulse {
+    0% { opacity: 0.2; }
+    50% { opacity: 0.5; }
+    100% { opacity: 0.2; }
+}
+
+.time-based-filename:not([readonly]) {
+    background-color: #ffffff;
+    color: #000000;
+    border: 1px solid #007bff;
+    font-family: Arial, sans-serif;
 }
 
 .file-list-section {
@@ -1116,12 +1178,12 @@ button.danger:hover {
 /* NEW: Usage Modal Specific Styles */
 .usage-modal-backdrop {
     /* Inherits from modal-backdrop */
-    /* Can add overrides here if needed */
+    z-index: 2000; /* Ensure it's above all other elements */
 }
 
 .usage-modal {
     /* Inherits from custom-confirm-modal */
-    width: 600px; /* Make it wider */
+    width: 700px; /* Make it wider */
     max-width: 90vw;
     max-height: 80vh; /* Limit height */
     font-family: sans-serif; /* Use standard sans-serif */
@@ -1143,14 +1205,66 @@ button.danger:hover {
     font-size: 0.95em;
     line-height: 1.6;
     color: var(--text-primary);
-    white-space: pre-wrap; /* Preserve whitespace and newlines from template literal */
-    padding-right: 10px; /* Space for scrollbar */
+    /* white-space: pre-wrap; - Remove this as we're using HTML formatting now */
+    padding: 10px; /* Add padding all around */
     margin-bottom: 20px; /* Space before buttons */
 }
 
-.usage-buttons {
-     /* Inherits from custom-confirm-buttons */
-     /* Can add overrides like justify-content: flex-end; if needed */
+/* Style markdown elements */
+.usage-content h4 {
+    margin-top: 1.2em;
+    margin-bottom: 0.8em;
+    font-size: 1.2em;
+    color: var(--button-primary-bg);
 }
 
-/* header control group */
+.usage-content h4:first-child {
+    margin-top: 0;
+}
+
+.usage-content strong {
+    font-weight: bold;
+    color: var(--button-primary-bg);
+}
+
+.usage-content em {
+    font-style: italic;
+}
+
+.usage-content code {
+    font-family: monospace;
+    background-color: rgba(0,0,0,0.05);
+    padding: 2px 4px;
+    border-radius: 3px;
+    font-size: 0.9em;
+}
+
+.usage-content ul {
+    margin-left: 1em;
+    padding-left: 1em;
+    margin-bottom: 1em;
+}
+
+.usage-content li {
+    margin-bottom: 0.5em;
+}
+
+.usage-buttons {
+    /* Inherits from custom-confirm-buttons */
+    justify-content: center; /* Center the close button */
+}
+
+.usage-buttons .modal-btn {
+    min-width: 100px; /* Make the button wider */
+}
+
+/* Pulse effect for mode buttons */
+@keyframes pulse {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.2); }
+    100% { transform: scale(1); }
+}
+
+.pulse-effect {
+    animation: pulse 0.5s ease-out;
+}

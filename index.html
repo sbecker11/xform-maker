@@ -164,6 +164,7 @@
                     <div class="filename-header">
                     <label>X-Form Name:</label>
                         <div class="mode-icons">
+                            <!-- Removed CLONED Save Button -->
                             <button id="filenameModeATM" class="mode-icon active is-disableable" title="Automated Time Mode">
                             <img src="icons/clock-white.png" alt="Time" class="btn-icon" data-dark-src="icons/clock-dark.png">
                             </button>
@@ -174,7 +175,7 @@
                     </div>
                     <div class="filename-input-container">
                         <input type="text" id="filenameInput" class="time-based-filename is-disableable" readonly="true">
-                    <button id="saveFileBtn" class="save-button is-disableable">Save</button>
+                    <button id="saveFileBtn" class="save-button">Save</button> <!-- Original UNCOMMENTED -->
                     </div>
                 </div>
 
@@ -219,7 +220,9 @@
         <div class="center-right-wrapper">
         <!-- Center: Viewport & Actions -->
         <div class="center-column">
-            <div id="viewport" style="cursor: crosshair;"><div id="startRect" class="rect rect-start" style="width: 103px; height: 133px; left: 78.5px; top: 49.5px;">Start</div><div id="endRect" class="rect rect-end" style="width: 103px; height: 133px; left: 250.5px; top: 217.5px;">End</div></div>
+            <div id="viewport" style="cursor: crosshair;">
+                <!-- REMOVED hardcoded startRect and endRect -->
+            </div>
             <div class="viewport-actions">
                 <button id="startAnimation">Play</button>
                 <button id="resetPositions">New</button>
@@ -287,27 +290,29 @@
         </div> <!-- End of center-right-wrapper -->
     </div> <!-- End of main-content-area -->
 
-    <!-- Load Path & Thickness modules first so other modules can use them -->
-    <script src="xform-path-styles.js" defer></script>
-    <script src="xform-path-width.js" defer></script>
-    <script src="xform-path-shape.js" defer></script>
-    <!-- Load Module Scripts -->
-    <script src="xform-indexeddb.js" defer></script>
-    <!-- Legacy persistence script is now optional and loaded with a special flag -->
-    <script>
-        // Only load the legacy persistence script if explicitly requested
-        if (window.location.search.includes('use_legacy_persistence=true')) {
-            document.write('<script src="xform-persistence.js" defer><\/script>');
-            console.log('Loading legacy persistence module by request');
-        } else {
-            console.log('Using IndexedDB persistence (legacy module not loaded)');
-        }
-    </script>
-    <script src="xform-controls.js" defer></script>
-    <!-- Load Main Setup Script Last -->
-    <script src="script.js" defer></script> 
-    <!-- Debug utilities for console -->
-    <script src="console-utils.js" defer></script>
+    <!-- Styles -->
+    <link rel="stylesheet" href="styles.css">
+    
+    <!-- Theme bootstrapping (runs immediately) -->
+    <script src="applyTheme.js"></script> 
+    
+    <!-- Foundational Modules (Load & Execute Sequentially BEFORE DOMContentLoaded) -->
+    <script src="xform-indexeddb.js"></script>
+    <script src="xform-filename-mode.js" defer></script>
+    <script src="xform-ui-helpers.js"></script>
+    <script src="xform-persistence.js"></script> 
+    <script src="xform-controls.js"></script>
+    <script src="xform-path-styles.js"></script>
+    <script src="xform-path-width.js"></script>
+    <script src="xform-path-shape.js"></script>
+    <script src="xform-curves.js"></script>
+    <script src="xform-inspector.js"></script>
+    <script src="usage-modal.js"></script> 
+    <script src="console-utils.js"></script>
+    <script src="debug-xforms.js"></script>
+    
+    <!-- Main initialization script (Deferred - runs AFTER parsing and other scripts) -->
+    <script src="script.js" defer></script>
 
 </body></html>
 

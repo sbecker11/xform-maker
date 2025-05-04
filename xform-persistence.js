@@ -1,8 +1,8 @@
 // --- Global Constants & Variables (Declared in main script.js) ---
 // const STORAGE_KEY = 'xformMaker_savedForms'; 
 // const STATE_STORAGE_KEY = 'xformMaker_currentState';
-const FILENAME_MODE_KEY = 'xformMaker_filenameMode';
-const FILENAME_VALUE_KEY = 'xformMaker_filenameValue';
+// const FILENAME_MODE_KEY = 'xformMaker_filenameMode'; // Defined in xform-filename-mode.js
+// const FILENAME_VALUE_KEY = 'xformMaker_filenameValue'; // Defined in xform-filename-mode.js
 window.lastUsedDirHandle = null; // Keep track of the selected 'storage' directory handle
 // window.isFilenameModeATM = true; // Managed within setupFilenameMode
 let filenameUpdateInterval = null;
@@ -11,18 +11,21 @@ let selectedFilename = null; // Keep track of selected filename
 // References to DOM elements needed by persistence (set in main script)
 // window.savedListUl, window.selectedControlsDiv, window.renameInput, etc.
 
-// --- IndexedDB Helpers for Directory Handle Persistence ---
-const DB_NAME = 'xformMakerDB';
-const DB_VERSION = 1;
-const STORE_NAME = 'settingsStore';
-const DIR_HANDLE_KEY = 'lastDirectoryHandle';
+// --- IndexedDB Helpers for Directory Handle Persistence --- 
+// --- NOTE: These are commented out as the main DB logic is in xform-indexeddb.js ---
+/*
+const DB_NAME_PERSISTENCE = 'xformMakerDB'; // Use a distinct name if needed, or ensure it matches the main DB
+const DB_VERSION_PERSISTENCE = 1;
+const STORE_NAME_PERSISTENCE = 'settingsStore';
+const DIR_HANDLE_KEY_PERSISTENCE = 'lastDirectoryHandle';
 
-let dbPromise = null;
+// REMOVE or comment out this duplicate declaration
+// let dbPromise = null; 
 
 function openDB() {
     if (dbPromise) return dbPromise;
     dbPromise = new Promise((resolve, reject) => {
-        const request = indexedDB.open(DB_NAME, DB_VERSION);
+        const request = indexedDB.open(DB_NAME_PERSISTENCE, DB_VERSION_PERSISTENCE);
         request.onerror = (event) => {
             console.error("IndexedDB error:", event.target.error);
             reject("IndexedDB error");
@@ -34,14 +37,19 @@ function openDB() {
         request.onupgradeneeded = (event) => {
             console.log("IndexedDB upgrade needed.");
             const db = event.target.result;
-            if (!db.objectStoreNames.contains(STORE_NAME)) {
-                db.createObjectStore(STORE_NAME);
-                console.log(`Object store '${STORE_NAME}' created.`);
+            if (!db.objectStoreNames.contains(STORE_NAME_PERSISTENCE)) {
+                db.createObjectStore(STORE_NAME_PERSISTENCE);
+                console.log(`Object store '${STORE_NAME_PERSISTENCE}' created.`);
             }
         };
     });
     return dbPromise;
 }
+*/
+// --- Use the global openDB from xform-indexeddb.js instead ---
+const STORE_NAME_PERSISTENCE = 'settingsStore'; // Still need store name
+const DIR_HANDLE_KEY_PERSISTENCE = 'lastDirectoryHandle'; // Still need key name
+
 
 async function saveDirectoryHandle(handle) {
     if (!handle) {
@@ -75,16 +83,40 @@ async function saveDirectoryHandle(handle) {
     
     // Now save the handle regardless of permission status
     try {
+        console.log("📂 SAVE HANDLE (DEBUG): Attempting to open DB for writing...");
         const db = await openDB();
-        const tx = db.transaction(STORE_NAME, 'readwrite');
-        const store = tx.objectStore(STORE_NAME);
-        await store.put(handle, DIR_HANDLE_KEY);
+        console.log("📂 SAVE HANDLE (DEBUG): DB opened. Starting transaction...");
+        const tx = db.transaction(STORE_NAME_PERSISTENCE, 'readwrite');
+        const store = tx.objectStore(STORE_NAME_PERSISTENCE);
+        
+        console.log(`📂 SAVE HANDLE (DEBUG): Attempting to store handle for '${handle.name}' (kind: ${handle.kind}) with key '${DIR_HANDLE_KEY_PERSISTENCE}'`);
+        console.log("📂 SAVE HANDLE (DEBUG): Handle object:", handle); // Log the handle itself
+
+        // *** Make sure we are putting the HANDLE, not a request object ***
+        const putRequest = store.put(handle, DIR_HANDLE_KEY_PERSISTENCE);
+
+        // --- ADDED DEBUG LOGS FOR REQUEST --- 
+        putRequest.onsuccess = (event) => {
+            console.log("📂 SAVE HANDLE (DEBUG): store.put() request successful.", event);
+        };
+        putRequest.onerror = (event) => {
+            console.error("📂 SAVE HANDLE (DEBUG): store.put() request FAILED:", event.target.error);
+        };
+        // --- END ADDED DEBUG LOGS ---
+        
+        console.log("📂 SAVE HANDLE (DEBUG): Waiting for transaction completion (tx.done)...");
+        // Use tx.done to wait for completion
         await tx.done;
         
         console.log('📂 SAVE HANDLE: Successfully saved directory handle to IndexedDB');
         return true;
     } catch (error) {
         console.error('📂 SAVE HANDLE: Error saving directory handle to IndexedDB:', error);
+        // --- ADDED DEBUG LOG FOR ERROR DETAILS ---
+        if (error.name) {
+            console.error(`📂 SAVE HANDLE (DEBUG): Error details - Name: ${error.name}, Message: ${error.message}`);
+        }
+        // --- END ADDED DEBUG LOG ---
         return false;
     }
 }
@@ -93,21 +125,29 @@ async function loadDirectoryHandle() {
     try {
         console.log('📂 LOAD HANDLE: Attempting to load directory handle from IndexedDB...');
         const db = await openDB();
+        const tx = db.transaction(STORE_NAME_PERSISTENCE, 'readonly');
+        const store = tx.objectStore(STORE_NAME_PERSISTENCE);
         
-        // Use proper transaction pattern instead of direct db.get
-        const tx = db.transaction(STORE_NAME, 'readonly');
-        const store = tx.objectStore(STORE_NAME);
-        const handle = await store.get(DIR_HANDLE_KEY);
-        await tx.done;
-        
-        if (!handle) {
-            console.log('📂 LOAD HANDLE: No directory handle found in IndexedDB');
+        // Use a promise to wrap the get request correctly
+        const handle = await new Promise((resolve, reject) => {
+            const request = store.get(DIR_HANDLE_KEY_PERSISTENCE);
+            request.onsuccess = () => resolve(request.result); // Resolve with the actual handle
+            request.onerror = () => reject(request.error);
+        });
+
+        // *** VALIDATION: Check if handle is a valid directory handle ***
+        if (!handle || typeof handle.queryPermission !== 'function' || handle.kind !== 'directory') {
+            console.warn('📂 LOAD HANDLE: Invalid or corrupted handle found in IndexedDB. Deleting it.');
+            if (handle) { 
+                 console.log('   (Invalid handle data retrieved:', handle);
+            }
+            await deleteStoredDirectoryHandle(); 
             return null;
         }
         
-        console.log(`📂 LOAD HANDLE: Retrieved handle for "${handle.name}" directory`);
+        console.log(`📂 LOAD HANDLE: Retrieved valid handle for "${handle.name}" directory`);
         
-        // Check permission status
+        // Check permission status (now we know handle is valid)
         try {
             console.log('📂 LOAD HANDLE: Checking permission status...');
             const permissionStatus = await handle.queryPermission({ mode: 'readwrite' });
@@ -116,35 +156,25 @@ async function loadDirectoryHandle() {
             // Display detailed handle info for debugging
             console.log('📂 LOAD HANDLE: Handle details:', {
                 name: handle.name,
-                kind: handle.kind,
-                isDirectory: handle.isDirectory === true ? 'yes' : 'no',
-                isFile: handle.isFile === true ? 'yes' : 'no'
+                kind: handle.kind
             });
             
             if (permissionStatus !== 'granted') {
                 console.warn('📂 LOAD HANDLE: Permission not currently granted, will request when needed');
-                // We don't request permission here to avoid unwanted prompts,
-                // but we inform the app about the current status
                 window.directoryPermissionStatus = 'needs-request';
-        } else {
+            } else {
                 window.directoryPermissionStatus = 'granted';
             }
             
             return handle;
         } catch (permErr) {
-            console.error('📂 LOAD HANDLE: Error checking permission:', permErr);
-            // The handle might be corrupted or invalid, so delete it
-            await deleteDirectoryHandle();
+            console.error('📂 LOAD HANDLE: Error checking permission on valid handle:', permErr);
+            // Don't delete the handle here, just return null as permission failed
             return null;
         }
     } catch (error) {
+        // Catch errors from openDB or the transaction itself
         console.error('📂 LOAD HANDLE: Error loading directory handle:', error);
-        // The database might be corrupted, try to delete the handle
-        try {
-            await deleteDirectoryHandle();
-        } catch (deleteErr) {
-            console.error('📂 LOAD HANDLE: Also failed to delete corrupted handle:', deleteErr);
-        }
         return null;
     }
 }
@@ -155,9 +185,9 @@ async function deleteStoredDirectoryHandle() {
         const db = await openDB();
         
         // Use proper transaction pattern
-        const tx = db.transaction(STORE_NAME, 'readwrite');
-        const store = tx.objectStore(STORE_NAME);
-        await store.delete(DIR_HANDLE_KEY);
+        const tx = db.transaction(STORE_NAME_PERSISTENCE, 'readwrite');
+        const store = tx.objectStore(STORE_NAME_PERSISTENCE);
+        await store.delete(DIR_HANDLE_KEY_PERSISTENCE);
         await tx.done;
         
         console.log('📂 DELETE STORED HANDLE: Successfully deleted directory handle');
@@ -173,9 +203,9 @@ async function deleteDirectoryHandle() {
         const db = await openDB();
         
         // Use proper transaction pattern instead of direct db.delete
-        const tx = db.transaction(STORE_NAME, 'readwrite');
-        const store = tx.objectStore(STORE_NAME);
-        await store.delete(DIR_HANDLE_KEY);
+        const tx = db.transaction(STORE_NAME_PERSISTENCE, 'readwrite');
+        const store = tx.objectStore(STORE_NAME_PERSISTENCE);
+        await store.delete(DIR_HANDLE_KEY_PERSISTENCE);
         await tx.done;
         
         console.log('📂 DELETE HANDLE: Successfully deleted directory handle');
@@ -189,7 +219,7 @@ async function deleteDirectoryHandle() {
 }
 
 // --- Filename mode functions (Phase 1 & 2) ---
-function setupFilenameMode() {
+function setupFilenameMode_PersistenceVersion_UNUSED() {
     const filenameInput = document.getElementById('filenameInput');
     const atmButton = document.getElementById('filenameModeATM');
     const memButton = document.getElementById('filenameModeManual');
@@ -428,13 +458,31 @@ function applyXFormData(data) {
     if (typeof applyRectangleSize === 'function') applyRectangleSize(); // Assumes function exists
     else console.warn('applyRectangleSize function not found during applyXFormData');
 
+    // *** ADDED: Check if rect elements exist before styling ***
+    console.log(`applyXFormData: Checking rects before styling. window.startRect: ${window.startRect ? window.startRect.id : 'MISSING'}, window.endRect: ${window.endRect ? window.endRect.id : 'MISSING'}`);
+    // *** ADDED: Log the actual elements ***
+    console.log("applyXFormData: window.startRect element:", window.startRect);
+    console.log("applyXFormData: window.endRect element:", window.endRect);
+
+    // Apply styles DIRECTLY from loaded data
     if (window.startRect && data.startRect) {
+        console.log(`applyXFormData: Styling startRect with: L=${data.startRect.left}, T=${data.startRect.top}, W=${data.startRect.width}, H=${data.startRect.height}`); // ADD LOG
         window.startRect.style.left = `${data.startRect.left}px`;
         window.startRect.style.top = `${data.startRect.top}px`;
+        // *** ADDED: Set width/height directly from loaded data ***
+        window.startRect.style.width = `${data.startRect.width}px`;
+        window.startRect.style.height = `${data.startRect.height}px`;
+        window.startRect.style.display = 'flex'; // Ensure visible
     }
     if (window.endRect && data.endRect) {
+        console.log(`applyXFormData: Styling endRect with: L=${data.endRect.left}, T=${data.endRect.top}, W=${data.startRect.width}, H=${data.startRect.height}`); // ADD LOG (Using startRect W/H)
         window.endRect.style.left = `${data.endRect.left}px`;
         window.endRect.style.top = `${data.endRect.top}px`;
+         // *** ADDED: Set width/height directly from loaded data ***
+         // Assuming width/height are consistent, use startRect data as canonical
+        window.endRect.style.width = `${data.startRect.width}px`; 
+        window.endRect.style.height = `${data.startRect.height}px`;
+        window.endRect.style.display = 'flex'; // Ensure visible
     }
 
     // Clear existing visual waypoints
@@ -490,6 +538,7 @@ function applyXFormData(data) {
         }
 
     console.log("Applied X-Form data:", window.currentXFormName);
+    return true; // <-- ADDED: Explicitly return true on success
 }
 
 // Save current application state to localStorage
@@ -950,32 +999,50 @@ async function _findAvailableFilename(folderHandle, baseName) {
 
 // Utility to enable/disable filename mode controls
 function toggleFilenameControls(enable){
-    const fieldset=document.querySelector('.persistence-fieldset');
+    const fieldset = document.querySelector('.persistence-fieldset');
     if(!fieldset) return;
-    fieldset.querySelectorAll('.is-disableable').forEach(el=>{
-        // Don't disable the ATM button
-        if (el.id === 'filenameModeATM') {
-            // Ensure the ATM button is always enabled
-            el.disabled = false;
-            return;
+    
+    console.log(`Toggling Filename Controls: ${enable ? 'Enable' : 'Disable'}`);
+    
+    // Select ALL elements that can be disabled/hidden within this fieldset
+    const disableableElements = fieldset.querySelectorAll('.is-disableable');
+    const hideableElements = fieldset.querySelectorAll('.is-hideable');
+    
+    disableableElements.forEach(el => {
+        // ALWAYS KEEP ATM/MEM buttons clickable unless explicitly disabled elsewhere
+        if (el.id === 'filenameModeATM' || el.id === 'filenameModeManual') {
+            // el.disabled = false; // Keep them enabled by default
+        } else if (el.id === 'filenameInput') {
+            // Handle input field specifically
+            el.disabled = !enable;
+            el.readOnly = !enable; // Typically enable editing when controls are enabled
+            if (!enable) el.value = ''; // Clear value when disabled
+        } else if (el.id === 'saveFileBtn') {
+            // Save button is handled by updateSaveButtonState, don't disable here
+            // el.disabled = !enable;
+        } else {
+            // Disable other generic disableable elements if needed
+             el.disabled = !enable;
         }
         
-        el.disabled=!enable;
-        if(el.tagName==='INPUT' && el.type==='text'){
-            if(!enable){ el.value=''; }
-            el.readOnly=!enable;
-        }
+        // Remove active class if disabling
         if(!enable) el.classList.remove('active');
     });
-    fieldset.querySelectorAll('.is-hideable').forEach(el=>{el.hidden=!enable});
-    if(!enable){
-        stopFilenameTimeUpdates && stopFilenameTimeUpdates();
-    } else {
-        if(window.isFilenameModeATM && window.lastUsedDirHandle){
-            startFilenameTimeUpdates && startFilenameTimeUpdates();
-        }
-    }
+    
+    // Toggle visibility for hideable elements
+    hideableElements.forEach(el => {
+        el.hidden = !enable;
+    });
+    
+    // Stop timer if disabling controls
+    if(!enable && typeof stopFilenameTimeUpdates === 'function'){
+        stopFilenameTimeUpdates();
+    } 
+    // We don't automatically restart the timer here - setupFilenameMode handles that
 }
+
+// Expose the utility function if needed elsewhere (optional)
+window.toggleFilenameControls = toggleFilenameControls;
 
 // --- Initial Setup Function (called from main script) ---
 async function setupPersistence() { 
@@ -1245,39 +1312,58 @@ async function listJsonFiles(dirHandle) {
     const sortButton = document.getElementById('sortFilesBtn'); // capture once
     const saveBtn = document.getElementById('saveFileBtn');
 
-    selectedFileListItem = null; 
+    selectedFileListItem = null;
     selectedFilename = null;
 
-    const atmButton = document.getElementById('filenameModeATM');
-    const memButton = document.getElementById('filenameModeManual');
-
-    // Always start with a "Change Folder" option at the top
-    fileListUl.innerHTML = `<li id="changeFolderLineItem" class="folder-prompt">
-        <span class="folder-prompt-text">${dirHandle ? 'Change storage folder:' : 'Select the \'storage\' folder first:'}</span> 
-        <select-folder-icon-btn>📁</select-folder-icon-btn>
-    </li>`;
-    
-    // Attach click listener for the change folder option
-        const changeLi = document.getElementById('changeFolderLineItem');
-        if (changeLi) {
-            changeLi.addEventListener('click', () => selectDirectoryAndListFiles(true));
-        }
-
-    if (!dirHandle) {
-        if (saveBtn) saveBtn.disabled = true; // Disable save when no folder
-        toggleFilenameControls(false);
+    if (!fileListUl) {
+        console.error("File list UL element ('savedList') not found.");
         return;
     }
 
-    if (saveBtn) saveBtn.disabled = false; // Enable once folder selected
-    // re-enable filename mode buttons
-    toggleFilenameControls(true);
-    
-    // Add "Loading" message after the change folder option
-    fileListUl.innerHTML += '<li>Loading files...</li>';
-    
-    // Show sort button by default while loading (will be adjusted later)
-    if (sortButton) sortButton.style.display = 'none';
+    if (!dirHandle) {
+        console.log("listJsonFiles: No directory handle provided. Showing 'Select Folder' prompt.");
+        // Clear the entire list first
+        fileListUl.innerHTML = '';
+
+        // Add only the change folder prompt
+        const promptLi = document.createElement('li');
+        promptLi.id = 'changeFolderLineItem';
+        promptLi.className = 'folder-prompt';
+        promptLi.innerHTML = `
+            <span class="folder-prompt-text">Select the 'storage' folder first:</span>
+            <button class="change-folder-icon-btn">📁</button>
+        `;
+        fileListUl.appendChild(promptLi);
+
+        // Attach click listener to the button within the prompt
+        const promptButton = promptLi.querySelector('.change-folder-icon-btn');
+        if (promptButton) {
+            promptButton.addEventListener('click', () => selectDirectoryAndListFiles(true));
+        } else {
+             // Fallback: attach to LI if button selector fails unexpectedly
+             promptLi.addEventListener('click', () => selectDirectoryAndListFiles(true));
+        }
+
+        if (saveBtn) saveBtn.disabled = true; // Disable save when no folder
+        toggleFilenameControls(false); // Disable filename input/buttons
+        if (sortButton) sortButton.style.display = 'none'; // Hide sort button
+        return; // Stop further processing
+    }
+
+    console.log(`listJsonFiles: Valid directory handle provided (${dirHandle.name}). Listing files.`);
+    if (saveBtn) saveBtn.disabled = false; // Enable save button
+    toggleFilenameControls(true); // Enable filename input/buttons
+
+    // Clear the list (removes any previous prompt or loading message)
+    fileListUl.innerHTML = '';
+
+    // Add "Loading" message
+    const loadingLi = document.createElement('li');
+    loadingLi.textContent = 'Loading files...';
+    fileListUl.appendChild(loadingLi);
+
+    // Show sort button initially (will be hidden if < 2 files)
+    if (sortButton) sortButton.style.display = 'flex'; // Show sort button by default when listing
 
     try {
         const fileEntries = [];
@@ -1333,7 +1419,11 @@ async function listJsonFiles(dirHandle) {
         }
 
         // Update sort button visibility based on count
-        if (sortButton) sortButton.style.display = fileEntries.length < 2 ? 'none' : 'flex';
+        if (sortButton) {
+            sortButton.style.display = fileEntries.length < 2 ? 'none' : 'flex';
+             // Ensure sort button is properly hideable/disableable if needed
+             sortButton.classList.add('is-hideable'); 
+        }
 
         // Apply initial alphabetical sort
         fileEntries.sort((a, b) => a.name.localeCompare(b.name, undefined, {numeric: true, sensitivity: 'base'}));
@@ -1385,6 +1475,17 @@ async function listJsonFiles(dirHandle) {
             // Simplified click handler: only one item can be selected at any time.
             li.addEventListener('click', () => {
                 const alreadySelected = li.classList.contains('single-selected');
+                const xformId = li.dataset.filename; // *** GET THE ID FROM THE CORRECT DATA ATTRIBUTE ***
+                // Assuming the ID is stored in 'data-xform-id' based on renderXFormList
+                const correctXFormId = li.dataset.xformId; 
+
+                // --- Debugging log ---
+                console.log(`List item clicked. Already selected: ${alreadySelected}, Filename (from data-filename): ${xformId}, Correct ID (from data-xform-id): ${correctXFormId}`);
+                
+                if (!correctXFormId) {
+                    console.error("Could not find xformId on clicked list item!", li);
+                    return; // Don't proceed without an ID
+                }
 
                 // Clear selection classes from all items first
                 document.querySelectorAll('#savedList li.file-list-item').forEach(el => {
@@ -1392,14 +1493,22 @@ async function listJsonFiles(dirHandle) {
                 });
 
                 if (alreadySelected) {
-                    // If the user clicked the same selected item again → load it
-                    loadFile(fileEntry.name);
+                    // If the user clicked the same selected item again → load it FROM DB
+                    console.log(`Attempting to load XForm from DB with ID: ${correctXFormId}`);
+                    if (typeof window.loadXFormFromDB === 'function') {
+                        window.loadXFormFromDB(correctXFormId); // *** CALL DB LOAD FUNCTION ***
+                    } else {
+                        console.error("loadXFormFromDB function not found!");
+                        showInfoDialog("Internal Error: Cannot load selected X-Form.");
+                    }
                 } else {
                     // Otherwise, simply select this one (blue)
+                    console.log(`Selecting item with ID: ${correctXFormId}`);
                     li.classList.add('single-selected');
                 }
 
                 // Maintain a single-element list of selected filenames for any other code
+                // ** NOTE: This logic might need adjustment if selection is handled elsewhere (e.g., window.selectedXforms) **
                 selectedFileListItem = li.classList.contains('single-selected') ? li : null;
             });
             fileListUl.appendChild(li);
@@ -1407,16 +1516,19 @@ async function listJsonFiles(dirHandle) {
 
     } catch (err) {
         console.error("Error listing files:", err);
-        // Keep the change folder option but add an error message
-        fileListUl.innerHTML = fileListUl.firstElementChild.outerHTML + 
-                              '<li>Error reading directory contents.</li>';
-        
+        // Clear list and show error message
+        fileListUl.innerHTML = '<li>Error reading directory contents.</li>';
+
         if (err.name === 'NotAllowedError') {
              window.lastUsedDirHandle = null;
              await deleteStoredDirectoryHandle(); // Remove bad handle from DB
              await showInfoDialog("Permission denied for storage folder. Please re-select it.");
-             // Don't call listJsonFiles(null) to avoid infinite recursion - already showing the change folder option
+             // Show the select prompt again
+             await listJsonFiles(null); // Call itself with null handle to show prompt
              if (saveBtn) saveBtn.disabled = true;
+        } else {
+            // For other errors, still show the select prompt
+             await listJsonFiles(null); // Call itself with null handle to show prompt
         }
         if (sortButton) sortButton.style.display = 'none';
     }
@@ -1485,7 +1597,8 @@ async function loadFile(filename) {
         }
         
         // Call setupFilenameMode to reinitialize the button event handlers if needed
-        setupFilenameMode();
+        // Comment out redundant call
+        // setupFilenameMode();
 
     } catch (err) {
         console.error(`Error processing file ${filename}:`, err); 
@@ -1655,7 +1768,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     }, 2000);
     
     // Additional setup for the rest of the application
-    setupFilenameMode();
+    // setupFilenameMode();
     applyThemeFromLocalStorage();
     setupCreateXFormListener();
 });
@@ -1695,6 +1808,8 @@ window.applyTheme = applyTheme;
 function applyThemeFromLocalStorage() {
     const savedTheme = localStorage.getItem('xformMakerTheme') || 'light';
     applyTheme(savedTheme);
+    // Comment out redundant call
+    // setupFilenameMode(); 
 }
 
 // Make it available globally

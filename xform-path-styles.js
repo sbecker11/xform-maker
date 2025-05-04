@@ -28,12 +28,12 @@ window.pathStyleModes = pathStyleModes;
 function setupPathStyleButton () {
   // Use existing button if present, otherwise create one
   let btn = document.getElementById('pathStyleBtn');
-  const viewportActions = document.querySelector('.viewport-actions');
-  if (!viewportActions) {
+        const viewportActions = document.querySelector('.viewport-actions');
+        if (!viewportActions) {
     console.warn('setupPathStyleButton: .viewport-actions not found');
-    return;
-  }
-
+            return;
+        }
+        
   if (!btn) {
     btn = document.createElement('button');
     btn.id = 'pathStyleBtn';
@@ -46,13 +46,13 @@ function setupPathStyleButton () {
     btn.textContent = pathStyleModes[window.currentPathStyleIndex].label;
 
     // If not already positioned after reset button, attempt to move it
-    const resetBtn = document.getElementById('resetPositions');
+        const resetBtn = document.getElementById('resetPositions');
     if (resetBtn && resetBtn.nextSibling !== btn) {
       viewportActions.insertBefore(btn, resetBtn.nextSibling);
     }
 
     addPathVisualizationStyles();
-
+    
     btn.addEventListener('click', () => {
       window.currentPathStyleIndex = (window.currentPathStyleIndex + 1) % pathStyleModes.length;
       const mode = pathStyleModes[window.currentPathStyleIndex];
@@ -60,10 +60,10 @@ function setupPathStyleButton () {
       console.log(`[Style] now: ${mode.id}`);
       applyPathStyle(mode.style);
     });
-
+    
     // Mark as initialized to avoid duplicate handlers next time
     btn.dataset.pathStyleInit = 'true';
-
+    
     // initial application (skip if none)
     const initMode = pathStyleModes[window.currentPathStyleIndex];
     if (initMode.id !== 'none') applyPathStyle(initMode.style);
@@ -74,8 +74,8 @@ function updateSelectedPathStyle () {
   if (window.currentPathStyleIndex === undefined) return;
   const mode = pathStyleModes[window.currentPathStyleIndex];
   applyPathStyle(mode.style);
-}
-
+    }
+    
 // ------------- Drawing logic -------------
 
 function addPathVisualizationStyles () {
@@ -95,8 +95,8 @@ function addPathVisualizationStyles () {
 }
 
 function applyPathStyle (style) {
-  const viewport = document.getElementById('viewport');
-  if (!viewport) return;
+    const viewport = document.getElementById('viewport');
+    if (!viewport) return;
   const existing = document.getElementById('path-visualization');
   if (existing) existing.remove();
   if (style === 'none') return;
@@ -106,8 +106,8 @@ function applyPathStyle (style) {
   svg.classList.add('path-visualization');
   svg.setAttribute('width','100%');
   svg.setAttribute('height','100%');
-
-  const startRect = document.getElementById('startRect');
+    
+    const startRect = document.getElementById('startRect');
   const endRect   = document.getElementById('endRect');
   if (!startRect || !endRect) return;
 
@@ -117,11 +117,11 @@ function applyPathStyle (style) {
   const startY = parseFloat(startRectStyle.top)  + parseFloat(startRectStyle.height)/2;
   const endX   = parseFloat(endRectStyle.left)   + parseFloat(endRectStyle.width)/2;
   const endY   = parseFloat(endRectStyle.top)    + parseFloat(endRectStyle.height)/2;
-
+    
   const points = [{x:startX,y:startY}];
   if (window.intermediatePoints?.length) window.intermediatePoints.forEach(p=>points.push({x:p.x,y:p.y}));
   points.push({x:endX,y:endY});
-
+    
   let finalPoints = points;
   if (!window.forceLinearPath && typeof window.generateSplinePath==='function'){
     try{const out=window.generateSplinePath(points);if(out?.length)finalPoints=out;}catch{}}
@@ -142,8 +142,8 @@ function applyPathStyle (style) {
     let d=`M ${finalPoints[0].x},${finalPoints[0].y}`;
     for(let i=1;i<finalPoints.length;i++) d+=` L ${finalPoints[i].x},${finalPoints[i].y}`;
     path.setAttribute('d',d);
-    svg.appendChild(path);
-  }
+        svg.appendChild(path);
+    }
   if(style==='circles'){
     drawConnectorLine();
     finalPoints.forEach((p,i)=>{
@@ -152,8 +152,8 @@ function applyPathStyle (style) {
       c.setAttribute('cx',p.x);c.setAttribute('cy',p.y);
       c.setAttribute('r',i===0||i===finalPoints.length-1?6:4);
       svg.appendChild(c);
-    });
-  }
+        });
+    }
   if(style==='boxes'){
     drawConnectorLine();
     finalPoints.forEach((p,i)=>{
@@ -165,10 +165,10 @@ function applyPathStyle (style) {
       r.setAttribute('x',p.x-size/2);
       r.setAttribute('y',p.y-size/2);
       svg.appendChild(r);
-    });
-  }
-
-  viewport.appendChild(svg);
+        });
+    }
+    
+    viewport.appendChild(svg);
 }
 
 window.xformPathStyles = { pathStyleModes, setupPathStyleButton, updateSelectedPathStyle, applyPathStyle };

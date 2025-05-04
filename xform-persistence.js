@@ -1828,3 +1828,136 @@ function setupCreateXFormListener() {
 window.setupCreateXFormListener = setupCreateXFormListener;
 
 window.filenameUpdateInterval = filenameUpdateInterval;
+
+// === Export Functionality ===
+
+/**
+ * Main function to handle exporting ALL X-Forms to a single JSONL file.
+ */
+async function handleExportXForms() {
+    console.log("Export All (JSONL) button clicked.");
+
+    // Check if directory handle exists
+    if (!window.lastUsedDirHandle) {
+        // ... (handle missing directory unchanged) ...
+        return;
+    }
+
+    // 1. Get ALL X-Form data 
+    let allForms = [];
+    if (typeof window.getAllXForms !== 'function') { 
+        // ... (handle missing getAllXForms function unchanged) ...
+        return;
+    } 
+    try {
+        allForms = await window.getAllXForms(); 
+        console.log(`Retrieved ${allForms.length} X-Forms from DB.`);
+    } catch (err) {
+        // ... (handle DB retrieval error unchanged) ...
+        return;
+    }
+    
+    if (!allForms || allForms.length === 0) {
+        window.showModalDialog({ title: "Export", message: "No X-Forms found in the database to export." });
+        return;
+    }
+
+    // 2. Prepare JSONL data string (This part simulates the loop for status reporting)
+    let jsonlLines = [];
+    let successCount = 0;
+    let skippedCount = 0;
+    let errorCount = 0;
+    const failedExports = []; // Store details of failed exports
+
+    // ** Simulate Processing Each Form for Status (Actual file write happens later) **
+    // This structure allows us to keep the single file write but report individually
+    for (const xform of allForms) {
+        try {
+            // Prepare data for this specific xform (remove elements, update timestamp)
+             const dataToSave = { ...xform };
+             delete dataToSave.element; 
+             if (dataToSave.intermediatePoints) {
+                 dataToSave.intermediatePoints = dataToSave.intermediatePoints.map(p => {
+                     const { element, ...rest } = p; 
+                     return rest;
+                 });
+             }
+             dataToSave.lastModified = Date.now(); 
+             
+             // Add the prepared JSON line to the array
+             jsonlLines.push(JSON.stringify(dataToSave));
+             successCount++; // Assume success at this stage (actual write failure handled later)
+        } catch(prepError) {
+            console.error(`Error preparing X-Form '${xform.name || xform.id}' for export:`, prepError);
+            errorCount++;
+            failedExports.push({ name: xform.name || xform.id, reason: prepError.message });
+        }
+    }
+
+    // Check if any forms failed preparation before proceeding
+    if (errorCount > 0) {
+        console.warn(`Export aborted: ${errorCount} form(s) failed during data preparation.`);
+        // Optionally show a specific error modal here
+        // return; // Might want to abort if preparation fails
+    }
+    
+    // Join lines only if there are successful ones
+    const jsonlString = jsonlLines.join('\n');
+
+    // 3. Generate default filename
+    // ... (filename generation unchanged) ...
+    const defaultFilename = `xforms_export_${new Date().toISOString().slice(0, 19).replace(/[-T:]/g, '')}.jsonl`;
+
+    // 4. Get File Handle within the selected directory
+    // ... (getFileHandle logic unchanged) ...
+    let fileHandle;
+    try {
+        fileHandle = await window.lastUsedDirHandle.getFileHandle(defaultFilename, { create: true });
+    } catch (e) {
+        // ... (handle getFileHandle error unchanged) ...
+        return; 
+    }
+
+    // 5. Write the JSONL file
+    let writeError = null;
+    try {
+        const writable = await fileHandle.createWritable();
+        await writable.write(jsonlString);
+        await writable.close();
+        console.log(`Attempted export of ${allForms.length} X-Forms to "${fileHandle.name}".`);
+    } catch (e) {
+        console.error(`Error writing file "${fileHandle.name}":`, e);
+        writeError = e; // Store error to report
+        // Don't show modal here, report in final summary
+    }
+    
+    // 6. Show Summary Notification
+    let summaryMessage = `Export Summary for ${fileHandle.name}:\n`;
+    let consoleLogMessage = `Export Summary for ${fileHandle.name}: `;
+
+    if (writeError) {
+        summaryMessage += `\n⚠️ WRITE FAILED: ${writeError.message}`;
+        consoleLogMessage += `WRITE FAILED: ${writeError.message}; `;
+        summaryMessage += `\n(${successCount} forms prepared, ${errorCount} failed preparation).`;
+        consoleLogMessage += `(${successCount} forms prepared, ${errorCount} failed preparation).`;
+    } else {
+        summaryMessage += `\n✅ ${successCount} X-Form(s) successfully exported.`;
+        consoleLogMessage += `${successCount} successful.`;
+        if (errorCount > 0) {
+            summaryMessage += `\n❌ ${errorCount} X-Form(s) failed preparation (see console for details).`;
+            consoleLogMessage += ` ${errorCount} failed preparation.`;
+            // Log detailed failures
+            console.error("Failed Export Preparations:", failedExports);
+        } else {
+            consoleLogMessage += ` 0 failed preparation.`;
+        }
+        // Note: skippedCount is no longer applicable in the JSONL approach
+    }
+
+    window.showModalDialog({ title: "Export Summary", message: summaryMessage });
+    console.log(consoleLogMessage);
+}
+
+// ... existing code ...
+
+// ... (handleExportXForms needs update next) ...

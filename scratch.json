@@ -1,10 +1,10 @@
 items: [
   {
-  name: '2025-05-03 11: 44: 24', id: 1746294264831, timestamp: 1746294264831, lastModified: 1746294264837, startRect: {…
+  xformName: '2025-05-03 11: 44: 24', id: 1746294264831, timestamp: 1746294264831, lastModified: 1746294264837, startRect: {…
     }, …
   }
   duration: 500endRect: {left: 296.881, top: 336.828, width: 100, height: 60
-  }id: 1746294264831integrityHash: "2b7a7893e4e71d827d5902bdefdbe2824caed4ab0b91e7c4f051bc78abd2de5f"lastModified: 1746294264837lastModifiedOnDateTime: "2025-05-03T17:44:24.837Z"name: "2025-05-03 11:44:24"rotations: {x: 1, y: 1, z: 1
+  }id: 1746294264831integrityHash: "2b7a7893e4e71d827d5902bdefdbe2824caed4ab0b91e7c4f051bc78abd2de5f"lastModified: 1746294264837lastModifiedOnDateTime: "2025-05-03T17:44:24.837Z"xformName: "2025-05-03 11:44:24"rotations: {x: 1, y: 1, z: 1
   }startRect: {left: 16.568, top: 330.951, width: 100, height: 60
   }timestamp: 1746294264831waypoints: (2) [
     {…
@@ -18,11 +18,11 @@ items: [
 },
 { 
 xform-indexeddb.js: 1487   Loaded Data: {
-  name: '2025-05-03 11: 44: 24', id: 1746294264831, timestamp: 1746294264831, lastModified: 1746294264837, startRect: {…
+  xformName: '2025-05-03 11: 44: 24', id: 1746294264831, timestamp: 1746294264831, lastModified: 1746294264837, startRect: {…
     }, …
   }
   duration: 500endRect: {left: 296.881, top: 336.828, width: 100, height: 60
-  }id: 1746294264831integrityHash: "2b7a7893e4e71d827d5902bdefdbe2824caed4ab0b91e7c4f051bc78abd2de5f"lastModified: 1746294264837lastModifiedOnDateTime: "2025-05-03T17:44:24.837Z"name: "2025-05-03 11:44:24"rotations: {x: 1, y: 1, z: 1
+  }id: 1746294264831integrityHash: "2b7a7893e4e71d827d5902bdefdbe2824caed4ab0b91e7c4f051bc78abd2de5f"lastModified: 1746294264837lastModifiedOnDateTime: "2025-05-03T17:44:24.837Z"xformName: "2025-05-03 11:44:24"rotations: {x: 1, y: 1, z: 1
   }startRect: {left: 16.568, top: 330.951, width: 100, height: 60
   }timestamp: 1746294264831waypoints: (2) [
     {…

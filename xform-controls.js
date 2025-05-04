@@ -677,30 +677,30 @@ function initializeRects(makeVisible = false, isLoading = false) {
     
     console.log(`Rects fully initialized with all properties, visibility: ${makeVisible ? 'visible' : 'hidden'}`);
 
-    // --- Conditional Filename Mode Handling --- 
-    // Only force ATM mode if NOT loading from file
+    // --- Conditional XformName Mode Handling --- 
+    // Only force ATM mode if NOT loading from db
     console.log(`>>> CHECKING isLoading: Value = ${isLoading}, Type = ${typeof isLoading}`);
     if (!isLoading) {
         console.log("Forcing ATM mode for automatic time-based naming");
         // Set to ATM mode if controller exists
-        if (window.filenameController && typeof window.filenameController._setMode === 'function') {
-            // Clear the filename input first
-            const filenameInput = document.getElementById('filenameInput');
-            if (filenameInput) {
-                filenameInput.value = ''; // Let ATM generate it
-                console.log("Cleared filename input field to let ATM handle updates");
+        if (window.xformNameController && typeof window.xformNameController._setMode === 'function') {
+            // Clear the xformName input first
+            const xformNameInput = document.getElementById('xformNameInput');
+            if (xformNameInput) {
+                xformNameInput.value = ''; // Let ATM generate it
+                console.log("Cleared xformName input field to let ATM handle updates");
             }
             
             // Set the mode to ATM using the controller
-            window.filenameController._setMode(true); 
-            console.log("Called filenameController._setMode(true) to ensure system recognizes ATM mode");
+            window.xformNameController._setMode(true); 
+            console.log("Called xformNameController._setMode(true) to ensure system recognizes ATM mode");
 
             // Explicitly start the timer via controller
-            if (typeof window.filenameController._startTimer === 'function') {
-                window.filenameController._startTimer();
-                console.log("Started automatic filename time updates via controller");
+            if (typeof window.xformNameController._startTimer === 'function') {
+                window.xformNameController._startTimer();
+                console.log("Started automatic xformName time updates via controller");
             } else {
-                 console.warn("filenameController._startTimer not found");
+                 console.warn("xformNameController._startTimer not found");
             }
             
             // Ensure save button state reflects ATM mode (likely enabled)
@@ -710,12 +710,12 @@ function initializeRects(makeVisible = false, isLoading = false) {
             }
 
         } else {
-            console.warn("Filename controller not found, cannot force ATM mode.");
+            console.warn("XformName controller not found, cannot force ATM mode.");
         }
     } else {
          console.log("Skipping ATM mode force because isLoading is true.");
     }
-    // --- End Conditional Filename Mode --- 
+    // --- End Conditional XformName Mode --- 
     
     return { startRect: window.startRect, endRect: window.endRect };
 }
@@ -1050,19 +1050,19 @@ function setupViewportActions() {
             initializeRects(true); // Pass true to show rectangles
             console.log("Viewport reset complete - rectangles now visible");
             
-            // *** Use FilenameController to set up for a new XForm ***
-            if (window.filenameController) {
-                window.filenameController.setNewXform();
-                console.log("Initialized filename state using FilenameController for new XForm");
+            // *** Use xformNameController to set up for a new XForm ***
+            if (window.xformNameController) {
+                window.xformNameController.setNewXform();
+                console.log("Initialized xformName state using xformNameController for new XForm");
             } else {
                 // Fallback logic if controller isn't available (shouldn't happen now)
-                console.error("FilenameController not found during New button click!");
-                window.isFilenameModeATM = true;
-                const filenameInput = document.getElementById('filenameInput');
-                if (filenameInput) filenameInput.value = ''; 
+                console.error("xformNameController not found during New button click!");
+                window.isXformNamingModeATM = true;
+                const xformNameInput = document.getElementById('xformNameInput');
+                if (xformNameInput) xformNameInput.value = ''; 
                 // Manually try to start timer if possible
-                if (typeof window.startFilenameTimer === 'function') {
-                    window.startFilenameTimer();
+                if (typeof window.startXformNameTimer=== 'function') {
+                    window.startXformNameTimer();
                 }
             }
             
@@ -1294,14 +1294,14 @@ function resetXFormFields() {
     console.log("🔄 Resetting X-Form fields...");
 
     // 1. Reset Name/Mode using Controller
-    if (window.filenameController && typeof window.filenameController.setNewXform === 'function') {
-        window.filenameController.setNewXform();
-        console.log("   Filename controller reset to new XForm state (ATM mode).");
+    if (window.xformNameController && typeof window.xformNameController.setNewXform === 'function') {
+        window.xformNameController.setNewXform();
+        console.log("   XformName controller reset to new XForm state (ATM mode).");
     } else {
-        console.error("   FilenameController not available for reset!");
+        console.error("   xformNameController not available for reset!");
         // Manual fallback (less ideal)
-        const filenameInput = document.getElementById('filenameInput');
-        if(filenameInput) filenameInput.value = "New X-Form";
+        const xformNameInput = document.getElementById('xformNameInput');
+        if(xformNameInput) xformNameInput.value = "New X-Form";
         window.currentXFormName = "New X-Form";
     }
     window.currentXFormId = null; // Explicitly clear ID

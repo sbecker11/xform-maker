@@ -13,7 +13,7 @@ async function inspectAllXForms() {
     // Create a summary table
     console.table(xforms.map(xform => ({
       id: xform.id,
-      name: xform.name,
+      xformName: xform.xformName,
       modified: new Date(xform.lastModified).toLocaleString(),
       waypoints: xform.waypoints?.length || 0,
       duration: xform.duration || 'N/A',
@@ -22,7 +22,7 @@ async function inspectAllXForms() {
     
     // Detailed rotation and other properties
     xforms.forEach((xform, index) => {
-      console.group(`XForm #${index+1}: ${xform.name}`);
+      console.group(`XForm #${index+1}: ${xform.xformName}`);
       console.log('ID:', xform.id);
       console.log('Last Modified:', new Date(xform.lastModified).toLocaleString());
       console.log('Start Position:', `(${xform.startRect?.left || 0}, ${xform.startRect?.top || 0})`);
@@ -58,7 +58,7 @@ async function inspectXFormById(id) {
       return null;
     }
     
-    console.group(`📊 XForm Inspector - ${xform.name}`);
+    console.group(`📊 XForm Inspector - ${xform.xformName}`);
     console.log('ID:', xform.id);
     console.log('Created:', new Date(xform.timestamp || xform.id).toLocaleString());
     console.log('Last Modified:', new Date(xform.lastModified).toLocaleString());
@@ -92,7 +92,7 @@ async function inspectXFormById(id) {
 function exportXFormAsJSON(xform) {
   if (!xform) return null;
   
-  console.group(`JSON for XForm: ${xform.name}`);
+  console.group(`JSON for XForm: ${xform.xformName}`);
   console.log(JSON.stringify(xform, null, 2));
   console.groupEnd();
   
@@ -114,7 +114,7 @@ async function previewEditorState() {
   try {
     const data = {
       id: window.currentXFormId,
-      name: window.currentXFormName,
+      xformName: window.currentXFormName,
       // Rectangles from editor
       startRect: window.startRect ? {
         left: parseInt(window.startRect.style.left, 10),

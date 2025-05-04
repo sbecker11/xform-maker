@@ -3,7 +3,7 @@ function completeReset() {
     if (confirm('⚠️ WARNING: This will delete ALL your data and reload the application.\n\nThis action CANNOT be undone! Are you sure?')) {
         console.log("🧹 Performing complete application reset...");
         
-        // Define database name (ensure consistency)
+        // Define database xformName (ensure consistency)
         const DB_NAME = 'xformMakerDB';
         
         // Step 1: Delete the database
@@ -58,7 +58,7 @@ async function dumpDatabaseInfo() {
         openRequest.onerror = (event) => console.error("Error opening DB for inspection:", event.target.error);
         openRequest.onsuccess = (event) => {
             const db = event.target.result;
-            console.log(`DB opened for inspection: ${db.name}, v${db.version}`);
+            console.log(`DB opened for inspection: ${db.xformName}, v${db.version}`);
             const stores = Array.from(db.objectStoreNames);
             console.log(`Object stores: ${stores.join(', ')}`);
             if (stores.length > 0) {
@@ -67,7 +67,7 @@ async function dumpDatabaseInfo() {
                     try {
                         const tx = db.transaction(storeName, 'readonly');
                         const store = tx.objectStore(storeName);
-                        console.log(` Store: ${store.name}, KeyPath: ${store.keyPath}, AutoInc: ${store.autoIncrement}, Indexes: ${Array.from(store.indexNames).join(', ')}`);
+                        console.log(` Store: ${store.xformName}, KeyPath: ${store.keyPath}, AutoInc: ${store.autoIncrement}, Indexes: ${Array.from(store.indexNames).join(', ')}`);
                         const getAllRequest = store.getAll();
                         getAllRequest.onsuccess = () => {
                             const items = getAllRequest.result || [];
@@ -93,7 +93,7 @@ async function diagnoseAndRepairDatabase() {
     console.group('🔧 Database Repair');
     try {
         const db = await window.openDB(); // Assumes openDB is defined globally or in this scope
-        console.log(`✅ Connected to database: ${db.name} (version ${db.version})`);
+        console.log(`✅ Connected to database: ${db.xformName} (version ${db.version})`);
         const storeNames = Array.from(db.objectStoreNames);
         const XFORMS_STORE_NAME = 'xforms'; // Ensure consistency
         if (!storeNames.includes(XFORMS_STORE_NAME)) {
@@ -116,7 +116,7 @@ async function listAllXForms() {
     console.group('📋 ALL XFORMS IN DATABASE');
     try {
         const xforms = await window.listXForms(); // Assumes listXForms is global
-        console.table(xforms.map(x => ({ ID: x.id, Name: x.name, Waypoints: x.waypoints?.length || 0, LastModified: new Date(x.lastModified).toLocaleString() })));
+        console.table(xforms.map(x => ({ ID: x.id, Name: x.xformName, Waypoints: x.waypoints?.length || 0, LastModified: new Date(x.lastModified).toLocaleString() })));
     } catch (e) { console.error("Error listing XForms:", e); }
     console.groupEnd();
 }
@@ -191,7 +191,7 @@ function previewEditorState() {
         
         // Input values
         inputValues: {
-            filename: document.getElementById('filenameInput')?.value || 'Not found',
+            xformName: document.getElementById('xformNameInput')?.value || 'Not found',
             width: document.getElementById('rectWidth')?.value || 'Not found',
             height: document.getElementById('rectHeight')?.value || 'Not found',
             duration: document.getElementById('duration')?.value || 'Not found'
@@ -212,10 +212,10 @@ function previewEditorState() {
         
         // Current XForm info
         currentXForm: {
-            name: window.currentXFormName || 'Not set',
+            xformName: window.currentXFormName || 'Not set',
             id: window.currentXFormId || 'Not set',
             hasRun: !!window.currentXFormHasRun,
-            filenameModeATM: !!window.isFilenameModeATM
+            xformNamingModeATM: !!window.isNamingModeATM
         }
     };
     
@@ -223,15 +223,15 @@ function previewEditorState() {
     
     // Display friendly summary
     console.log('\n--- Editor State Summary ---');
-    console.log(`Filename: ${state.inputValues.filename}`);
+    console.log(`XformName: ${state.inputValues.xformName}`);
     console.log(`Rectangle Size: ${state.inputValues.width}x${state.inputValues.height}px`);
     console.log(`Start Rectangle: (${state.startRect.left}, ${state.startRect.top})`);
     console.log(`End Rectangle: (${state.endRect.left}, ${state.endRect.top})`);
     console.log(`Waypoints: ${state.waypoints.count}`);
     console.log(`Rotations: X=${state.rotations.x}, Y=${state.rotations.y}, Z=${state.rotations.z}`);
     console.log(`Duration: ${state.inputValues.duration}ms`);
-    console.log(`Current XForm: "${state.currentXForm.name}" (ID: ${state.currentXForm.id})`);
-    console.log(`ATM Mode: ${state.currentXForm.filenameModeATM ? 'ON' : 'OFF'}`);
+    console.log(`Current XForm: "${state.currentXForm.xformName}" (ID: ${state.currentXForm.id})`);
+    console.log(`ATM Mode: ${state.currentXForm.xformNamingModeATM ? 'ON' : 'OFF'}`);
     
     console.groupEnd();
     return state;
@@ -253,10 +253,10 @@ function previewSelectedXForms() {
     
     // Display each selected XForm
     window.selectedXforms.forEach((xform, index) => {
-        console.group(`XForm ${index + 1}: "${xform.name}" (ID: ${xform.id})`);
+        console.group(`XForm ${index + 1}: "${xform.xformName}" (ID: ${xform.id})`);
         
         // Basic info
-        console.log(`Name: ${xform.name}`);
+        console.log(`Name: ${xform.xformName}`);
         console.log(`ID: ${xform.id}`);
         console.log(`Last Modified: ${new Date(xform.lastModified).toLocaleString()}`);
         
@@ -329,7 +329,7 @@ async function compareWithLastSaved(id) {
 window.compareWithLastSaved = compareWithLastSaved;
 
 // Helper for compareXForms (needs to be moved too)
-function compareProperty(name, value1, value2) {
+function compareProperty(xformName, value1, value2) {
     // ... (Implementation from debug-xforms.js) ...
 }
 // Note: compareProperty doesn't strictly need to be global, but moving it with dependents is easiest.
@@ -342,9 +342,9 @@ window.appInitializationComplete = false;
 // LocalStorage Keys (Declared in inline script in HTML)
 // const STORAGE_KEY = 'xformMaker_savedForms';
 // const STATE_STORAGE_KEY = 'xformMaker_currentState';
-// Filename Mode Keys (Declared in xform-persistence.js)
-// const FILENAME_MODE_KEY = 'xformMaker_filenameMode';
-// const FILENAME_VALUE_KEY = 'xformMaker_filenameValue';
+// XformName Mode Keys (Declared in xform-persistence.js)
+// const XFORM_NAMING_MODE_KEY = 'xformMaker_xformNamingMode';
+// const XFORM_NAMING_VALUE_KEY = 'xformMaker_xformNamingModeValue';
 
 // DOM Element References (to be populated in DOMContentLoaded)
 window.savedListUl = null;
@@ -357,7 +357,7 @@ window.heightInput = null;
 window.durationInput = null;
 window.themeToggleButton = null;
 window.viewport = null;
-window.filenameInput = null;
+window.xformNameInput = null;
 
 // Mutable State (managed by controls/persistence modules, initialized here)
 window.startRect = null; 
@@ -378,7 +378,7 @@ window.lastClickedListItemIndex = -1;
 window.currentXFormName = "New X-Form";
 window.currentXFormId = null;
 window.currentXFormHasRun = false;
-window.isFilenameModeATM = true; // Default
+window.isNamingModeATM = true; // Default
 window.lastUsedDirHandle = null;
 
 // *** NEW: Path Interpolation Mode ***
@@ -394,14 +394,14 @@ document.addEventListener('DOMContentLoaded', () => {
     window.viewport = document.getElementById('viewport');
     window.waypointCounter = document.getElementById('waypointCounter');
     window.deleteLastWaypointButton = document.getElementById('deleteLastWaypointBtn');
-    window.savedListUl = document.getElementById('savedList'); 
+    window.savedListUl = document.getElementById('savedXformsList'); 
     window.selectedControlsDiv = document.getElementById('selectedXFormControls');
     window.renameInput = document.getElementById('renameInput');
     window.widthInput = document.getElementById('rectWidth');
     window.heightInput = document.getElementById('rectHeight');
     window.durationInput = document.getElementById('duration');
     window.themeToggleButton = document.getElementById('themeToggle');
-    window.filenameInput = document.getElementById('filenameInput');
+    window.xformNameInput = document.getElementById('xformNameInput');
     console.log(`SCRIPT: Elements assigned: delBtn=${!!window.deleteLastWaypointButton}`);
     
     // --- Initialize Controllers & Setup Modules ---
@@ -416,11 +416,11 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         // *** END UPDATED CHECK ***
         
-        // Initialize Filename Controller first
-        if (typeof initializeFilenameController === 'function') {
-            initializeFilenameController(); 
+        // Initialize XformName Controller first
+        if (typeof initializeXformNameController === 'function') {
+            initializeXformNameController(); 
         } else {
-            console.error("FilenameController initialization function not found!");
+            console.error("XformNameController initialization function not found!");
         }
 
         // Then setup persistence 
@@ -485,12 +485,12 @@ document.addEventListener('DOMContentLoaded', () => {
         console.log("✅ Application fully initialized and ready.");
         
         // *** Force Save Button Enable ***
-        const saveBtn = document.getElementById('saveFileBtn');
+        const saveBtn = document.getElementById('saveXformButton');
         if (saveBtn) {
             saveBtn.disabled = false;
             console.log("Forcibly enabled Save button after initialization.");
         } else {
-            console.warn("Could not find Save button (saveFileBtn) to force enable.");
+            console.warn("Could not find Save button (saveXformButton) to force enable.");
         }
     }, 500); // Increased delay from 50ms to 500ms
 

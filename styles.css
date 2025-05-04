@@ -53,14 +53,14 @@ body {
     font-weight: bold;
 }
 
-/* Filename section styles for Phase 1 & 2 */
-.filename-section {
+/* XformName section styles for Phase 1 & 2 */
+.xformName-section {
     margin-bottom: 5px;
     padding-right: 10px; /* UPDATED padding */
     box-sizing: border-box;
 }
 
-.filename-header {
+.xformName-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
@@ -136,14 +136,14 @@ body {
     background-color: #5a6268;
 }
 
-.filename-input-container {
+.xformName-input-container {
     position: relative;
     display: flex; 
     align-items: center; 
     /* gap: 10px; */ /* REMOVE gap */
 }
 
-.time-based-filename {
+.time-based-xformName {
     flex-grow: 1; 
     padding-top: 8px;
     padding-bottom: 8px;
@@ -159,7 +159,7 @@ body {
 }
 
 /* More distinct styling for the ATM/MEM mode input field */
-.time-based-filename[readonly] {
+.time-based-xformName[readonly] {
     opacity: 1; 
     background-color: #101010;
     color: #ffffff;
@@ -176,7 +176,7 @@ body {
 }
 
 /* Add subtle glow effect to ATM clock */
-.time-based-filename[readonly]::after {
+.time-based-xformName[readonly]::after {
     content: '';
     position: absolute;
     width: 100%;
@@ -194,20 +194,20 @@ body {
     100% { opacity: 0.2; }
 }
 
-.time-based-filename:not([readonly]) {
+.time-based-xformName:not([readonly]) {
     background-color: #ffffff;
     color: #000000;
     border: 1px solid #007bff;
     font-family: Arial, sans-serif;
 }
 
-.file-list-section {
+.xform-list-section {
     margin-top: 5px;
     /* padding-right: 5px; */ /* No padding needed here now */
     /* box-sizing: border-box; */
 }
 
-.file-list-header {
+.xform-list-header {
     display: flex; /* Use flexbox */
     justify-content: space-between; /* Push label and button group apart */
     align-items: center; /* Align items vertically */
@@ -218,7 +218,7 @@ body {
     box-sizing: border-box; 
 }
 
-.file-list-header label {
+.xform-list-header label {
     /* margin-right: auto; */ /* No longer needed with space-between */
 }
 
@@ -231,12 +231,12 @@ body {
 }
 
 /* REMOVE absolute positioning from old header div rule */
-/* .file-list-header > div { ... } */ 
+/* .xform-list-header > div { ... } */ 
 
 /* REMOVE specific button margins if set previously */
-/* #sortFilesBtn, #filenameModeManual { margin-right: 0; } */
+/* #sortXformsBtn, #xformNamingModeMEM { margin-right: 0; } */
 
-.file-list-container {
+.xform-list-container {
     width: 100%; /* REVERTED: Use full parent width */
     height: 310px; /* Fixed height for scrolling */
     border: 1px solid #ccc;
@@ -246,25 +246,25 @@ body {
     margin-bottom: 15px;
 }
 
-.file-list {
+.xform-list {
     list-style: none;
     padding: 0;
     margin: 0;
     background-color: var(--background-secondary);
 }
 
-.file-list li {
+.xform-list li {
     /* padding: 4px; */ /* REMOVE this padding */
     border-bottom: 1px solid var(--border-primary);
     color: var(--text-primary);
 }
 
-.file-list li:last-child {
+.xform-list li:last-child {
     border-bottom: none;
 }
 
-/* Style for dynamically added file list items */
-.file-list-item {
+/* Style for dynamically added xform list items */
+.xform-list-item {
     display: flex;
     justify-content: space-between;
     align-items: center;
@@ -273,17 +273,17 @@ body {
     cursor: pointer; 
     min-height: 22px; /* Reduced from 24px */
 }
-.file-list-item:last-child {
+.xform-list-item:last-child {
      border-bottom: none;
 }
-.file-list-item span {
-    flex-grow: 1; /* Allow filename to take space */
+.xform-list-item span {
+    flex-grow: 1; /* Allow xformName to take space */
     margin-right: 5px; 
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
 }
-.delete-file-btn {
+.delete-xform-btn {
     background-color: transparent;
     border: none;
     color: #dc3545; /* Danger color */
@@ -294,7 +294,7 @@ body {
     margin-left: 8px;
     flex: 0 0 auto; /* Don't grow, don't shrink, size as needed */
 }
-.delete-file-btn:hover {
+.delete-xform-btn:hover {
     color: #a71d2a;
 }
 
@@ -307,18 +307,18 @@ body {
     border: none !important;
 }
 
-/* Style for selected file list item */
-.file-list-item.selected {
+/* Style for selected xform list item */
+.xform-list-item.selected {
     background-color: var(--button-primary-bg); /* Blue background */
     color: var(--button-primary-color); /* White text */
 }
-.file-list-item.selected span {
+.xform-list-item.selected span {
      color: var(--button-primary-color); /* Ensure span text is white too */
 }
- .file-list-item.selected .delete-file-btn {
+ .xform-list-item.selected .delete-xform-btn {
      color: white; /* Make delete button white */
  }
- .file-list-item.selected .delete-file-btn:hover {
+ .xform-list-item.selected .delete-xform-btn:hover {
      color: #f8d7da; /* Light pink/red on hover */
  }
 
@@ -485,13 +485,13 @@ button.secondary:hover {
 button.danger:hover {
     background-color: #c82333;
 }
-#savedList { /* Target the ul directly */
+#savedXformsList { /* Target the ul directly */
     list-style: none;
     padding: 0;
     max-height: 300px; /* Keep max-height */
     overflow-y: auto;
 }
- #savedList li { /* Target li directly */
+ #savedXformsList li { /* Target li directly */
     padding: 4px; /* Reduced from 10px */
     border: 1px solid #eee;
     margin-bottom: 2px; /* Reduced from 5px */
@@ -508,7 +508,7 @@ button.danger:hover {
     background-color: #e0e0e0;
     font-weight: bold;
 }
-.xform-name {
+.xform-xformName {
      flex-grow: 1;
      margin-right: 10px;
      overflow: hidden;
@@ -863,11 +863,11 @@ button.danger:hover {
 }
 
 /* REMOVE THESE RULES: Explicit image source switching for dark theme */
-/* .dark-theme #deleteFileBtn img {
+/* .dark-theme #deleteXformBtn img {
     content: attr(data-dark-src);
 } */
 /* REMOVE THIS RULE: Fallback for light theme */
-/* #deleteFileBtn img {
+/* #deleteXformBtn img {
      content: attr(src);
 } */
 
@@ -940,8 +940,8 @@ button.danger:hover {
 }
 
 /* Specific button margins */
-#sortFilesBtn,
-#filenameModeManual {
+#sortXformsBtn,
+#xformNamingModeMEM {
     margin-right: -5px;
 }
 
@@ -998,8 +998,8 @@ button.danger:hover {
     margin-right: 10px; 
 } */
 
-/* Filename section styles */
-.filename-header {
+/* XformName section styles */
+.xformName-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
@@ -1011,13 +1011,13 @@ button.danger:hover {
     flex-shrink: 0;
 }
 
-#sortFilesBtn {
+#sortXformsBtn {
     width: 63px;
 }
 
 /* REMOVE Specific button margins */
-/* #sortFilesBtn,
-#filenameModeManual {
+/* #sortXformsBtn,
+#xformNamingModeMEM {
     margin-right: 0;
 } */
 /* #changeFolderBtn {
@@ -1113,7 +1113,7 @@ button.danger:hover {
 .modal-btn:hover { filter: brightness(1.1); }
 
 /* header control group */
-.file-header-controls {
+.xform-header-controls {
     display: flex;
     gap: 5px;
     flex-shrink: 0;
@@ -1134,14 +1134,14 @@ button.danger:hover {
     display:none !important;
 }
 
-/* === File list selection states === */
-.file-list-item.single-selected {
+/* === xform list selection states === */
+.xform-list-item.selected {
     background-color: var(--button-primary-bg) !important; /* light blue */
     color: var(--button-primary-color) !important;
 }
 
-/* File list item column layout */
-.file-name-column, .file-date-column {
+/* xform list item column layout */
+.xform-name-column, .xform-date-column {
     flex: 1 1 60%; /* First column gets 60% of available space */
     overflow: hidden;
     text-overflow: ellipsis;
@@ -1151,30 +1151,30 @@ button.danger:hover {
     font-size: 0.95em; /* Slightly smaller text */
 }
 
-.file-list-item > :nth-child(2) {
+.xform-list-item > :nth-child(2) {
     flex: 1 1 40%; /* Second column gets 40% of available space */
     min-width: 40px; /* Minimum width to display something */
     color: #666; /* Slightly lighter color for secondary column */
 }
 
 /* Style specifically for date column */
-.file-date-column {
+.xform-date-column {
     white-space: nowrap;
 }
 
 /* In date sort mode, emphasis changes */
-.date-sort-mode .file-date-column {
+.date-sort-mode .xform-date-column {
     color: inherit; /* Primary column gets normal color */
     font-weight: 500;
 }
 
-.date-sort-mode .file-name-column {
+.date-sort-mode .xform-name-column {
     color: #666; /* Secondary column gets lighter color */
 }
 
 /* Selected item color for spans */
-.file-list-item.single-selected .file-name-column,
-.file-list-item.single-selected .file-date-column {
+.xform-list-item.selected .xform-name-column,
+.xform-list-item.selected .xform-date-column {
     color: white !important;
 }
 
@@ -1307,19 +1307,19 @@ button.danger:hover {
     animation: pulse 0.5s ease-out;
 }
 
-#savedList li.file-list-item:hover {
+#savedXformsList li.xform-list-item:hover {
     background-color: var(--highlight-bg-hover);
     color: var(--highlight-text-hover);
 }
 
 /* Dark Theme Override for List Item Hover */
-.dark-theme #savedList li.file-list-item:hover {
+.dark-theme #savedXformsList li.xform-list-item:hover {
     background-color: #3a424d; /* Slightly lighter than secondary bg */
     color: var(--text-primary); /* Keep the primary text color for contrast */
 }
 
 /* Style for SELECTED list items */
-#savedList li.file-list-item.selected { 
+#savedXformsList li.xform-list-item.selected { 
     background-color: var(--selected-bg); 
     color: var(--selected-text);          
     font-weight: bold;
@@ -1329,7 +1329,7 @@ button.danger:hover {
 }
 
 /* Hover style for SELECTED list items */
-#savedList li.file-list-item.selected:hover {
+#savedXformsList li.xform-list-item.selected:hover {
     /* Apply brightness filter ON TOP of the base --selected-bg */
     /* background-color is inherited from .selected */
     filter: brightness(1.25); 
@@ -1337,8 +1337,7 @@ button.danger:hover {
 }
 
 /* Remove specific multi/single selected styles if they existed */
-/* #savedList li.file-list-item.single-selected { ... } */
-/* #savedList li.file-list-item.multi-selected { ... } */
+/* #savedXformsList li.xform-list-item.selected { ... } */
 
 /* Diagnostic Tools Section */
 /* ... existing code ... */

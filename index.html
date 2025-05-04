@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en" class=""><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
     
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta xformName="viewport" content="width=device-width, initial-scale=1.0">
     <title>X-Form Maker</title>
     <link rel="stylesheet" href="styles.css">
     <script>
@@ -18,7 +18,7 @@
         const STORAGE_KEY = 'xformMaker_savedForms';
         const STATE_STORAGE_KEY = 'xformMaker_currentState';
         
-        // --- Timer for name updates ---
+        // --- Timer for xformName updates ---
         window.timeUpdateTimer = null;
         
         // --- Define global helper functions ---
@@ -110,8 +110,8 @@
                 li.dataset.id = t.id;
 
                 const nameSpan = document.createElement('span');
-                nameSpan.className = 'xform-name';
-                nameSpan.textContent = t.name;
+                nameSpan.className = 'xform-xformName';
+                nameSpan.textContent = t.xformName;
                 li.appendChild(nameSpan);
 
                 // Simple indication of complexity (optional)
@@ -135,7 +135,7 @@
                         window.selectedSavedXFormId = t.id;
                         li.classList.add('selected');
                         if (window.renameInput) {
-                            window.renameInput.value = t.name; // Pre-fill rename input
+                            window.renameInput.value = t.xformName; // Pre-fill rename input
                         }
                         if (window.selectedControlsDiv) {
                             window.selectedControlsDiv.style.display = 'block';
@@ -159,37 +159,37 @@
     <!-- Left Column (Now Fixed Position) -->
         <div class="left-column persistence-column">
             <fieldset class="persistence-fieldset">
-                <!-- Filename section with ATM/MEM modes (Phase 1 & 2) -->
-                <div class="control-group filename-section">
-                    <div class="filename-header">
+                <!-- XformName section with ATM/MEM modes (Phase 1 & 2) -->
+                <div class="control-group xformName-section">
+                    <div class="xformName-header">
                     <label>X-Form Name:</label>
                         <div class="mode-icons">
                             <!-- Removed CLONED Save Button -->
-                            <button id="filenameModeATM" class="mode-icon active is-disableable" title="Automated Time Mode">
+                            <button id="xformNamingModeATM" class="mode-icon active is-disableable" title="Automated Time Mode">
                             <img src="icons/clock-white.png" alt="Time" class="btn-icon" data-dark-src="icons/clock-dark.png">
                             </button>
-                            <button id="filenameModeManual" class="mode-icon is-disableable" title="Manual Edit Mode">
+                            <button id="xformNamingModeMEM" class="mode-icon is-disableable" title="Manual Edit Mode">
                             <span>T</span>
                             </button>
                         </div>
                     </div>
-                    <div class="filename-input-container">
-                        <input type="text" id="filenameInput" class="time-based-filename is-disableable" readonly="true">
-                    <button id="saveFileBtn" class="save-button">Save</button> <!-- Original UNCOMMENTED -->
+                    <div class="xformName-input-container">
+                        <input type="text" id="xformNameInput" class="time-based-xformName is-disableable" readonly="true">
+                    <button id="saveXformButton" class="save-button">Save</button> <!-- Original UNCOMMENTED -->
                     </div>
                 </div>
 
-                <div class="control-group file-list-section">
-                    <div class="file-list-header">
+                <div class="control-group xform-list-section">
+                    <div class="xform-list-header">
                         <label>Saved X-Forms</label>
-                        <div class="file-header-controls">
-                            <button id="import-file-btn" class="mode-icon is-hideable" title="Import XForms">
+                        <div class="xform-header-controls">
+                            <button id="import-file-btn" class="mode-icon is-hideable" title="Import XForms into DB">
                                 <span>📥</span>
                             </button>
-                            <button id="export-all-btn" class="mode-icon is-hideable" title="Export All XForms" disabled>
+                            <button id="export-all-btn" class="mode-icon is-hideable" title="Export All XForms in DB" disabled>
                                 <span>📤</span>
                             </button>
-                            <button id="sortFilesBtn" class="mode-icon is-hideable" title="Sort Files">
+                            <button id="sortXformsBtn" class="mode-icon is-hideable" title="Sort X-Forms">
                                 <img src="icons/sort-light.png" class="btn-icon" data-dark-src="icons/sort-dark.png">
                             </button>
                             <!-- Database Reset Button - initially hidden -->
@@ -199,8 +199,8 @@
                             </button>
                         </div>
                     </div>
-                    <div class="file-list-container">
-                        <ul id="savedList" class="file-list">
+                    <div class="xform-list-container">
+                        <ul id="savedXformsList" class="xform-list">
                             <!-- Content generated by renderSavedList -->
                         </ul>
                     </div> 
@@ -301,7 +301,7 @@
     
     <!-- Foundational Modules (Load & Execute Sequentially BEFORE DOMContentLoaded) -->
     <script src="xform-indexeddb.js"></script>
-    <script src="xform-filename-mode.js" defer></script>
+    <script src="xform-naming-mode.js" defer></script>
     <script src="xform-ui-helpers.js"></script>
     <script src="xform-persistence.js"></script> 
     <script src="xform-controls.js"></script>

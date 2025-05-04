@@ -3,7 +3,7 @@
 // Apply XForm data (DTO) to the UI elements
 function applyXFormData(data) {
     // ** Input: data is expected to be a PURE data object, no DOM elements **
-    console.groupCollapsed(`Applying XForm DTO: "${data?.name || 'Untitled'}"`);
+    console.groupCollapsed(`Applying XForm DTO: "${data?.xformName || 'Untitled'}"`);
     console.log("Received Data:", JSON.parse(JSON.stringify(data)));
     
     // Make sure we have valid data
@@ -33,11 +33,11 @@ function applyXFormData(data) {
     }
 
     // 1. Update Global State (already partially done by loadXForm)
-    window.currentXFormName = data.name || 'Untitled XForm';
+    window.currentXFormName = data.xformName || 'Untitled XForm';
     window.currentXFormId = data.id; // Use the ID from the loaded data
     window.currentXFormHasRun = true; 
 
-    // 2. Update Input Fields (Size, Duration) - NOT NAME, name is handled by loadXForm
+    // 2. Update Input Fields (Size, Duration) - NOT NAME, xformName is handled by loadXForm
     const defaultWidth = 100;
     const defaultHeight = 60;
     const rectWidth = (data.startRect && data.startRect.width !== undefined) ? data.startRect.width : defaultWidth;

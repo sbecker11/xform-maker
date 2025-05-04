@@ -15,7 +15,7 @@ This tool allows you to define and visualize 2D transformations with precise con
 * **Add Waypoints** (Optional): Click in the viewport to add intermediate points. Drag waypoints to refine the path.
 * **Set Rotation**: Use the X/Y/Z controls.
 * **Name XForm**: Use the input field at the top-left. Switch between time-based (ATM) and manual (MEM) naming using the clock/T icons.
-* **Save XForm**: Click the "Save" button (disk icon) next to the name field.
+* **Save XForm**: Click the "Save" button (disk icon) next to the xformName field.
 * **Load XForm**: Double-click an item in the Saved X-Forms list.
 * **Animate**: Click "Play" below the viewport.
 

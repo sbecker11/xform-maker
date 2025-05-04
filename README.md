@@ -1,13 +1,13 @@
-# X-Form Maker – File-List Interaction Rules
+# X-Form Maker – xform-List Interaction Rules
 
-Below are the canonical UI rules governing selection, colouring and button state for the **file-list** inside the left persistence column.
+Below are the canonical UI rules governing selection, colouring and button state for the **xform-list** inside the left persistence column.
 If you change JS/CSS around that list, re-run these test-cases to confirm behaviour.
 
 ---
 ## Class semantics (precedence)
 | Class              | Colour  | Notes                               |
 |--------------------|---------|-------------------------------------|
-| `single-selected`  | Blue    | One item the user just clicked      |
+| `selected`  | Blue    | One item the user just clicked      |
 | `single-loaded`    | Green   | The currently *loaded* X-Form       |
 | `bulk-selected`    | Orange  | Item is part of a multi-selection   |
 
@@ -17,42 +17,30 @@ Precedence (same element):  **bulk-selected** ⟹ orange overrides everything; o
 ## Use-cases
 
 ### A – Single click (no modifiers) on a neutral item
-1. Remove *all* selection classes from every item.
-2. Add `single-selected` (blue) to the clicked item.
-3. `filenameInput` stays **blank**.
-4. Sort button hidden/disabled.
-5. MEM button **enabled** / ATM disabled.
-6. Bulk-delete button hidden.
-7. Save button disabled.
+1. Select that xform
+2, Style it as different from unselcted items.
 
-### B – Second single click on the same blue item
-1. The file is loaded.
-2. `filenameInput` set to that file's user name.
-3. Add `single-loaded` (green) to the item (green overrides blue).
-4. Save button enabled, bulk-delete hidden, sort disabled.
+### B – Second single click on a selected
+item
+1. Unselect that item.
 
-### C – Click on a green (loaded) item
-• No change (already loaded).
+### C – double-click on a selected or unselected item
+• Unselect all other items
+• Display this lime item as "loaded" which is visually stronger than the selected style.
+• Load this xform into the xform maker input fields
+- Set XformNamingMode to MEM mode to prevent it being overwritting during ATM mode.
 
-### D – Alt/⌥-Click on another neutral item (non-contiguous selection)
-1. Add `bulk-selected` (orange) to that item.
-2. Promote any existing blue/green items to orange (`bulk-selected`).
-3. When **>1** items are orange:
-   * Clear `filenameInput`.
-   * Activate MEM / deactivate ATM.
-   * Disable Save.
-   * Show Bulk-Delete.
-   * Enable Sort.
-4. If only one item remains active switch back to case A or B rules.
+### D – Shift-click to select a contiguous set of items
+1. Toggle seleted status for all items in that set, except the currently loaded xform.
 
+### E - Cmd-click to select non-continuous set of items
+1. Same as for shift-clicked items
 ### E – Normal click on an orange item
-1. Remove *all* classes from that item.
-2. Re-evaluate counts and apply rules from D3 or A/B accordingly.
 
 ---
 ### Developer tips
-* JS: State object `state.selectedSet`, `state.bulkSet`, `state.loadedFile` drives classes.
+* JS: State object `state.selectedSet`, `state.bulkSet`, `state.loadedxform` drives classes.
 * CSS override rules ensure colour precedence regardless of class order.
-* `toggleFilenameControls(enable)` centralises button/input enable/disable.
+* `togglexformnameControls(enable)` centralises button/input enable/disable.
 
 Happy hacking! 🎉 

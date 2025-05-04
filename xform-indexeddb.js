@@ -127,9 +127,9 @@ function resetDatabase() {
 
 // Refresh the list UI to show empty state
 function refreshListWithEmptyState() {
-    const fileListUl = document.getElementById('savedList');
-    if (fileListUl) {
-        fileListUl.innerHTML = '<li>No saved xforms found. Import or create new xforms.</li>';
+    const xformListUl = document.getElementById('savedXformsList');
+    if (xformListUl) {
+        xformListUl.innerHTML = '<li>No saved xforms found. Import or create new xforms.</li>';
         console.log("List UI refreshed to show empty state");
     }
     
@@ -565,9 +565,9 @@ async function listXForms(sortBy = 'name', sortDirection = 'asc') {
 // --- Import/Export Functions ---
 
 // Export a single xform to a JSON file
-async function exportXFormToFile(xformData) {
+async function exportXformNameToFileName(xformData) {
     try {
-        const filename = sanitizeFilenameForSystem(xformData.name);
+        const xformName = sanitizeFilenameForSystem(xformData.name);
         
         // Compute integrity hash and attach if missing / refresh
         const hash = await _computeHashKey(xformData);
@@ -583,7 +583,7 @@ async function exportXFormToFile(xformData) {
         // Create a download link and trigger it
         const a = document.createElement('a');
         a.href = url;
-        a.download = filename;
+        a.download = xformName;
         document.body.appendChild(a);
         a.click();
         
@@ -593,7 +593,7 @@ async function exportXFormToFile(xformData) {
             URL.revokeObjectURL(url);
         }, 0);
         
-        console.log(`XForm "${xformData.name}" exported as ${filename}`);
+        console.log(`XForm "${xformData.name}" exported as ${xformName}`);
         return true;
     } catch (error) {
         console.error('Error exporting xform to file:', error);
@@ -646,7 +646,7 @@ async function exportAllXFormsToFile() {
         // Create a Blob with the JSONL data
         const blob = new Blob([jsonlContent], { type: 'application/x-jsonlines' });
         
-        // Determine filename
+        // Determine xformName
         const dateStr = new Date().toISOString().slice(0, 10);
         let suggestedName = '';
         if (isSelectedOnly) {
@@ -705,13 +705,13 @@ async function exportAllXFormsToFile() {
 }
 
 // Fallback export method using traditional download
-async function fallbackExport(blob, filename, isSelectedOnly, xformsToExport) {
+async function fallbackExport(blob, xformName, isSelectedOnly, xformsToExport) {
     try {
         const url = URL.createObjectURL(blob);
         
         const a = document.createElement('a');
         a.href = url;
-        a.download = filename;
+        a.download = xformName;
         document.body.appendChild(a);
         a.click();
         
@@ -946,9 +946,9 @@ function sanitizeFilenameForSystem(originalName) {
 async function renderXFormList(sortBy = 'lastModified', sortDirection = 'desc') {
     console.log(`Starting renderXFormList with sort: ${sortBy} ${sortDirection}`);
     
-    const fileListUl = document.getElementById('savedList');
-    if (!fileListUl) {
-        console.error("savedList element not found - document state:", {
+    const xformListUl = document.getElementById('savedXformsList');
+    if (!xformListUl) {
+        console.error("savedXformsList element not found - document state:", {
             body: document.body ? "exists" : "missing",
             readyState: document.readyState,
             savedListParent: document.querySelector('.file-list-container') ? "exists" : "missing"
@@ -957,7 +957,7 @@ async function renderXFormList(sortBy = 'lastModified', sortDirection = 'desc') 
     }
     
     // Clear the list and show loading indicator
-    fileListUl.innerHTML = '<li>Loading xforms...</li>';
+    xformListUl.innerHTML = '<li>Loading xforms...</li>';
     
     // Store current selection state before rendering
     const currentSelections = window.selectedXforms || [];
@@ -981,7 +981,7 @@ async function renderXFormList(sortBy = 'lastModified', sortDirection = 'desc') 
             console.log(`Found ${count} XForms in database to render in list`);
             
             if (count === 0) {
-            fileListUl.innerHTML = '<li>No saved xforms found</li>';
+            xformListUl.innerHTML = '<li>No saved xforms found</li>';
             return;
         }
         
@@ -1015,7 +1015,7 @@ async function renderXFormList(sortBy = 'lastModified', sortDirection = 'desc') 
             });
             
             // Clear the list to add sorted items
-        fileListUl.innerHTML = '';
+        xformListUl.innerHTML = '';
             
             // Track selected items
             window.selectedXforms = window.selectedXforms || [];
@@ -1026,20 +1026,20 @@ async function renderXFormList(sortBy = 'lastModified', sortDirection = 'desc') 
             // Build list items
         xforms.forEach((xform, index) => {
             const li = document.createElement('li');
-            li.className = 'file-list-item';
+            li.className = 'xform-list-item';
             li.dataset.xformId = xform.id;
             li.dataset.lastModified = xform.lastModified;
                 li.dataset.index = index;
             
             // Create name column
             const nameSpan = document.createElement('span');
-            nameSpan.className = 'file-name-column';
+            nameSpan.className = 'xform-name-column';
                 nameSpan.textContent = xform.name || '[unnamed]';
                 nameSpan.title = xform.name || '[unnamed]';
             
             // Create date column
             const dateSpan = document.createElement('span');
-            dateSpan.className = 'file-date-column';
+            dateSpan.className = 'xform-date-column';
                 let dateText = 'Unknown date';
                 
                 if (xform.lastModified) {
@@ -1061,7 +1061,7 @@ async function renderXFormList(sortBy = 'lastModified', sortDirection = 'desc') 
             
                 // Add delete button
             const deleteBtn = document.createElement('button');
-            deleteBtn.className = 'delete-file-btn';
+            deleteBtn.className = 'delete-xform-column';
             deleteBtn.innerHTML = '×';
                 deleteBtn.title = `Delete "${xform.name || '[unnamed]'}"`;
             deleteBtn.addEventListener('click', (e) => {
@@ -1084,8 +1084,8 @@ async function renderXFormList(sortBy = 'lastModified', sortDirection = 'desc') 
                 // *** CORRECTED: Call loadXFormFromDB which handles mode switching ***
                 loadXFormFromDB(xform.id); 
                 
-                // Apply single-selected style to this item
-                li.classList.add('single-selected');
+                // Apply selected style to this item
+                li.classList.add('selected');
                 window.selectedXforms = [xform]; // Update selection state
                 if (typeof updateUIForSelectionCount === 'function') updateUIForSelectionCount(); // Update UI
                 
@@ -1106,7 +1106,7 @@ async function renderXFormList(sortBy = 'lastModified', sortDirection = 'desc') 
                     return;
                 }
 
-                const allItems = Array.from(fileListUl.querySelectorAll('li.file-list-item'));
+                const allItems = Array.from(xformListUl.querySelectorAll('li.xform-list-item'));
                 const ctrlOrMeta = e.metaKey || e.ctrlKey;
                 const shift = e.shiftKey;
 
@@ -1176,7 +1176,7 @@ async function renderXFormList(sortBy = 'lastModified', sortDirection = 'desc') 
                 console.log("Selected IDs:", window.selectedXforms.map(x=>x.id));
             }); // End single-click listener
                 
-            fileListUl.appendChild(li);
+            xformListUl.appendChild(li);
         });
             
             console.log(`Rendered ${xforms.length} XForms in the list`);
@@ -1200,7 +1200,7 @@ async function renderXFormList(sortBy = 'lastModified', sortDirection = 'desc') 
         // Restore selections after resorting
         if (selectedIds.length > 0) {
             // Get all items in new order
-            const items = document.querySelectorAll('#savedList li.file-list-item');
+            const items = document.querySelectorAll('#savedXformsList li.xform-list-item');
             
             // Re-select previously selected items
             let newSelections = [];
@@ -1210,9 +1210,9 @@ async function renderXFormList(sortBy = 'lastModified', sortDirection = 'desc') 
                 if (id && selectedIds.includes(id)) {
                     // Apply the appropriate selection class
                     if (selectedIds.length === 1) {
-                        item.classList.add('single-selected');
+                        item.classList.add('selected');
                     } else {
-                        item.classList.add('multi-selected');
+                        item.classList.add('selected');
                     }
                     
                     // Find the xform object for this id
@@ -1234,7 +1234,7 @@ async function renderXFormList(sortBy = 'lastModified', sortDirection = 'desc') 
         }
     } catch (error) {
         console.error('Error rendering XForm list:', error);
-        fileListUl.innerHTML = '<li>Error loading saved xforms</li>';
+        xformListUl.innerHTML = '<li>Error loading saved xforms</li>';
     }
 }
 
@@ -1259,25 +1259,25 @@ async function loadXForm(id) {
         console.log(`Successfully loaded XForm from database: "${xformData.name}"`);
         console.log('Full XForm data:', xformData);
         
-        // 2. Set Global State (including Filename Mode)
+        // 2. Set Global State (including xform naming Mode)
         window.currentXFormName = xformData.name || "Untitled XForm";
         window.currentXFormId = xformData.id;
-        window.isFilenameModeATM = false; // Force MEM mode
+        window.isXformNamingModeATM = false; // Force MEM mode
         window.currentXFormHasRun = true; // Mark as loaded
         console.log("Set global state (name, id, MEM mode)");
         
-        // 3. Update Filename Input Field & Mode UI
-        const filenameInput = document.getElementById('filenameInput');
-        if (filenameInput) {
-            filenameInput.value = window.currentXFormName;
-            filenameInput.readOnly = false;
-            filenameInput.classList.remove('time-based-filename');
-            console.log(`Updated filename input to: ${filenameInput.value}`);
+        // 3. Update xformName Input Field & Mode UI
+        const xformNameInput = document.getElementById('xformNameInput');
+        if (xformNameInput) {
+            xformNameInput.value = window.currentXFormName;
+            xformNameInput.readOnly = false;
+            xformNameInput.classList.remove('time-based-xformName');
+            console.log(`Updated xformName input to: ${xformNameInput.value}`);
         }
         
         // Update UI indicators for MEM mode
-        const atmModeBtn = document.getElementById('filenameModeATM');
-        const memModeBtn = document.getElementById('filenameModeManual');
+        const atmModeBtn = document.getElementById('xformNamingModeATM');
+        const memModeBtn = document.getElementById('xformNamingModeManual');
         if (atmModeBtn && memModeBtn) {
             atmModeBtn.classList.remove('active');
             memModeBtn.classList.add('active');
@@ -1343,11 +1343,11 @@ async function loadXForm(id) {
         
         // 6. Update UI State (Highlighting, Draggability, etc.)
         // Highlight the selected item in the list
-        document.querySelectorAll('#savedList li.file-list-item').forEach(el => {
+        document.querySelectorAll('#savedXformsList li.xform-list-item').forEach(el => {
             if (el.dataset.xformId === id.toString()) {
-                el.classList.add('single-selected');
+                el.classList.add('selected');
             } else {
-                el.classList.remove('single-selected');
+                el.classList.remove('selected');
             }
         });
         
@@ -1477,10 +1477,11 @@ async function saveCurrentXForm() {
         const xformData = createXFormDataObject();
         
         // Validation: Ensure name is valid
-        if (!xformData.name || xformData.name.trim() === '' || xformData.name === 'Untitled XForm') {
-            await showInfoDialog('Please enter a valid name for the XForm before saving.');
-            const filenameInput = document.getElementById('filenameInput');
-            if (filenameInput) { filenameInput.focus(); filenameInput.select(); }
+        const name = xformData.name;
+        if (!name || name.trim() === '' || name === 'Untitled XForm') {
+            await showInfoDialog(`[${name}] is not a valid name. Please enter a valid name for the XForm before saving.`);
+            const xformNameInput = document.getElementById('xformNameInput');
+            if (xformNameInput) { xformNameInput.focus(); xformNameInput.select(); }
             console.warn('Save cancelled: XForm name missing or invalid.');
             console.groupEnd();
             return null;
@@ -1565,11 +1566,11 @@ async function saveCurrentXForm() {
             await renderXFormList(); // Refresh the list
             // Highlight requires the list to be rendered first
              setTimeout(() => {
-                 const items = document.querySelectorAll('#savedList li.file-list-item');
+                 const items = document.querySelectorAll('#savedXformsList li.xform-list-item');
                  items.forEach(item => {
-                     item.classList.remove('single-selected');
+                     item.classList.remove('selected');
                      if (item.dataset.xformId === xformData.id.toString()) {
-                         item.classList.add('single-selected');
+                         item.classList.add('selected');
                      }
                  });
                  if (typeof updateUIForSelectionCount === 'function') updateUIForSelectionCount();
@@ -1678,11 +1679,9 @@ async function computeXFormHash(xformData) {
 
 // Clear all selections in the file list
 function clearAllSelections() {
-    const items = document.querySelectorAll('#savedList li');
+    const items = document.querySelectorAll('#savedXformsList li');
     items.forEach(item => {
         item.classList.remove('selected'); // Use .selected
-        item.classList.remove('single-selected'); // Keep removing old class just in case
-        item.classList.remove('multi-selected'); // Keep removing old class just in case
     });
     window.selectedXforms = []; // Clear the data array
     window.lastClickedListItemIndex = -1; // Reset shift-click anchor
@@ -1746,7 +1745,7 @@ function createXFormDataObject() {
     
     // Get necessary data from the UI elements
     console.log("DEBUG: createXFormDataObject - Getting UI elements..."); // <-- ADDED
-    const xformNameInput = document.getElementById('filenameInput'); 
+    const xformNameInput = document.getElementById('xformNameInput'); 
     const widthInput = document.getElementById('rectWidth');
     const heightInput = document.getElementById('rectHeight');
     const durationInput = document.getElementById('duration');
@@ -1774,7 +1773,7 @@ function createXFormDataObject() {
     // --- ADDED DETAILED LOGGING FOR NAME --- 
     console.log(`DEBUG: createXFormDataObject - Checking input field. Exists: ${!!xformNameInput}, Value: "${xformNameInput ? xformNameInput.value : 'N/A'}", Trimmed: "${xformNameInput ? xformNameInput.value.trim() : 'N/A'}"`); // Log input value explicitly
     console.log(`DEBUG: createXFormDataObject - Checking global window.currentXFormName: "${window.currentXFormName}"`); // Log global value
-    console.log(`DEBUG: createXFormDataObject - Checking FilenameController state: Mode ATM? ${window.filenameController ? window.filenameController.isInATMMode() : 'N/A'}, Controller Name: "${window.filenameController ? window.filenameController.getCurrentFilename() : 'N/A'}"`);
+    console.log(`DEBUG: createXFormDataObject - Checking XformNameController state: Mode ATM? ${window.xformNameController ? window.xformNameController.isInATMMode() : 'N/A'}, Controller Name: "${window.xformNameController ? window.xformNameController.getCurrentFilename() : 'N/A'}"`);
     // --- END ADDED LOGGING --- 
 
     if (xformNameInput && xformNameInput.value.trim() !== '') { // Use renamed variable
@@ -2100,38 +2099,46 @@ window.loadXForm = loadXForm;
 window.deleteXForm = deleteXForm;
 window.renderXFormList = renderXFormList;
 window.importXFormsFromFile = importXFormsFromFile;
-window.exportXFormToFile = exportXFormToFile;
+window.exportXformNameToFileName = exportXformNameToFileName;
 window.exportAllXFormsToFile = exportAllXFormsToFile;
 window.showInfoDialog = showInfoDialog;
 window.showModalDialog = showModalDialog;
 
 // Add this function near the bottom of the file with the other initialization functions
 
-// Initialize the FilenameController to manage filename input and mode toggling
-function initializeFilenameController() {
-    // Define a self-contained controller for filename input and mode management
-    class FilenameController {
+// Initialize the XformNameController to manage xformName input and mode toggling
+function initializeXformNameController() {
+    // Define a self-contained controller for xformName input and mode management
+    class XformNameController {
         constructor() {
             // Get UI elements
-            this.filenameInput = document.getElementById('filenameInput');
-            this.atmButton = document.getElementById('filenameModeATM');
-            this.memButton = document.getElementById('filenameModeManual');
+            this.xformNameInput = document.getElementById('xformNameInput');
+            this.atmButton = document.getElementById('xformNamingModeATM');
+            this.memButton = document.getElementById('xformNamingModeMEM');
             
             // Initial state
             this._isATMMode = true; 
-            this._filename = '';
+            this._xformName = '';
             this._updateTimer = null; 
             
             // No explicit binding needed with arrow functions
             
             // Initialize
-            if (!this.filenameInput || !this.atmButton || !this.memButton) {
-                console.error('FilenameController: Missing required elements.');
+            if (!this.xformNameInput) {
+                console.error('XformNameController: Missing xformNameInput.');
+                return; 
+            }
+            if (!this.atmButton) {
+                console.error('XformNameController: Missing atmButton.');
+                return; 
+            }
+            if (!this.memButton) {
+                console.error('XformNameController: Missing memButton.');
                 return; 
             }
             this._setupEventListeners();
             this._setMode(this._isATMMode, true); // Apply initial state
-            console.log('FilenameController initialized');
+            console.log('XformNameController initialized');
         }
         
         // --- Event Listener Setup (using arrow function) ---
@@ -2139,46 +2146,46 @@ function initializeFilenameController() {
             this.atmButton.addEventListener('click', () => this._setMode(true)); 
             this.memButton.addEventListener('click', () => this._setMode(false));
             
-            this.filenameInput.addEventListener('click', () => {
+            this.xformNameInput.addEventListener('click', () => {
                 if (this._isATMMode) {
                     this._setMode(false); 
-                    this.filenameInput.select();
+                    this.xformNameInput.select();
                 }
             });
             
-            this.filenameInput.addEventListener('input', () => {
+            this.xformNameInput.addEventListener('input', () => {
                 if (!this._isATMMode) {
-                    this._filename = this.filenameInput.value; 
-                    localStorage.setItem('xformMaker_filenameValue', this._filename);
-                    window.currentXFormName = this._filename; 
+                    this._xformName = this.xformNameInput.value; 
+                    localStorage.setItem('xformMaker_filenameValue', this._xformName);
+                    window.currentXFormName = this._xformName; 
                 }
             });
             
             // Replace global functions for compatibility 
-            window.toggleFilenameMode = this._setMode;
+            window.toggleXformNamingMode = this._setMode;
             window.startFilenameTimeUpdates = this._startTimer;
             window.stopFilenameTimeUpdates = this._stopTimer;
             
-            console.log('FilenameController: Event listeners set up');
+            console.log('XformNameController: Event listeners set up');
         }
         
         // --- Public API Methods (using arrow functions) ---
         setNewXform = () => {
-            console.log("FilenameController: Setting up for new XForm...");
+            console.log("XformNameController: Setting up for new XForm...");
             this._setMode(true); 
             this._setName(''); 
             this._startTimer(); 
         }
         
         setSavedXform = (name) => {
-            console.log(`FilenameController: Setting up for saved XForm: "${name}"`);
+            console.log(`XformNameController: Setting up for saved XForm: "${name}"`);
             this._setMode(false); 
             this._setName(name || 'Untitled XForm'); 
             this._stopTimer();
         }
 
         getCurrentFilename = () => {
-            return this._isATMMode ? this._filename : (this.filenameInput?.value || this._filename);
+            return this._isATMMode ? this._xformName : (this.xformNameInput?.value || this._xformName);
         }
 
         isInATMMode = () => {
@@ -2192,33 +2199,33 @@ function initializeFilenameController() {
             if (!initializing && this._isATMMode === newModeIsATM) return; 
 
             this._isATMMode = newModeIsATM;
-            window.isFilenameModeATM = this._isATMMode; // Update global state
+            window.isXformNamingModeATM = this._isATMMode; // Update global state
             this._updateUI(); // Update button classes and input readonly state
             
             if (this._isATMMode) {
                 this._startTimer();
                 this._updateATMFilename(); // Call immediately when switching TO ATM
-                localStorage.setItem('xformMaker_filenameMode', 'ATM');
+                localStorage.setItem('xformMaker_xformNamingMode', 'ATM');
             } else {
                 // ADD LOG HERE
-                console.log(`FilenameController: _setMode(false) - Current timer ID BEFORE stopping: ${this._updateTimer}`); 
+                console.log(`XformNameController: _setMode(false) - Current timer ID BEFORE stopping: ${this._updateTimer}`); 
                 this._stopTimer(); // Stop clock
                 // Restore last manually entered value if available, otherwise use current name
                 const savedManualName = localStorage.getItem('xformMaker_filenameValue');
                 this._setName(savedManualName || window.currentXFormName || 'Untitled XForm'); 
-                localStorage.setItem('xformMaker_filenameMode', 'MEM');
+                localStorage.setItem('xformMaker_xformNamingMode', 'MEM');
             }
             
             if (!initializing) {
-                 console.log(`FilenameController: Mode set to ${this._isATMMode ? 'ATM' : 'MEM'}`);
+                 console.log(`XformNameController: Mode set to ${this._isATMMode ? 'ATM' : 'MEM'}`);
             }
         }
         
         _setName = (name) => {
-             if (this._filename !== name) {
-                 this._filename = name;
-                 if (this.filenameInput) {
-                    this.filenameInput.value = name;
+             if (this._xformName !== name) {
+                 this._xformName = name;
+                 if (this.xformNameInput) {
+                    this.xformNameInput.value = name;
                  }
                  window.currentXFormName = name; // Sync global
                  // Persist manual name only if in MEM mode
@@ -2234,9 +2241,9 @@ function initializeFilenameController() {
                 this.atmButton.classList.toggle('active', this._isATMMode);
                 this.memButton.classList.toggle('active', !this._isATMMode);
             }
-            if (this.filenameInput) {
-                this.filenameInput.readOnly = this._isATMMode;
-                this.filenameInput.classList.toggle('time-based-filename', this._isATMMode);
+            if (this.xformNameInput) {
+                this.xformNameInput.readOnly = this._isATMMode;
+                this.xformNameInput.classList.toggle('time-based-xformName', this._isATMMode);
             }
         }
         
@@ -2252,22 +2259,22 @@ function initializeFilenameController() {
         _startTimer = () => {
             this._stopTimer(); 
             this._updateTimer = setInterval(this._updateATMFilename, 1000);
-            console.log("FilenameController: Timer STARTED with interval ID:", this._updateTimer); // <-- ADD LOG
+            console.log("XformNameController: Timer STARTED with interval ID:", this._updateTimer); // <-- ADD LOG
         }
         _stopTimer = () => {
             if (this._updateTimer) {
-                console.log("FilenameController: Attempting to STOP timer with interval ID:", this._updateTimer); // <-- ADD LOG
+                console.log("XformNameController: Attempting to STOP timer with interval ID:", this._updateTimer); // <-- ADD LOG
                 clearInterval(this._updateTimer);
                 this._updateTimer = null; // Clear the reference
-                console.log("FilenameController: Timer STOPPED."); // <-- ADD LOG
+                console.log("XformNameController: Timer STOPPED."); // <-- ADD LOG
             } else {
-                 console.log("FilenameController: Stop timer called, but no active timer ID found."); // <-- ADD LOG
+                 console.log("XformNameController: Stop timer called, but no active timer ID found."); // <-- ADD LOG
             }
         }
     }
     
     // Create and store the controller instance
-    window.filenameController = new FilenameController();
+    window.xformNameController = new XformNameController();
 }
 
 // Add the diagnostics button to the setup function
@@ -2333,7 +2340,7 @@ async function loadXFormFromDB(xformId) {
 
             // Apply the loaded data to the UI
             if (typeof window.applyXFormData === 'function') {
-                // *** NOTE: applyXFormData ALSO updates the filenameInput if not in ATM mode.
+                // *** NOTE: applyXFormData ALSO updates the xformNameInput if not in ATM mode.
                 // We might be setting the value twice, but it should be harmless. ***
                 window.applyXFormData(xformData); 
                 console.log('%cDB LOAD: applyXFormData completed.', 'color: blue;');
@@ -2343,45 +2350,45 @@ async function loadXFormFromDB(xformId) {
                 return; // Stop if apply function is missing
             }
 
-            // --- REVISED: Use FilenameController to set mode and name ---
-            if (window.filenameController && typeof window.filenameController.setSavedXform === 'function') {
-                console.log(`%cDB LOAD: Calling filenameController.setSavedXform("${xformData.name}")`, 'color: blue;');
-                window.filenameController.setSavedXform(xformData.name);
-                console.log('%cDB LOAD: filenameController handled mode switch to MEM.', 'color: blue;');
+            // --- REVISED: Use XformNameController to set mode and name ---
+            if (window.xformNameController && typeof window.xformNameController.setSavedXform === 'function') {
+                console.log(`%cDB LOAD: Calling xformNameController.setSavedXform("${xformData.name}")`, 'color: blue;');
+                window.xformNameController.setSavedXform(xformData.name);
+                console.log('%cDB LOAD: xformNameController handled mode switch to MEM.', 'color: blue;');
             } else {
-                console.error("DB LOAD: FilenameController or setSavedXform method not found! Cannot properly set filename mode.");
+                console.error("DB LOAD: XformNameController or setSavedXform method not found! Cannot properly set xformName mode.");
                 // Fallback (less ideal - might conflict with controller later)
-                const filenameInput = document.getElementById('filenameInput');
-                const atmBtn = document.getElementById('filenameModeATM');
-                const memBtn = document.getElementById('filenameModeManual');
-                if (filenameInput && atmBtn && memBtn) {
-                    filenameInput.value = xformData.name;
-                    window.isFilenameModeATM = false;
+                const xformNameInput = document.getElementById('xformNameInput');
+                const atmBtn = document.getElementById('xformNamingModeATM');
+                const memBtn = document.getElementById('xformNamingModeManual');
+                if (xformNameInput && atmBtn && memBtn) {
+                    xformNameInput.value = xformData.name;
+                    window.isXformNamingModeATM = false;
                     atmBtn.classList.remove('active');
                     memBtn.classList.add('active');
                     if (typeof window.stopFilenameTimeUpdates === 'function') {
                         window.stopFilenameTimeUpdates();
                     }
-                    filenameInput.removeAttribute('readonly');
+                    xformNameInput.removeAttribute('readonly');
                      // Assume keys are global
-                    if (typeof FILENAME_MODE_KEY !== 'undefined' && typeof FILENAME_VALUE_KEY !== 'undefined') {
-                         localStorage.setItem(FILENAME_MODE_KEY, 'MEM'); 
-                         localStorage.setItem(FILENAME_VALUE_KEY, filenameInput.value); 
+                    if (typeof XFORM_NAMING_MODE_KEY !== 'undefined' && typeof XFORM_NAMING_VALUE_KEY !== 'undefined') {
+                         localStorage.setItem(XFORM_NAMING_MODE_KEY, 'MEM'); 
+                         localStorage.setItem(XFORM_NAMING_VALUE_KEY, xformNameInput.value); 
                     }
                 }
             }
             // --- END REVISED ---
 
             // Select the loaded item in the list UI
-            const fileListUl = document.getElementById('savedList'); // Or the correct ID for your list
-            if (fileListUl) {
+            const xformListUl = document.getElementById('savedXformsList'); // Or the correct ID for your list
+            if (xformListUl) {
                 // Clear previous selections
-                fileListUl.querySelectorAll('li.single-selected').forEach(li => li.classList.remove('single-selected'));
+                xformListUl.querySelectorAll('li.selected').forEach(li => li.classList.remove('selected'));
 
                 // Find and select the current item using the ID
-                const listItem = fileListUl.querySelector(`li[data-xform-id="${xformId}"]`);
+                const listItem = xformListUl.querySelector(`li[data-xform-id="${xformId}"]`);
                 if (listItem) {
-                    listItem.classList.add('single-selected');
+                    listItem.classList.add('selected');
                     console.log(`%cDB LOAD: Highlighted list item for ID: ${xformId}`, 'color: blue;');
                     // Optional: Scroll into view
                     // listItem.scrollIntoView({ behavior: 'smooth', block: 'nearest' });

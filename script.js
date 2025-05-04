@@ -350,7 +350,6 @@ window.appInitializationComplete = false;
 window.savedListUl = null;
 window.selectedControlsDiv = null;
 window.renameInput = null;
-window.addWaypointButton = null;
 window.deleteLastWaypointButton = null;
 window.waypointCounter = null;
 window.widthInput = null;
@@ -375,6 +374,7 @@ window.dragOffsetY = 0;
 window.selectedSavedXFormId = null;
 window.wasDraggingPoint = false; 
 window.isRectangleDragging = false;
+window.lastClickedListItemIndex = -1;
 window.currentXFormName = "New X-Form";
 window.currentXFormId = null;
 window.currentXFormHasRun = false;
@@ -390,11 +390,10 @@ document.addEventListener('DOMContentLoaded', () => {
     console.log('DOM Loaded. Initializing XForm Maker...');
 
     // --- Populate Global DOM Element References ---
+    console.log("SCRIPT: Populating global DOM references...");
     window.viewport = document.getElementById('viewport');
-    window.addWaypointButton = document.getElementById('addWaypointBtn');
     window.waypointCounter = document.getElementById('waypointCounter');
     window.deleteLastWaypointButton = document.getElementById('deleteLastWaypointBtn');
-    // Note: savedListUl etc. might not exist if HTML was simplified, check within persistence module
     window.savedListUl = document.getElementById('savedList'); 
     window.selectedControlsDiv = document.getElementById('selectedXFormControls');
     window.renameInput = document.getElementById('renameInput');
@@ -403,11 +402,19 @@ document.addEventListener('DOMContentLoaded', () => {
     window.durationInput = document.getElementById('duration');
     window.themeToggleButton = document.getElementById('themeToggle');
     window.filenameInput = document.getElementById('filenameInput');
+    console.log(`SCRIPT: Elements assigned: delBtn=${!!window.deleteLastWaypointButton}`);
     
     // --- Initialize Controllers & Setup Modules ---
     // Initialize core components after a brief delay to ensure DOM and scripts are fully ready
     setTimeout(() => {
-        console.log("Delayed Initialization Started...");
+        console.log("SCRIPT: setTimeout callback started...");
+        console.log(`SCRIPT: Checking elements BEFORE setupControls: delBtn=${!!window.deleteLastWaypointButton}`);
+        if (!window.deleteLastWaypointButton) {
+            console.error("SCRIPT: CRITICAL - Delete Waypoint button became null/undefined before setupControls call!");
+            window.deleteLastWaypointButton = window.deleteLastWaypointButton || document.getElementById('deleteLastWaypointBtn');
+             console.log(`SCRIPT: Re-queried elements: delBtn=${!!window.deleteLastWaypointButton}`);
+        }
+        // *** END UPDATED CHECK ***
         
         // Initialize Filename Controller first
         if (typeof initializeFilenameController === 'function') {
@@ -485,7 +492,7 @@ document.addEventListener('DOMContentLoaded', () => {
         } else {
             console.warn("Could not find Save button (saveFileBtn) to force enable.");
         }
-    }, 50); // Small delay (e.g., 50ms) should be enough
+    }, 500); // Increased delay from 50ms to 500ms
 
     console.log("DOM Loaded. Main initialization sequence scheduled.");
     

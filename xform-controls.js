@@ -16,6 +16,9 @@
 // let dragOffsetY = 0;
 // let wasDraggingPoint = false; // Declared in main script
 let isRectangleDragging = false; // Declared in main script
+let isWaypointDragging = false; // NEW flag for specific waypoint drag
+let dragJustHappened = false; // Flag to prevent click *during* and immediately after drag
+let lastMouseUpTime = 0; // Timestamp of the last mouseup event
 
 // *** NEW: Global Drag State ***
 window.draggedElement = null; // Track the element being dragged
@@ -185,23 +188,28 @@ function globalMouseMoveHandler(e) {
     // Calculate new position based on stored initial values and mouse delta
     const dx = e.clientX - window.dragInitialMouseX;
     const dy = e.clientY - window.dragInitialMouseY;
-    let newX = window.dragStartX + dx;
-    let newY = window.dragStartY + dy;
+    let rawNewX = window.dragStartX + dx;
+    let rawNewY = window.dragStartY + dy;
 
-    // Boundary checks
-    const vpRect = window.viewport.getBoundingClientRect();
-    const elRect = window.draggedElement.getBoundingClientRect(); 
-    newX = Math.max(0, Math.min(newX, vpRect.width - elRect.width));
-    newY = Math.max(0, Math.min(newY, vpRect.height - elRect.height));
+    // *** REMOVED Boundary checks during move - Allow visual drag outside ***
+    // const vpRect = window.viewport.getBoundingClientRect();
+    // const elRect = window.draggedElement.getBoundingClientRect(); 
+    // const elementWidth = elRect.width;
+    // const elementHeight = elRect.height;
+    // const finalNewX = Math.max(0, Math.min(rawNewX, vpRect.width - elementWidth));
+    // const finalNewY = Math.max(0, Math.min(rawNewY, vpRect.height - elementHeight));
 
-    // Apply new position
-    window.draggedElement.style.left = `${newX}px`;
-    window.draggedElement.style.top = `${newY}px`;
+    // Log the raw (unclamped) values being applied
+    console.log(`%c globalMouseMoveHandler: Applying raw style (${rawNewX.toFixed(1)}px, ${rawNewY.toFixed(1)}px)`, 'color: #888');
+
+    // Apply the RAW (unclamped) new position
+    window.draggedElement.style.left = `${rawNewX}px`;
+    window.draggedElement.style.top = `${rawNewY}px`;
 
     // Live update path while dragging, if path is visible
     const pathVis = document.getElementById('path-visualization');
     if (pathVis && typeof drawPathVisualization === 'function') {
-        drawPathVisualization(); 
+        drawPathVisualization();
     }
 }
 
@@ -209,12 +217,55 @@ function globalMouseMoveHandler(e) {
 function globalMouseUpHandler(e) {
     if (!window.draggedElement) return;
 
-    console.log(`globalMouseUpHandler: mouseup for ${window.draggedElement.id}`);
+    window.lastMouseUpTime = Date.now(); // Record time of mouseup
+    console.log(`globalMouseUpHandler: mouseup for ${window.draggedElement.id || 'waypoint'} at time ${window.lastMouseUpTime}`);
+    let wasWaypointDrag = false;
 
-    // Final updates for the dragged element
-    window.draggedElement.style.cursor = 'grab';
-    window.draggedElement.style.transition = ''; // Restore transitions if any
-    console.log(`${window.draggedElement.id} Dropped at:`, window.draggedElement.style.left, window.draggedElement.style.top);
+    // Update underlying data if it was a waypoint
+    if (window.draggedElement.classList.contains('point-marker')) {
+        wasWaypointDrag = true;
+        const index = window.draggingPointIndex; // Use the stored index
+        const element = window.draggedElement; // Get the element
+
+        if (index >= 0 && index < window.intermediatePoints.length) {
+            const finalX = parseFloat(element.style.left || '0');
+            const finalY = parseFloat(element.style.top || '0');
+
+            // Get viewport bounds and element dimensions for check
+            const vpRect = window.viewport.getBoundingClientRect();
+            const elRect = element.getBoundingClientRect();
+            const elCenterX = finalX + elRect.width / 2;
+            const elCenterY = finalY + elRect.height / 2;
+
+            // Check if the waypoint center is outside the viewport bounds
+            if (elCenterX < 0 || elCenterX > vpRect.width || elCenterY < 0 || elCenterY > vpRect.height) {
+                console.log(`Waypoint dragged out of bounds (${elCenterX.toFixed(1)}, ${elCenterY.toFixed(1)}). Deleting waypoint index ${index}.`);
+                // Call deleteWaypoint to handle removal and updates
+                deleteWaypoint(index);
+                // No need to update position or keep selected, as it's deleted
+                window.selectedPointIndex = -1;
+            } else {
+                // Waypoint is inside bounds, update its position data
+                window.intermediatePoints[index].x = finalX;
+                window.intermediatePoints[index].y = finalY;
+                console.log(`Updated intermediatePoints[${index}] data to: (${finalX}, ${finalY})`);
+                // Keep it selected
+                window.selectedPointIndex = index; 
+            }
+            // Reset dragging index regardless
+            window.draggingPointIndex = -1;
+        } else {
+            console.warn('Could not update or delete waypoint data - invalid index:', index);
+             window.draggingPointIndex = -1; // Reset index even if invalid
+        }
+    }
+
+    // Final style updates for the dragged element (if it still exists)
+    if (window.draggedElement) { // Check if element still exists (might have been deleted)
+        window.draggedElement.style.cursor = 'grab';
+        window.draggedElement.style.transition = ''; 
+        console.log(`${window.draggedElement.id || 'Waypoint'} Dropped at:`, window.draggedElement.style.left, window.draggedElement.style.top);
+    }
 
     // Update path visualization if it exists
     const pathVis = document.getElementById('path-visualization');
@@ -222,22 +273,39 @@ function globalMouseUpHandler(e) {
         drawPathVisualization();
     }
 
-    // Save state
+    // Save state (after updating or deleting waypoint data)
     if (typeof window.saveCurrentState === 'function') {
         window.saveCurrentState();
-        // console.log("Rectangle positions saved after drag:", ...); // Keep console less noisy
+        console.log("Current state saved after drag operation.");
     }
 
     // Clean up global state and listeners
-    window.isRectangleDragging = false; // Reset flag for viewport click check
-    window.draggedElement = null;
+    window.isRectangleDragging = false;
+    window.isWaypointDragging = false;
+    // Reset draggedElement reference AFTER checking if it exists above
+    window.draggedElement = null; 
     document.removeEventListener('mousemove', globalMouseMoveHandler);
     document.removeEventListener('mouseup', globalMouseUpHandler);
     console.log(`globalMouseUpHandler: cleaned up listeners and flags`);
+
+    // Stop propagation after waypoint drag
+    if (wasWaypointDrag) {
+        e.stopPropagation();
+        console.log("globalMouseUpHandler: Stopped propagation after waypoint drag mouseup.");
+    }
 }
 
 // --- Path Visualization Logic with Bezier Curves ---
 function drawPathVisualization() {
+    // *** ADDED Guard Clause: Exit immediately if essential elements are missing ***
+    if (!window.startRect || !window.endRect || !window.viewport) {
+        console.log('drawPathVisualization: Skipping draw, start/end rectangles or viewport not initialized.');
+        // Optionally remove existing path if elements disappear unexpectedly
+        const existingPath = document.getElementById('path-visualization');
+        if (existingPath) existingPath.remove();
+        return; 
+    }
+
     // Delegate to applyPathStyle if it exists (modern approach)
     if (typeof applyPathStyle === 'function' && window.pathStyleModes) {
         const currentPathStyleIndex = window.currentPathStyleIndex !== undefined ?
@@ -246,39 +314,6 @@ function drawPathVisualization() {
         const currentStyleMode = window.pathStyleModes[currentPathStyleIndex];
         
         if (currentStyleMode) {
-            // Check if required elements exist before calling applyPathStyle
-            if (!window.startRect || !window.endRect || !window.viewport) {
-                console.warn('drawPathVisualization: Cannot delegate - missing required elements (startRect, endRect, or viewport).');
-                
-                // Try to recover by finding or recreating elements
-                if (!window.viewport) {
-                    window.viewport = document.getElementById('viewport');
-                }
-                
-                // If still no viewport, we can't continue
-                if (!window.viewport) {
-                    console.error("Critical: Cannot find viewport element for path visualization");
-                    return;
-                }
-                
-                // Try to recover rectangles if needed
-                if (!window.startRect || !window.endRect) {
-                    if (typeof window.initializeRects === 'function') {
-                        console.log("Attempting to recover rectangles using initializeRects");
-                        window.initializeRects();
-                    }
-                }
-                
-                // If still missing elements after recovery attempt, remove path and exit
-                if (!window.startRect || !window.endRect) {
-                    console.error("Recovery failed - cannot draw path without rectangles");
-                    const existingPath = document.getElementById('path-visualization');
-                    if (existingPath) existingPath.remove();
-                    return;
-                }
-                
-                console.log("Recovery succeeded - proceeding with path visualization");
-            }
             // Proceed with delegation
             applyPathStyle(currentStyleMode.style);
         } else {
@@ -683,14 +718,15 @@ function makeDraggable(element) {
     }
 
     element.addEventListener('mousedown', (e) => {
-        console.log(`%cmakeDraggable: MOUSE DOWN event listener fired for ${element.id}`, 'color: blue; font-weight: bold;'); // *** ADDED VERY VISIBLE LOG ***
+        console.log(`%cmakeDraggable: MOUSE DOWN event listener fired for ${element.id}`, 'color: blue; font-weight: bold;');
 
-        // Prevent starting a new drag if already dragging something else
-        // or if it wasn't a primary button click
         if (window.draggedElement || e.button !== 0) {
              console.log(`makeDraggable: mousedown exit - already dragging ${window.draggedElement?.id} or not primary button (${e.button})`);
              return;
         }
+
+        dragJustHappened = true; // *** SET FLAG ON MOUSEDOWN ***
+        console.log(`makeDraggable: Set dragJustHappened = true`);
 
         console.log(`makeDraggable: mousedown on ${element.id}`);
         window.draggedElement = element; // Set the globally tracked element
@@ -714,7 +750,7 @@ function makeDraggable(element) {
         console.log(`makeDraggable: Added global listeners for ${element.id}`);
 
         e.preventDefault();
-        e.stopPropagation(); // Still important to prevent other actions like text selection
+        e.stopPropagation(); 
     });
 
     // Prevent default browser drag behavior which can interfere
@@ -727,6 +763,63 @@ function makeDraggable(element) {
 
     console.log(`makeDraggable applied to ${element.id}`);
 }
+
+// --- Make Waypoint Draggable (Needed by restoreState/applyXFormData) ---
+window.makeDraggableWaypoint = function(element, index) { // Index passed in
+    if(!window.viewport) return;
+
+    element.addEventListener('mousedown', (e) => {
+        console.log(`%cmakeDraggableWaypoint: MOUSE DOWN on marker element (index: ${index})`, 'color: purple; font-weight: bold;');
+
+        if (window.draggedElement || e.button !== 0) {
+             console.log(`makeDraggableWaypoint: mousedown exit - already dragging ${window.draggedElement?.id} or not primary button (${e.button})`);
+             return;
+        }
+
+        dragJustHappened = true; // SET FLAG ON MOUSEDOWN
+        // console.log(`makeDraggableWaypoint: Set dragJustHappened = true`);
+
+        // Set the globally tracked element AND the specific flag
+        window.draggedElement = element;
+        window.isWaypointDragging = true;
+        window.isRectangleDragging = false;
+
+        // Store initial positions and mouse coordinates globally
+        const vpRect = window.viewport.getBoundingClientRect();
+        const initialStyleLeft = parseFloat(element.style.left || '0');
+        const initialStyleTop = parseFloat(element.style.top || '0');
+        window.dragStartX = initialStyleLeft;
+        window.dragStartY = initialStyleTop;
+        window.dragInitialMouseX = e.clientX;
+        window.dragInitialMouseY = e.clientY;
+
+        // *** ADDED LOGGING for mousedown values ***
+        console.log(`  makeDraggableWaypoint Details:`);
+        console.log(`    Initial Style: left=${initialStyleLeft.toFixed(1)}, top=${initialStyleTop.toFixed(1)}`);
+        console.log(`    Mouse Pos: clientX=${e.clientX.toFixed(1)}, clientY=${e.clientY.toFixed(1)}`);
+        console.log(`    Viewport Pos: left=${vpRect.left.toFixed(1)}, top=${vpRect.top.toFixed(1)}`);
+        console.log(`    Stored Drag Start: X=${window.dragStartX.toFixed(1)}, Y=${window.dragStartY.toFixed(1)}`);
+        console.log(`    Stored Initial Mouse: X=${window.dragInitialMouseX.toFixed(1)}, Y=${window.dragInitialMouseY.toFixed(1)}`);
+
+        // Add the global listeners to the document
+        document.addEventListener('mousemove', globalMouseMoveHandler);
+        document.addEventListener('mouseup', globalMouseUpHandler);
+        console.log(`  makeDraggableWaypoint: Added global listeners for waypoint index ${index}`);
+
+        // Update global state for tracking
+        window.draggingPointIndex = index;
+        window.lastModifiedPointIndex = index;
+
+        // Select this point visually
+        document.querySelectorAll('.point-marker.selected').forEach(el => el.classList.remove('selected'));
+        element.classList.add('selected');
+        window.selectedPointIndex = index;
+
+        e.stopPropagation();
+        e.preventDefault();
+    });
+    // ... (initial cursor - unchanged)
+};
 
 // --- Resize Logic ---
 function applyRectangleSize() {
@@ -982,19 +1075,12 @@ function setupViewportActions() {
 
 // --- Waypoint Controls Setup --- //
 function setupWaypointControls() {
-    if (!window.viewport || !window.addWaypointButton || !window.deleteLastWaypointButton) {
-        console.error("Waypoint control elements not found");
+    if (!window.viewport || !window.deleteLastWaypointButton) {
+        console.error("Waypoint control elements not found. Check IDs: viewport, deleteLastWaypointButton");
+        console.error(`   Values: viewport=${!!window.viewport}, delBtn=${!!window.deleteLastWaypointButton}`);
         return;
     }
 
-    // Style Add button for permanent WAM mode
-    function styleAddButton() {
-        window.addWaypointButton.textContent = 'Add +';
-        window.addWaypointButton.style.backgroundColor = 'var(--button-primary-bg)';
-        window.addWaypointButton.style.borderColor = 'var(--button-primary-hover-bg)';
-        window.viewport.style.cursor = 'crosshair';
-    }
-    
     function addWaypoint(clientX, clientY) {
         const vpRect = window.viewport.getBoundingClientRect();
         
@@ -1002,6 +1088,9 @@ function setupWaypointControls() {
         const x = clientX - vpRect.left;
         const y = clientY - vpRect.top;
         
+        // *** ADDED LOGGING for initial addWaypoint coordinates ***
+        console.log(`%c addWaypoint: Calculated initial coords: x=${x.toFixed(1)}, y=${y.toFixed(1)} (clientX=${clientX}, clientY=${clientY}, vpLeft=${vpRect.left}, vpTop=${vpRect.top})`, 'color: green');
+
         // Visualize the waypoint marker at this position
         const marker = document.createElement('div');
         marker.className = 'point-marker';
@@ -1009,8 +1098,7 @@ function setupWaypointControls() {
         marker.style.top = `${y}px`;
         window.viewport.appendChild(marker);
         
-        // Store the waypoint position - this will be adjusted for center coordinates
-        // during path calculation in drawPathVisualization and applyXFormAnimation
+        // Store the waypoint position
         const pointData = { x, y, element: marker };
         window.intermediatePoints.push(pointData);
         const numPoints = window.intermediatePoints.length;
@@ -1060,48 +1148,41 @@ function setupWaypointControls() {
     
     function deleteLastWaypoint() {
         if (window.intermediatePoints.length === 0) return;
-        
-        const indexToDelete = (window.lastModifiedPointIndex >= 0 && window.lastModifiedPointIndex < window.intermediatePoints.length) 
-            ? window.lastModifiedPointIndex 
-            : window.intermediatePoints.length - 1;
-        
-        const pointToDelete = window.intermediatePoints.splice(indexToDelete, 1)[0];
-        
+
+        // *** SIMPLIFIED LOGIC: Always delete the last element in the array ***
+        const indexToDelete = window.intermediatePoints.length - 1;
+
+        console.log(`Attempting to delete waypoint at determined index (last element): ${indexToDelete}`);
+
+        // No need for index < 0 check as length > 0 is already checked
+
+        const pointToDelete = window.intermediatePoints.pop(); // Use pop() for efficiency
+
         if (pointToDelete && pointToDelete.element) {
             pointToDelete.element.remove();
+            console.log(`Removed marker element for index ${indexToDelete}`);
+        } else {
+             console.warn(`No element found to remove for waypoint at index ${indexToDelete}`);
         }
-        
-        // Adjust lastModifiedPointIndex carefully
-        if (window.lastModifiedPointIndex >= indexToDelete) {
-             window.lastModifiedPointIndex = Math.min(window.lastModifiedPointIndex, window.intermediatePoints.length - 1);
-             if (window.lastModifiedPointIndex < 0) window.lastModifiedPointIndex = -1; // Handle empty case
-             // If we deleted the last element, the new lastModified is the one before it
-             if(indexToDelete === window.intermediatePoints.length) {
-                window.lastModifiedPointIndex = window.intermediatePoints.length - 1;
-             }
-        }
-        // else lastModifiedPointIndex remains valid
-         
+
+        // Reset lastModifiedPointIndex to the new last point or -1 if empty
+        window.lastModifiedPointIndex = window.intermediatePoints.length - 1;
+        console.log(`Updated lastModifiedPointIndex to: ${window.lastModifiedPointIndex}`);
+
         if (typeof window.updateWaypointCounter === 'function') {
             window.updateWaypointCounter();
         }
-        
-        // Also update the delete waypoint button state
-        if (typeof window.updateDeleteWaypointButton === 'function') {
-            window.updateDeleteWaypointButton();
+
+        // Update path visualization
+        if (typeof window.drawPathVisualization === 'function') {
+            window.drawPathVisualization();
         }
-        
-        // Update path visualization after deleting waypoint - check for required elements first
-        const pathVis = document.getElementById('path-visualization');
-        if (pathVis && window.startRect && window.endRect && window.viewport) {
-            drawPathVisualization();
-        }
-        
+
         if (typeof window.saveCurrentState === 'function') {
             window.saveCurrentState(); // Save after deleting
         }
-        
-        console.log(`Deleted waypoint at index ${indexToDelete}`);
+
+        console.log(`Deleted last waypoint. New count: ${window.intermediatePoints.length}`);
     }
 
     function deleteWaypoint(index) {
@@ -1133,138 +1214,45 @@ function setupWaypointControls() {
         }
     }
     
-    // --- Waypoint Dragging Logic --- //
-    // Note: window.makeDraggableWaypoint is now defined in the persistence module
-    // We just need the global mouse listeners here
-    
-    document.addEventListener('mousemove', (e) => {
-        if (window.draggingPointIndex >= 0 && window.draggingPointIndex < window.intermediatePoints.length) {
-            window.wasDraggingPoint = true;
-            const vpRect = window.viewport.getBoundingClientRect();
-            const newX = e.clientX - vpRect.left - window.dragOffsetX;
-            const newY = e.clientY - vpRect.top - window.dragOffsetY;
-            
-            window.intermediatePoints[window.draggingPointIndex].x = newX;
-            window.intermediatePoints[window.draggingPointIndex].y = newY;
-            
-            const marker = window.intermediatePoints[window.draggingPointIndex].element;
-            if (marker) {
-                marker.style.left = `${newX}px`;
-                marker.style.top = `${newY}px`;
-            }
-            
-            // Update path visualization during drag
-            const pathVis = document.getElementById('path-visualization');
-            if (pathVis) {
-                drawPathVisualization();
-            }
-        }
-    });
-
-    document.addEventListener('mouseup', (e) => {
-        if (window.draggingPointIndex >= 0 && window.draggingPointIndex < window.intermediatePoints.length) {
-             const vpRect = window.viewport.getBoundingClientRect();
-             const point = window.intermediatePoints[window.draggingPointIndex];
-            
-             const isOutside = 
-                 point.x < -20 || point.y < -20 || 
-                 point.x > vpRect.width + 20 || point.y > vpRect.height + 20;
-            
-             if (isOutside) {
-                 const removedPoint = window.intermediatePoints.splice(window.draggingPointIndex, 1)[0];
-                 if (removedPoint && removedPoint.element) {
-                     removedPoint.element.remove();
-                 }
-                 
-                 // Update last modified index carefully
-                 if (window.draggingPointIndex <= window.lastModifiedPointIndex) {
-                    window.lastModifiedPointIndex = Math.max(-1, window.lastModifiedPointIndex - 1); 
-                 }
-
-                 if (typeof window.updateWaypointCounter === 'function') window.updateWaypointCounter();
-                 
-                 // Also update the delete waypoint button state
-                 if (typeof window.updateDeleteWaypointButton === 'function') {
-                     window.updateDeleteWaypointButton();
-                 }
-                 
-                 window.wasDraggingPoint = false; 
-                 console.log('Waypoint deleted by dragging outside viewport');
-                 
-                 // Update path visualization
-                 const pathVis = document.getElementById('path-visualization');
-                 if (pathVis) {
-                     drawPathVisualization();
-                 }
-
-                 if (typeof window.saveCurrentState === 'function') {
-                     window.saveCurrentState();
-                 }
-             } else {
-                 // Point is still within viewport - update last modified
-                 window.lastModifiedPointIndex = window.draggingPointIndex;
-                 if (point && point.element) {
-                     point.element.classList.remove('selected');
-                     // Constrain final position
-                     point.x = Math.max(0, Math.min(point.x, vpRect.width));
-                     point.y = Math.max(0, Math.min(point.y, vpRect.height));
-                     point.element.style.left = `${point.x}px`;
-                     point.element.style.top = `${point.y}px`;
-                 }
-                 
-                 // Update path visualization
-                 const pathVis = document.getElementById('path-visualization');
-                 if (pathVis) {
-                     drawPathVisualization();
-                 }
-                 
-                 if (typeof window.saveCurrentState === 'function') {
-                     window.saveCurrentState();
-                 }
-             }
-            
-             window.draggingPointIndex = -1;
-             window.selectedPointIndex = -1;
-        }
-        // Reset wasDraggingPoint slightly later to allow click event to check it
-        setTimeout(() => { window.wasDraggingPoint = false; }, 50); 
-    });
-
-    // Event: Viewport click to add waypoint
+    // --- Event Listeners --- 
     window.viewport.addEventListener('click', (e) => {
-        console.log(`viewport click: target=${e.target.id || e.target.className}, isRectangleDragging=${window.isRectangleDragging}, wasDraggingPoint=${window.wasDraggingPoint}`); // Log click
+        const clickTime = Date.now();
+        const timeSinceLastMouseUp = clickTime - window.lastMouseUpTime;
+        console.log(`viewport click: target=${e.target.id || e.target.className}, timeSinceLastMouseUp=${timeSinceLastMouseUp}ms`);
         
-        // *** MODIFIED Check: Prevent if target is rect OR if dragging flags are set ***
+        // *** Check if click happened very shortly after a mouseup (likely drag end) ***
+        if (timeSinceLastMouseUp < 50) { // Use a small threshold (e.g., 50ms)
+            console.log(`viewport click: prevented because it occurred too soon (${timeSinceLastMouseUp}ms) after last mouseup.`);
+            return;
+        }
+
+        // Check if click is on/inside a marker
+        if (e.target.closest('.point-marker')) {
+            console.log('viewport click: prevented by target being on or inside a marker (closest check).'); 
+            return;
+        }
+
+        // Check if target is start/end rectangle
         if (e.target === window.startRect || e.target === window.endRect) {
             console.log('viewport click: prevented by target being startRect or endRect.'); 
             return;
         }
-        if (window.wasDraggingPoint || window.isRectangleDragging) {
-            console.log('viewport click: prevented by dragging flag.'); // Log prevention
-            return;
-        }
-        // Original target check for markers (can likely be removed if covered above, but keep for safety)
-        if (e.target.classList.contains('point-marker')) {
-            console.log('viewport click: prevented by target being marker.'); // Log prevention
+        
+        // Check rectangle dragging flags (keep as safety check?)
+        if (window.isRectangleDragging) {
+            console.log('viewport click: prevented by rectangle dragging flag.'); 
             return;
         }
 
-        console.log('viewport click: proceeding to addWaypoint.'); // Log proceed
+        // If none of the above prevented it, proceed to add waypoint
+        console.log('viewport click: proceeding to addWaypoint.'); 
         addWaypoint(e.clientX, e.clientY);
     });
 
-    // Event: Add button click (now just informational)
-    window.addWaypointButton.addEventListener('click', () => {
-        console.log('Click in the viewport to add waypoints');
-    });
-
     // Event: Delete last waypoint button
-    window.deleteLastWaypointButton.addEventListener('click', () => {
-        deleteLastWaypoint();
-    });
+    window.deleteLastWaypointButton.addEventListener('click', deleteLastWaypoint);
 
-    styleAddButton();
-    console.log("Waypoint controls set up - permanently in WAM mode");
+    console.log("Waypoint controls set up.");
 }
 
 // --- Helper to update the rotation button UI ---
@@ -1291,45 +1279,145 @@ function updateRotationButtonsUI() {
     });
 }
 
-// --- Initial Setup Function (called from main script) ---
+// Function to reset all UI fields to their default state
+function resetXFormFields() {
+    console.log("🔄 Resetting X-Form fields...");
+
+    // 1. Reset Name/Mode using Controller
+    if (window.filenameController && typeof window.filenameController.setNewXform === 'function') {
+        window.filenameController.setNewXform();
+        console.log("   Filename controller reset to new XForm state (ATM mode).");
+    } else {
+        console.error("   FilenameController not available for reset!");
+        // Manual fallback (less ideal)
+        const filenameInput = document.getElementById('filenameInput');
+        if(filenameInput) filenameInput.value = "New X-Form";
+        window.currentXFormName = "New X-Form";
+    }
+    window.currentXFormId = null; // Explicitly clear ID
+
+    // 2. Reset Dimensions (Inputs ONLY)
+    const defaultWidth = 100;
+    const defaultHeight = 60;
+    if (window.widthInput) window.widthInput.value = defaultWidth;
+    if (window.heightInput) window.heightInput.value = defaultHeight;
+    console.log(`   Dimension inputs reset to ${defaultWidth}x${defaultHeight}`);
+
+    // 3. Reset Rectangles (Position and Visibility)
+    // This will create new rects using the reset dimension input values
+    // but keep them hidden initially.
+    if (typeof initializeRects === 'function') {
+        initializeRects(false, false); // Make HIDDEN, not loading
+        console.log("   Rectangles re-initialized (hidden) to default positions and size.");
+     } else {
+        console.error("   initializeRects function not found during reset!");
+    }
+
+    // 4. Reset Waypoints
+    window.intermediatePoints = [];
+    document.querySelectorAll('.point-marker').forEach(marker => marker.remove());
+    if (typeof window.updateWaypointCounter === 'function') {
+        window.updateWaypointCounter();
+        console.log("   Waypoints cleared.");
+    } else {
+        console.warn("   updateWaypointCounter function not found during reset!");
+    }
+
+    // 5. Reset Rotations
+    window.xRotationDirection = 1;
+    window.yRotationDirection = 1;
+    window.zRotationDirection = 1;
+    if (typeof updateRotationButtonsUI === 'function') {
+        updateRotationButtonsUI();
+        console.log("   Rotations reset to default.");
+    } else {
+        console.warn("   updateRotationButtonsUI function not found during reset!");
+    }
+
+    // 6. Reset Duration
+    const defaultDuration = 500;
+    if (window.durationInput) {
+        window.durationInput.value = defaultDuration;
+        // Optionally trigger change event if needed by other logic
+        // window.durationInput.dispatchEvent(new Event('change'));
+        console.log(`   Duration reset to ${defaultDuration}ms.`);
+    } else {
+        console.warn("   Duration input not found during reset!");
+    }
+    
+    // 7. Reset Path Style (if applicable)
+    if (window.xformPathStyles && typeof window.xformPathStyles.resetPathStyle === 'function') {
+        window.xformPathStyles.resetPathStyle();
+        console.log("   Path style reset.");
+    }
+
+    // 8. Redraw visualization (will likely clear path if rects are hidden)
+    if (typeof window.drawPathVisualization === 'function') {
+        window.drawPathVisualization();
+        console.log("   Path visualization updated (likely cleared).");
+    }
+
+    console.log("✅ Field reset complete.");
+}
+
+// Function to setup control listeners
 function setupControls() {
-     // Setup interactive controls
-     setupRotationControls(); 
-     setupDurationControl(); 
-     setupViewportActions(); 
-     setupWaypointControls(); 
+    console.log("Setting up controls...");
+    setupRotationControls();
+    setupDurationControl();
+    setupViewportActions();
+    setupWaypointControls(); // This now only sets up Delete listener essentially
 
-     // Setup resize listeners
-     if (window.widthInput) {
-        window.widthInput.addEventListener('change', applyRectangleSize);
-     }
-     if (window.heightInput) {
-         window.heightInput.addEventListener('change', applyRectangleSize);
-     }
-     
-     // Initialize path style button if the function exists
-     if (typeof window.setupPathStyleButton === 'function') {
-         window.setupPathStyleButton();
-         console.log("Path style button initialized");
-     } else {
-         console.warn("Path style button initialization function not found");
-     }
+    // Setup resize listeners
+    if (window.widthInput) { window.widthInput.addEventListener('change', applyRectangleSize); }
+    if (window.heightInput) { window.heightInput.addEventListener('change', applyRectangleSize); }
 
-     // Initialize path width button if available
-     if (typeof window.setupPathWidthButton === 'function') {
-         window.setupPathWidthButton();
-         console.log("Path width button initialized");
-     } else {
-         console.warn("Path width button initialization function not found");
-     }
+    // Path Style/Width/Shape buttons (Keep)
+    if (typeof window.setupPathStyleButton === 'function') { window.setupPathStyleButton(); }
+    if (typeof window.setupPathWidthButton === 'function') { window.setupPathWidthButton(); }
+    if(typeof window.setupPathShapeButton==='function'){ window.setupPathShapeButton(); }
 
-     // Initialize path shape button
-     if(typeof window.setupPathShapeButton==='function'){
-        window.setupPathShapeButton();
-        console.log('Path shape button initialized');
-     }else{
-        console.warn('Path shape button initialization function not found');
-     }
+    // *** ADDED: Setup Reset Fields Button Listener ***
+    const resetFieldsButton = document.getElementById('resetAllFieldsBtn');
+    if (resetFieldsButton) {
+        if (typeof resetXFormFields === 'function' && typeof window.showModalDialog === 'function') {
+            resetFieldsButton.addEventListener('click', async () => { // Make listener async
+                console.log("Reset button clicked, showing confirmation modal...");
+                const choice = await window.showModalDialog({
+                    message: "Reset all X-Form fields?",
+                    buttons: [
+                        { id: 'yes', label: 'Yes', class: 'primary' },
+                        { id: 'cancel', label: 'Cancel', class: 'secondary' }
+                    ]
+                });
+
+                if (choice === 'yes') {
+                    console.log("User confirmed reset. Proceeding...");
+                    resetXFormFields();
+                } else {
+                    console.log("User cancelled reset.");
+                }
+            });
+            console.log("Reset fields button listener attached with confirmation.");
+        } else {
+            console.error("resetXFormFields or showModalDialog function not found!");
+            // Fallback: Attach direct reset if modal is missing? Or just disable?
+             if(typeof resetXFormFields === 'function') {
+                 console.warn("Attaching direct reset as modal function is missing.");
+                 resetFieldsButton.addEventListener('click', resetXFormFields);
+             } else {
+                 resetFieldsButton.disabled = true; // Disable if reset function is also missing
+             }
+        }
+    } else {
+        console.warn("Reset fields button (resetAllFieldsBtn) not found.");
+    }
+
+    // Apply initial state for buttons dependent on waypoints
+    console.log(`SETUP_CONTROLS: Checking deleteLastWaypointButton BEFORE calling updateWaypointCounter: ${!!window.deleteLastWaypointButton}`);
+    if(typeof window.updateWaypointCounter === 'function') window.updateWaypointCounter();
+
+    console.log("Controls setup complete.");
 } 
 
 // Export all needed functions to the global namespace

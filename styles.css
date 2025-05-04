@@ -250,13 +250,13 @@ body {
     list-style: none;
     padding: 0;
     margin: 0;
-    background-color: white;
+    background-color: var(--background-secondary);
 }
 
 .file-list li {
     /* padding: 4px; */ /* REMOVE this padding */
-    border-bottom: 1px solid #eee;
-    color: black;
+    border-bottom: 1px solid var(--border-primary);
+    color: var(--text-primary);
 }
 
 .file-list li:last-child {
@@ -269,7 +269,7 @@ body {
     justify-content: space-between;
     align-items: center;
     padding: 2px 8px !important; /* Reduced from 4px to 2px vertical padding */
-    color: black;
+    color: var(--text-primary);
     cursor: pointer; 
     min-height: 22px; /* Reduced from 24px */
 }
@@ -392,20 +392,20 @@ body {
 }
 
 .right-column {
-    flex: 0 0 213px; 
-    width: 213px;    
-    max-width: 213px; 
-    padding: 20px; 
-    padding-left: 23px; 
+    flex: 0 0 213px;
+    width: 213px;
+    max-width: 213px;
+    padding: 20px;
+    padding-left: 23px;
     background-color: var(--background-secondary);
     /* box-shadow: var(--shadow-low); */
-    height: fit-content; 
+    height: fit-content;
     border-radius: 8px;
-    border: 2px groove var(--border-primary); 
-    display: flex; 
-    flex-direction: column; 
-    gap: 15px; 
-    box-sizing: border-box; 
+    border: 2px groove var(--border-primary);
+    display: flex;
+    flex-direction: column;
+    gap: 13px; /* Reduced gap from 14px */
+    box-sizing: border-box;
     margin-right: 30px;
 }
 
@@ -764,13 +764,31 @@ button.danger:hover {
     --button-primary-color: white;
     --button-primary-hover-bg: #0056b3;
     --button-danger-bg: #dc3545;
+    --button-danger-color: white; /* Added for consistency */
     --button-danger-hover-bg: #c82333;
+    --button-secondary-bg: #6c757d; /* Added secondary */
+    --button-secondary-color: white; /* Added secondary */
+    --button-secondary-hover-bg: #5a6268; /* Added secondary */
+    --button-disabled-bg: #ced4da; /* Added disabled */
+    --button-disabled-text: #6c757d; /* Added disabled */
+    --button-disabled-border: #adb5bd; /* Added disabled */
+    --button-hover-bg: #e2e6ea; /* Added generic hover */
+    --button-hover-border: #dae0e5; /* Added generic hover */
     --shadow-low: 0 1px 2px rgba(0,0,0,0.05);
     --shadow-medium: 0 4px 8px rgba(0,0,0,0.1);
     --text-shadow-primary: 1px 1px 2px rgba(0,0,0,0.1);
-    --theme-toggle-off-bg: #777777; /* Darker gray for better contrast in light mode */
+    --theme-toggle-off-bg: #777777;
     --theme-toggle-on-bg: #007bff;
     --theme-toggle-switch-bg: #ffffff;
+
+    /* ADDED: Selection/Hover/Accent Variables */
+    --selected-bg: var(--button-primary-bg);     /* Use primary button blue (100% opaque) */
+    --selected-text: var(--button-primary-color); /* Use primary button text color (white) */
+    --highlight-bg-hover: #e9ecef;
+    --highlight-text-hover: var(--text-primary);
+    --accent-color: var(--button-primary-bg);
+    --warning-color: #ffc107;
+    --success-color: #28a745;
 
     /* Old variables below will be removed after replacement */
     /* --bg-color-primary: #f0f0f0; ... */
@@ -788,13 +806,31 @@ button.danger:hover {
     --button-primary-color: white;
     --button-primary-hover-bg: #458ff7;
     --button-danger-bg: #f85149;
+    --button-danger-color: white; /* Added for consistency */
     --button-danger-hover-bg: #fa675f;
+    --button-secondary-bg: #586069; /* Added secondary */
+    --button-secondary-color: #cdd9e5; /* Added secondary */
+    --button-secondary-hover-bg: #6a737d; /* Added secondary */
+    --button-disabled-bg: #444c56; /* Added disabled */
+    --button-disabled-text: #84909c; /* Added disabled */
+    --button-disabled-border: #586069; /* Added disabled */
+    --button-hover-bg: #3a424d; /* Added generic hover */
+    --button-hover-border: #444c56; /* Added generic hover */
     --shadow-low: 0 1px 2px rgba(0,0,0,0.2);
     --shadow-medium: 0 4px 8px rgba(0,0,0,0.3);
     --text-shadow-primary: 1px 1px 2px rgba(0,0,0,0.1);
     --theme-toggle-off-bg: #586069;
     --theme-toggle-on-bg: #3081f7;
     --theme-toggle-switch-bg: #22272e;
+
+    /* ADDED: Selection/Hover/Accent Variables (Dark Theme) */
+    --selected-bg: #3a4f6a; /* Darker blue selection background */
+    --selected-text: #e0f2ff; /* Lighter text for dark selection */
+    --highlight-bg-hover: #3a424d; /* Already defined, ensure it exists */
+    --highlight-text-hover: var(--text-primary);
+    --accent-color: var(--button-primary-bg); /* Use primary button blue */
+    --warning-color: #ffda6b; /* Lighter warning for dark */
+    --success-color: #56d364; /* Lighter success for dark */
 
     /* Old variables below will be removed after replacement */
     /* --bg-color-primary: #22272e; ... */
@@ -851,6 +887,7 @@ button.danger:hover {
 
 #deleteLastWaypointBtn {
     padding-left: 10px; /* Reduced from default 15px */
+    margin-left: 5px; /* Increase gap between counter and button (original gap was 8px, -8px made it 0px, +5px makes it 13px) */
 }
 
 #viewport {
@@ -1267,4 +1304,110 @@ button.danger:hover {
 
 .pulse-effect {
     animation: pulse 0.5s ease-out;
+}
+
+#savedList li.file-list-item:hover {
+    background-color: var(--highlight-bg-hover);
+    color: var(--highlight-text-hover);
+}
+
+/* Dark Theme Override for List Item Hover */
+.dark-theme #savedList li.file-list-item:hover {
+    background-color: #3a424d; /* Slightly lighter than secondary bg */
+    color: var(--text-primary); /* Keep the primary text color for contrast */
+}
+
+/* Style for SELECTED list items */
+#savedList li.file-list-item.selected { 
+    background-color: var(--selected-bg); 
+    color: var(--selected-text);          
+    font-weight: bold;
+    border-left: 4px solid var(--accent-color);
+    padding-left: calc(10px - 4px); 
+    transition: background-color 0.1s ease-in-out, filter 0.1s ease-in-out; /* Add transition */
+}
+
+/* Hover style for SELECTED list items */
+#savedList li.file-list-item.selected:hover {
+    /* Apply brightness filter ON TOP of the base --selected-bg */
+    /* background-color is inherited from .selected */
+    filter: brightness(1.25); 
+    color: var(--selected-text); 
+}
+
+/* Remove specific multi/single selected styles if they existed */
+/* #savedList li.file-list-item.single-selected { ... } */
+/* #savedList li.file-list-item.multi-selected { ... } */
+
+/* Diagnostic Tools Section */
+/* ... existing code ... */
+
+/* --- Waypoint Specific Controls --- */
+.waypoint-controls {
+  display: flex; /* Use flexbox for better alignment */
+  align-items: center; /* Vertically center items */
+  gap: 8px; /* Default gap between elements */
+  margin-bottom: 10px; /* Space below this control group */
+}
+
+#waypointCounter {
+  font-weight: bold;
+  min-width: 20px; /* Ensure some space for the number */
+  text-align: right;
+}
+
+.waypoint-btn {
+  padding: 3px 8px;
+  font-size: 0.9em;
+  cursor: pointer;
+  border: 1px solid var(--border-primary); /* Use standard border */
+  background-color: var(--background-secondary); /* Use secondary bg for standard button */
+  color: var(--text-primary); /* Use primary text */
+  border-radius: 4px;
+  transition: background-color 0.2s ease, opacity 0.2s ease, border-color 0.2s ease;
+}
+
+#deleteLastWaypointBtn {
+  margin-left: 5px; /* Increase gap between counter and button (original gap was 8px, -8px made it 0px, +5px makes it 13px) */
+}
+
+.waypoint-btn:disabled {
+  opacity: 0.6; /* Slightly less opaque */
+  cursor: not-allowed;
+  background-color: var(--button-disabled-bg); /* Use disabled variable */
+  color: var(--button-disabled-text); /* Use disabled variable */
+  border-color: var(--button-disabled-border); /* Use disabled variable */
+  pointer-events: none; /* Added for redundancy */
+}
+
+.waypoint-btn:not(:disabled):hover {
+  background-color: var(--button-hover-bg); /* Use generic hover variable */
+  border-color: var(--button-hover-border); /* Use generic hover variable */
+  color: var(--text-primary); /* Keep text color on hover */
+}
+
+/* --- Reset Button Specific Controls --- */
+.reset-controls {
+    margin-top: 15px; /* Space above the reset button */
+}
+
+#resetAllFieldsBtn {
+    width: 60px;
+    height: 35px;
+    padding: 0; /* Override default padding */
+    box-sizing: border-box;
+    border: none;
+    border-radius: 4px;
+    background-color: var(--button-primary-bg);
+    color: var(--button-primary-color);
+    cursor: pointer;
+    display: flex; /* For centering text */
+    align-items: center;
+    justify-content: center;
+    font-weight: bold; /* Match viewport button style */
+    transition: background-color 0.2s ease;
+}
+
+#resetAllFieldsBtn:hover {
+    background-color: var(--button-primary-hover-bg);
 }

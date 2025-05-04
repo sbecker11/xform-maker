@@ -613,7 +613,7 @@ function restoreState() {
             window.currentXFormHasRun = state.currentXForm.hasRun;
         }
 
-        // Restore dimensions first
+        // Restore dimensions FIRST
         if (window.widthInput && state.startRect) window.widthInput.value = state.startRect.width;
         if (window.heightInput && state.startRect) window.heightInput.value = state.startRect.height;
        
@@ -638,11 +638,11 @@ function restoreState() {
          // Restore last modified point index
          window.lastModifiedPointIndex = state.lastModifiedPointIndex !== undefined ? state.lastModifiedPointIndex : -1;
 
-        // Restore rectangle positions and waypoints *after* initializeRects creates the elements
+        // Initialize Rectangles USING restored dimensions, make VISIBLE and mark as LOADING
         if (typeof initializeRects === 'function') {
-             initializeRects(); // Creates rects, clears points
+             initializeRects(true, true); // Creates rects, makes visible, sets isLoading=true
 
-             // Now apply saved positions
+             // Now apply saved POSITIONS to the existing rects
              if (window.startRect && state.startRect) {
                  window.startRect.style.left = `${state.startRect.left}px`;
                  window.startRect.style.top = `${state.startRect.top}px`;
@@ -651,8 +651,7 @@ function restoreState() {
                  window.endRect.style.left = `${state.endRect.left}px`;
                  window.endRect.style.top = `${state.endRect.top}px`;
              }
-              // Apply restored size again (initializeRects might have reset it)
-             if (typeof applyRectangleSize === 'function') applyRectangleSize(); 
+              // REMOVED redundant applyRectangleSize() call
 
              // Restore waypoints (visuals and data)
              window.intermediatePoints = []; // Ensure it's clear before restoring
@@ -743,37 +742,31 @@ function updateIconsForTheme() {
 }
 
 // --- Update Waypoint Counter UI ---
-window.updateWaypointCounter = function() { // Define on window
-    // Get the counter element - either from window object or by ID
+window.updateWaypointCounter = function() { 
+    console.log(`UPDATE_WAYPOINT_COUNTER: Entered.`); // Removed variable log
     console.log("Welcome to the UpdateWaypointCounter function");
     const waypointCounter = window.waypointCounter || document.getElementById('waypointCounter');
     const deleteLastWaypointButton = window.deleteLastWaypointButton || document.getElementById('deleteLastWaypointBtn');
-    const addWaypointButton = window.addWaypointButton || document.getElementById('addWaypointButton');
+    // const addWaypointButton = // REMOVED
     
     // Exit if we don't have the required elements or intermediatePoints array
     if (!window.intermediatePoints || !waypointCounter || !deleteLastWaypointButton) {
-        console.warn("Required elements not found for updateWaypointCounter");
+        console.warn("Required elements not found for updateWaypointCounter (waypointCounter, deleteLastWaypointButton)");
         return;
-    } else {
-        console.log("Required elements found for updateWaypointCounter");
     }
     
     const count = window.intermediatePoints.length;
     console.log(`**** Udating waypoint counter to ${count} ****`);
 
-    
     // Update counter display
     waypointCounter.textContent = count;
-    console.log("!!!! Waypoint counter count:", count, '!!!!');
-    console.log("!!!! waypointCounter.textContent:", waypointCounter.textContent, '!!!!');
-
     
     // Update delete button state
-    const isDisabled = count === 0;
-    deleteLastWaypointButton.disabled = isDisabled;
+    const deleteIsDisabled = count === 0;
+    deleteLastWaypointButton.disabled = deleteIsDisabled;
     console.log("deleteLastWaypointButton.disabled:", deleteLastWaypointButton.disabled);
 
-    if (isDisabled) {
+    if (deleteIsDisabled) {
         deleteLastWaypointButton.style.pointerEvents = 'none';
         deleteLastWaypointButton.style.opacity = '0.5';
         deleteLastWaypointButton.style.cursor = 'not-allowed';
@@ -783,16 +776,13 @@ window.updateWaypointCounter = function() { // Define on window
         deleteLastWaypointButton.style.cursor = 'pointer';
     }
     
-    // Also update the add waypoint button if it exists
-    if (addWaypointButton) {
-        addWaypointButton.disabled = count >= 99;
-    }
-    console.log("addWaypointButton.disabled:", addWaypointButton.disabled);
-
-    // Cache references to DOM elements for future use
-    window.waypointCounter = waypointCounter;
-    window.deleteLastWaypointButton = deleteLastWaypointButton;
-    if (addWaypointButton) window.addWaypointButton = addWaypointButton;
+    // REMOVED Add button logic
+    /*
+    const addButton = window.addWaypointButton || document.getElementById('addWaypointBtn'); 
+    if (addButton) { ... }
+    */
+    
+    console.log('---- Leaving updateWaypointCounter ----');
 }
 
 // --- Make Waypoint Draggable (Needed by restoreState/applyXFormData) ---

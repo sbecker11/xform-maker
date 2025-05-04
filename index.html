@@ -279,11 +279,14 @@
             </div>
 
             <div class="control-section">
-                <label for="waypoints">Waypoints:</label>
-                <div class="control-group waypoint-controls">
-                    <button id="addWaypointBtn" class="waypoint-btn" style="background-color: rgb(0, 123, 255); border-color: rgb(0, 86, 179);">Add +</button>
+                <div class="waypoint-controls">
+                    <label>Waypoints:</label>
                     <span id="waypointCounter">0</span>
-                    <button id="deleteLastWaypointBtn" class="waypoint-btn" style="pointer-events: none; opacity: 0.5; cursor: not-allowed;" disabled="">- Del</button>
+                    <button id="deleteLastWaypointBtn" class="btn-dir" disabled>-1</button>
+                </div>
+                <!-- NEW: Reset Button Section -->
+                <div class="reset-controls">
+                    <button id="resetAllFieldsBtn">Reset</button>
                 </div>
             </div>
         </div>

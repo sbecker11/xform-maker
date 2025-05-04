@@ -1092,22 +1092,92 @@ async function renderXFormList(sortBy = 'lastModified', sortDirection = 'desc') 
                 console.log(`Double-clicked to load XForm: "${xform.name}" (ID: ${xform.id})`);
             });
             
-                // Single-click handler for selection
+                // Single-click handler for selection (NEW Multi-select Logic)
             li.addEventListener('click', (e) => {
-                    // Simple selection for now - just select the clicked item
-                    clearAllSelections();
-                    li.classList.add('single-selected');
-                    window.selectedXforms = [xform];
-                    console.log(`Selected XForm: "${xform.name}"`);
+                e.stopPropagation(); // Prevent triggering other listeners if nested
+                const clickedIndex = parseInt(li.dataset.index, 10);
+                const xformId = li.dataset.xformId;
+                const isSelected = li.classList.contains('selected');
+
+                // Find the actual xform data object (important!)
+                const clickedXFormObject = xforms.find(x => x.id.toString() === xformId);
+                if (!clickedXFormObject) {
+                    console.error(`Could not find xform data for ID ${xformId} during click`);
+                    return;
+                }
+
+                const allItems = Array.from(fileListUl.querySelectorAll('li.file-list-item'));
+                const ctrlOrMeta = e.metaKey || e.ctrlKey;
+                const shift = e.shiftKey;
+
+                if (shift && window.lastClickedListItemIndex >= 0 && window.lastClickedListItemIndex < allItems.length) {
+                    // --- Shift + Click --- 
+                    console.log(`Shift+Click detected. From index ${window.lastClickedListItemIndex} to ${clickedIndex}`);
+                    const start = Math.min(window.lastClickedListItemIndex, clickedIndex);
+                    const end = Math.max(window.lastClickedListItemIndex, clickedIndex);
                     
-                    // Update button states if needed
-                    if (typeof updateExportButtonState === 'function') {
-                        updateExportButtonState();
+                    // Clear existing selection data array
+                    window.selectedXforms = [];
+                    
+                    // Iterate ALL items to set selection state
+                    allItems.forEach((item, index) => {
+                        const itemId = item.dataset.xformId;
+                        const itemXFormObject = xforms.find(x => x.id.toString() === itemId);
+
+                        if (index >= start && index <= end) {
+                            item.classList.add('selected');
+                            if (itemXFormObject) {
+                                window.selectedXforms.push(itemXFormObject);
+                            }
+                        } else {
+                            item.classList.remove('selected');
+                        }
+                    });
+                     // Don't update lastClickedListItemIndex on shift-click 
+
+                } else if (ctrlOrMeta) {
+                    // --- Cmd/Ctrl + Click --- 
+                    console.log("Cmd/Ctrl+Click detected.");
+                    li.classList.toggle('selected');
+                    if (li.classList.contains('selected')) {
+                        // Add to selection if not already present
+                        if (!window.selectedXforms.some(x => x.id === clickedXFormObject.id)) {
+                            window.selectedXforms.push(clickedXFormObject);
+                        }
+                    } else {
+                        // Remove from selection
+                        window.selectedXforms = window.selectedXforms.filter(x => x.id !== clickedXFormObject.id);
                     }
-                });
+                    // Update anchor index
+                    window.lastClickedListItemIndex = clickedIndex;
+
+                } else {
+                    // --- Normal Click --- 
+                    console.log("Normal click detected.");
+                    // If already selected AND it's the ONLY one selected, deselect it
+                    if (isSelected && window.selectedXforms.length === 1 && window.selectedXforms[0].id === clickedXFormObject.id) {
+                        console.log("   Deselecting the only selected item.");
+                        li.classList.remove('selected');
+                        window.selectedXforms = [];
+                        window.lastClickedListItemIndex = -1; // Reset anchor
+                    } else {
+                        // Otherwise, select only this item
+                        console.log("   Selecting only this item.");
+                        allItems.forEach(item => item.classList.remove('selected'));
+                        li.classList.add('selected');
+                        window.selectedXforms = [clickedXFormObject];
+                         // Update anchor index
+                        window.lastClickedListItemIndex = clickedIndex;
+                    }
+                }
+
+                // Update UI based on new selection count
+                updateUIForSelectionCount();
+                console.log("Selected IDs:", window.selectedXforms.map(x=>x.id));
+            }); // End single-click listener
                 
-                fileListUl.appendChild(li);
-            });
+            fileListUl.appendChild(li);
+        });
             
             console.log(`Rendered ${xforms.length} XForms in the list`);
             
@@ -1608,15 +1678,16 @@ async function computeXFormHash(xformData) {
 
 // Clear all selections in the file list
 function clearAllSelections() {
-            const items = document.querySelectorAll('#savedList li.file-list-item');
-            items.forEach(item => {
-        item.classList.remove('single-selected');
-        item.classList.remove('multi-selected');
+    const items = document.querySelectorAll('#savedList li');
+    items.forEach(item => {
+        item.classList.remove('selected'); // Use .selected
+        item.classList.remove('single-selected'); // Keep removing old class just in case
+        item.classList.remove('multi-selected'); // Keep removing old class just in case
     });
-    window.selectedXforms = [];
-            
-            // Update UI based on selection count
-            updateUIForSelectionCount();
+    window.selectedXforms = []; // Clear the data array
+    window.lastClickedListItemIndex = -1; // Reset shift-click anchor
+    updateUIForSelectionCount(); // Update button states etc.
+    console.log("Selections cleared.");
 }
 
 // Update UI elements based on the number of selected items

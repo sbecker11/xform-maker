@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>List Item Style Demo</title>
+    <!-- Link to your existing stylesheet -->
+    <link rel="stylesheet" href="styles.css">
+    <style>
+        /* Add basic body padding for visibility */
+        body.dark-theme {
+            padding: 20px;
+            /* Ensure the background from the example is used for testing */
+            background-color: #2f2f2f;
+        }
+        ul {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+            width: 300px; /* Give the list a width */
+            background-color: #2d333b; /* Simulate list container background */
+            padding: 10px;
+            border-radius: 5px;
+        }
+    </style>
+</head>
+<body class="dark-theme">
+
+    <h1>Dark Theme List Item Demo</h1>
+
+    <ul>
+        <li class="xform-list-item" data-xform-id="1" data-index="0">
+            <span>Unselected Item 1</span>
+            <span>Details A</span>
+        </li>
+        <li class="xform-list-item selected" data-xform-id="2" data-index="1">
+            <span>Selected Item</span>
+            <span>Details B</span>
+        </li>
+        <li class="xform-list-item" data-xform-id="3" data-index="2">
+            <span>Unselected Item 2</span>
+            <span>Details C</span>
+        </li>
+         <li class="xform-list-item" data-xform-id="4" data-index="3">
+            <span>Another Unselected Item</span>
+            <span>Details D</span>
+        </li>
+    </ul>
+
+</body>
+</html>

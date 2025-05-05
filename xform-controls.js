@@ -684,11 +684,11 @@ function initializeRects(makeVisible = false, isLoading = false) {
         console.log("Forcing ATM mode for automatic time-based naming");
         // Set to ATM mode if controller exists
         if (window.xformNameController && typeof window.xformNameController._setMode === 'function') {
-            // Clear the xformName input first
+            // Clear the name input first
             const xformNameInput = document.getElementById('xformNameInput');
             if (xformNameInput) {
                 xformNameInput.value = ''; // Let ATM generate it
-                console.log("Cleared xformName input field to let ATM handle updates");
+                console.log("Cleared name input field to let ATM handle updates");
             }
             
             // Set the mode to ATM using the controller
@@ -698,7 +698,7 @@ function initializeRects(makeVisible = false, isLoading = false) {
             // Explicitly start the timer via controller
             if (typeof window.xformNameController._startTimer === 'function') {
                 window.xformNameController._startTimer();
-                console.log("Started automatic xformName time updates via controller");
+                console.log("Started automatic name time updates via controller");
             } else {
                  console.warn("xformNameController._startTimer not found");
             }
@@ -1053,7 +1053,7 @@ function setupViewportActions() {
             // *** Use xformNameController to set up for a new XForm ***
             if (window.xformNameController) {
                 window.xformNameController.setNewXform();
-                console.log("Initialized xformName state using xformNameController for new XForm");
+                console.log("Initialized name state using xformNameController for new XForm");
             } else {
                 // Fallback logic if controller isn't available (shouldn't happen now)
                 console.error("xformNameController not found during New button click!");
@@ -1404,6 +1404,13 @@ function setupControls() {
                 if (choice === 'yes') {
                     console.log("User confirmed reset. Proceeding...");
                     resetXFormFields();
+                    // Add the call to clear list selections here
+                    if (typeof clearAllSelections === 'function') {
+                        clearAllSelections();
+                        console.log("Saved XForm list selection cleared.");
+                    } else {
+                        console.warn("clearAllSelections function not found during reset.");
+                    }
                 } else {
                     console.log("User cancelled reset.");
                 }

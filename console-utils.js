@@ -180,7 +180,7 @@ window.xf = function(commandString) {
             
         case 'style':
             if (!argument) {
-                console.error('❌ Missing style xformName. Usage: xf("style <styleName>")');
+                console.error('❌ Missing style name. Usage: xf("style <styleName>")');
             } else {
                 window.set_path_style(argument);
             }

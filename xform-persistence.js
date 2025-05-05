@@ -7,14 +7,14 @@ window.lastUsedDirHandle = null; // Keep track of the selected 'storage' directo
 // window.isXformNamingModeATM = true; // Managed within setupNamingMode
 let xformNamUpdateInterval = null;
 let selectedXformListItem = null; // Keep track of selected file LI element
-let selectedXformName = null; // Keep track of selected xformName
+let selectedXformName = null; // Keep track of selected name
 // References to DOM elements needed by persistence (set in main script)
 // window.savedListUl, window.selectedControlsDiv, window.renameInput, etc.
 
 // --- IndexedDB Helpers for Directory Handle Persistence --- 
 // --- NOTE: These are commented out as the main DB logic is in xform-indexeddb.js ---
 /*
-const DB_NAME_PERSISTENCE = 'xformMakerDB'; // Use a distinct xformName if needed, or ensure it matches the main DB
+const DB_NAME_PERSISTENCE = 'xformMakerDB'; // Use a distinct name if needed, or ensure it matches the main DB
 const DB_VERSION_PERSISTENCE = 1;
 const STORE_NAME_PERSISTENCE = 'settingsStore';
 const DIR_HANDLE_KEY_PERSISTENCE = 'lastDirectoryHandle';
@@ -47,8 +47,8 @@ function openDB() {
 }
 */
 // --- Use the global openDB from xform-indexeddb.js instead ---
-const STORE_NAME_PERSISTENCE = 'settingsStore'; // Still need store xformName
-const DIR_HANDLE_KEY_PERSISTENCE = 'lastDirectoryHandle'; // Still need key xformName
+const STORE_NAME_PERSISTENCE = 'settingsStore'; // Still need store name
+const DIR_HANDLE_KEY_PERSISTENCE = 'lastDirectoryHandle'; // Still need key name
 
 
 async function saveDirectoryHandle(handle) {
@@ -57,12 +57,12 @@ async function saveDirectoryHandle(handle) {
         return false;
     }
     
-    if (handle.xformName !== 'storage') {
-        console.warn(`📂 SAVE HANDLE: Expected directory named "storage", got "${handle.xformName}"`);
-        // Continue anyway since we're more interested in persistence than the exact xformName
+    if (handle.name !== 'storage') {
+        console.warn(`📂 SAVE HANDLE: Expected directory named "storage", got "${handle.name}"`);
+        // Continue anyway since we're more interested in persistence than the exact name
     }
     
-    console.log(`📂 SAVE HANDLE: Saving directory handle for "${handle.xformName}" to IndexedDB`);
+    console.log(`📂 SAVE HANDLE: Saving directory handle for "${handle.name}" to IndexedDB`);
     
     // First, try to request persistent access permission
     try {
@@ -89,7 +89,7 @@ async function saveDirectoryHandle(handle) {
         const tx = db.transaction(STORE_NAME_PERSISTENCE, 'readwrite');
         const store = tx.objectStore(STORE_NAME_PERSISTENCE);
         
-        console.log(`📂 SAVE HANDLE (DEBUG): Attempting to store handle for '${handle.xformName}' (kind: ${handle.kind}) with key '${DIR_HANDLE_KEY_PERSISTENCE}'`);
+        console.log(`📂 SAVE HANDLE (DEBUG): Attempting to store handle for '${handle.name}' (kind: ${handle.kind}) with key '${DIR_HANDLE_KEY_PERSISTENCE}'`);
         console.log("📂 SAVE HANDLE (DEBUG): Handle object:", handle); // Log the handle itself
 
         // *** Make sure we are putting the HANDLE, not a request object ***
@@ -113,8 +113,8 @@ async function saveDirectoryHandle(handle) {
     } catch (error) {
         console.error('📂 SAVE HANDLE: Error saving directory handle to IndexedDB:', error);
         // --- ADDED DEBUG LOG FOR ERROR DETAILS ---
-        if (error.xformName) {
-            console.error(`📂 SAVE HANDLE (DEBUG): Error details - Name: ${error.xformName}, Message: ${error.message}`);
+        if (error.name) {
+            console.error(`📂 SAVE HANDLE (DEBUG): Error details - Name: ${error.name}, Message: ${error.message}`);
         }
         // --- END ADDED DEBUG LOG ---
         return false;
@@ -145,7 +145,7 @@ async function loadDirectoryHandle() {
             return null;
         }
         
-        console.log(`📂 LOAD HANDLE: Retrieved valid handle for "${handle.xformName}" directory`);
+        console.log(`📂 LOAD HANDLE: Retrieved valid handle for "${handle.name}" directory`);
         
         // Check permission status (now we know handle is valid)
         try {
@@ -155,7 +155,7 @@ async function loadDirectoryHandle() {
             
             // Display detailed handle info for debugging
             console.log('📂 LOAD HANDLE: Handle details:', {
-                xformName: handle.xformName,
+                name: handle.name,
                 kind: handle.kind
             });
             
@@ -229,13 +229,13 @@ function setupNamingMode_PersistenceVersion_UNUSED() {
         return;
     }
     
-    // If xformName input is currently disabled (controls not available), keep it blank
+    // If name input is currently disabled (controls not available), keep it blank
     if(xformNameInput.disabled){
         xformNameInput.value='';
         return;
     }
     
-    console.log("Setting up xformName mode...");
+    console.log("Setting up name mode...");
     
     // Ensure ATM button is always enabled and clickable
     if (atmButton.disabled) {
@@ -300,7 +300,7 @@ function setupNamingMode_PersistenceVersion_UNUSED() {
     xformNameInput.addEventListener('change', () => {
         if (!window.isXformNamingModeATM) {
             localStorage.setItem(XFORM_NAMING_VALUE_KEY, xformNameInput.value);
-            console.log("Saved manually edited xformName");
+            console.log("Saved manually edited name");
         }
     });
 }
@@ -346,20 +346,20 @@ function updateXformNameWithTime(doUpdate = true) {
         // Update the global currentXFormName directly
         window.currentXFormName = newXformName; 
         localStorage.setItem(XFORM_NAMING_VALUE_KEY, newXformName);
-        // console.log("Updated xformName with current time:", newXformName); // Reduce console noise
+        // console.log("Updated name with current time:", newXformName); // Reduce console noise
     } 
-    return newXformName; // Return generated xformName even if not updating UI
+    return newXformName; // Return generated name even if not updating UI
 }
 window.updateXformNameWithTime = updateXformNameWithTime; // Expose if needed externally
 
-// Initialize the xformName mode and display
+// Initialize the name mode and display
 function initializeFilenameDisplay() {
     const xformNameInput = document.getElementById('xformNameInput');
     if (!xformNameInput) {
-        console.error("Cannot initialize xformName display - element not found");
+        console.error("Cannot initialize name display - element not found");
         return;
     }
-    console.log("Initializing xformName display");
+    console.log("Initializing name display");
     // Use the setup function to handle initial state and updates
     setupNamingMode(); 
 }
@@ -372,9 +372,9 @@ function generateXFormName() {
     return `X-Form ${formattedDate} ${formattedTime}`;
 }
 
-function sanitizeXFormName(xformName) {
-    if (!xformName || typeof xformName !== 'string') return generateXFormName();
-    let sanitized = xformName.trim()
+function sanitizeXFormName(name) {
+    if (!name || typeof name !== 'string') return generateXFormName();
+    let sanitized = name.trim()
         .replace(/[<>:"/\\|?*]/g, '')
         .replace(/\s+/g, ' ');
     if (sanitized.length === 0) return generateXFormName();
@@ -405,9 +405,9 @@ function sanitizeFilenameForSystem(originalName) {
 // --- X-Form File Operations ---
 function getCurrentXformName() {
     const xformNameInput = document.getElementById('xformNameInput');
-    // If ATM, generate current time xformName, otherwise use input value
+    // If ATM, generate current time name, otherwise use input value
     if (window.isXformNamingModeATM) {
-        return updateXformNameWithTime(false); // Generate current time xformName without forcing update
+        return updateXformNameWithTime(false); // Generate current time name without forcing update
     } else if (xformNameInput) {
          return xformNameInput.value || generateXFormName(); // Use manual input or default
     }
@@ -418,7 +418,7 @@ function getCurrentXformName() {
 function createXFormDataObject() {
     // Assumes global state variables like startRect, endRect, intermediatePoints, etc. are accessible via window
     return {
-        xformName: window.currentXFormName || generateXFormName(),
+        name: window.currentXFormName || generateXFormName(),
         id: window.currentXFormId || Date.now(),
         timestamp: Date.now(),
         lastModified: Date.now(), // Add lastModified timestamp
@@ -448,7 +448,7 @@ function applyXFormData(data) {
     if (!data || !window.viewport) return;
 
     // Update global state
-    window.currentXFormName = data.xformName || generateXFormName();
+    window.currentXFormName = data.name || generateXFormName();
     window.currentXFormId = data.id || Date.now();
     window.currentXFormHasRun = true; 
 
@@ -528,7 +528,7 @@ function applyXFormData(data) {
     if (typeof window.updateWaypointCounter === 'function') window.updateWaypointCounter();
     window.lastModifiedPointIndex = window.intermediatePoints.length - 1; // Reset last modified
     
-    // Update xformName display
+    // Update name display
      const xformNameInput = document.getElementById('xformNameInput');
         if (xformNameInput) {
              if (!window.isXformNamingModeATM) {
@@ -564,14 +564,14 @@ window.saveCurrentState = function() {
             },
             duration: window.durationInput ? parseInt(window.durationInput.value, 10) : 500,
             currentXForm: {
-                xformName: window.currentXFormName,
+                name: window.currentXFormName,
                 id: window.currentXFormId,
                 hasRun: window.currentXFormHasRun
             },
             lastModifiedPointIndex: window.lastModifiedPointIndex,
             theme: document.documentElement.classList.contains('dark-theme') ? 'dark' : 'light'
-            // xform-naming-mode: window.isXformNamingModeATM ? 'ATM' : 'MEM', // Save xformName mode
-            // xformNameValue: document.getElementById('xformNameInput')?.value // Save manual xformName if MEM
+            // xform-naming-mode: window.isXformNamingModeATM ? 'ATM' : 'MEM', // Save name mode
+            // xformNameValue: document.getElementById('xformNameInput')?.value // Save manual name if MEM
         };
         localStorage.setItem(STATE_STORAGE_KEY, JSON.stringify(state));
         // console.log('Current state saved to localStorage'); // Reduce noise
@@ -607,7 +607,7 @@ function restoreState() {
         
         // Restore current X-Form info (before applying positions/waypoints)
         if (state.currentXForm) {
-            window.currentXFormName = state.currentXForm.xformName;
+            window.currentXFormName = state.currentXForm.name;
             window.currentXFormId = state.currentXForm.id;
             window.currentXFormHasRun = state.currentXForm.hasRun;
         }
@@ -675,7 +675,7 @@ function restoreState() {
         // Update waypoint counter after restoring points
         if (typeof window.updateWaypointCounter === 'function') window.updateWaypointCounter();
 
-        // Restore xformName mode and value (handled by setupNamingMode called in main script)
+        // Restore name mode and value (handled by setupNamingMode called in main script)
         // if (state.xform-naming-mode) window.isXformNamingModeATM = state.xform-naming-mode === 'ATM';
         // if (state.xformNameValue && !window.isXformNamingModeATM) {
         //     const xformNameInput = document.getElementById('xformNameInput');
@@ -838,7 +838,7 @@ function saveCurrentXFormToStorage() {
     if (!window.currentXFormId) { 
         window.currentXFormId = Date.now(); // Assign ID if new
     }
-    // Use current xformName from input/ATM mode
+    // Use current name from input/ATM mode
     window.currentXFormName = getCurrentXformName(); 
 
     const xformData = createXFormDataObject(); // Get current state
@@ -913,7 +913,7 @@ function showModalDialog({ message = '', buttons = [] }) {
 
 // NEW function containing the core file writing logic
 // Renamed and modified to accept fileHandle from picker
-async function _writeDataToHandle(fileHandle, xformData) { // fileHandle has the potentially numbered xformName
+async function _writeDataToHandle(fileHandle, xformData) { // fileHandle has the potentially numbered name
     try {
         if (!fileHandle) {
             throw new Error("Invalid file handle received for writing.");
@@ -923,23 +923,23 @@ async function _writeDataToHandle(fileHandle, xformData) { // fileHandle has the
         xformData.lastModified = Date.now();
 
         const writable = await fileHandle.createWritable();
-        await writable.write(JSON.stringify(xformData, null, 2)); // xformData still has original xformName
+        await writable.write(JSON.stringify(xformData, null, 2)); // xformData still has original name
         await writable.close();
 
-        console.log(`X-Form data (xformName: ${xformData.xformName}) saved to file: ${fileHandle.xformName}`);
-        await showInfoDialog(`X-Form exported successfully as ${fileHandle.xformName}!`);
+        console.log(`X-Form data (name: ${xformData.name}) saved to file: ${fileHandle.name}`);
+        await showInfoDialog(`X-Form exported successfully as ${fileHandle.name}!`);
 
-        // *** UPDATE global xformName state AFTER successful save ***
-        // Use the actual xformName used for saving (potentially numbered)
-        window.currentXFormName = fileHandle.xformName.replace(/_xform\.json$/, ''); 
+        // *** UPDATE global name state AFTER successful save ***
+        // Use the actual name used for saving (potentially numbered)
+        window.currentXFormName = fileHandle.name.replace(/_xform\.json$/, ''); 
         // Update the main input display if in manual mode
         const xformNameInput = document.getElementById('xformNameInput');
         if (xformNameInput && !window.isXformNamingModeATM) {
              xformNameInput.value = window.currentXFormName; 
-             localStorage.setItem(XFORM_NAMING_VALUE_KEY, xformNameInput.value); // Persist manual xformName change
+             localStorage.setItem(XFORM_NAMING_VALUE_KEY, xformNameInput.value); // Persist manual name change
         } else if (xformNameInput && window.isXformNamingModeATM) {
              // If ATM, we might just want to update the display with the time again?
-             // Or leave it showing the saved file xformName? For now, leave it.
+             // Or leave it showing the saved file name? For now, leave it.
         }
 
         // Refresh file list (assuming lastUsedDirHandle is still valid)
@@ -950,14 +950,14 @@ async function _writeDataToHandle(fileHandle, xformData) { // fileHandle has the
 
     } catch (error) {
         console.error('Error during file write:', error);
-        if (error.xformName !== 'AbortError') {
+        if (error.name !== 'AbortError') {
             await showInfoDialog(`Error writing file: ${error.message || 'Operation failed'}`);
         }
         return false;
     }
 }
 
-// Utility to enable/disable xformName mode controls
+// Utility to enable/disable name mode controls
 function toggleFilenameControls(enable){
     const fieldset = document.querySelector('.persistence-fieldset');
     if(!fieldset) return;
@@ -1025,7 +1025,7 @@ async function setupPersistence() {
         const savedDirHandle = await loadDirectoryHandle();
         
         if (savedDirHandle) {
-            console.log(`📂 SETUP PERSISTENCE: Found saved directory handle for: ${savedDirHandle.xformName}`);
+            console.log(`📂 SETUP PERSISTENCE: Found saved directory handle for: ${savedDirHandle.name}`);
             window.lastUsedDirHandle = savedDirHandle;
             
             // Check current permission status without prompting
@@ -1035,8 +1035,8 @@ async function setupPersistence() {
             if (permissionStatus === 'granted') {
                 console.log('📂 SETUP PERSISTENCE: ✅ Permission already granted for storage directory');
                 if (folderTextElement) {
-                    folderTextElement.textContent = `Currently using: ${savedDirHandle.xformName}`;
-                    folderTextElement.title = `Click to change from ${savedDirHandle.xformName}`;
+                    folderTextElement.textContent = `Currently using: ${savedDirHandle.name}`;
+                    folderTextElement.title = `Click to change from ${savedDirHandle.name}`;
                 }
                 
                 // Try to list files to verify the handle is working
@@ -1100,8 +1100,8 @@ async function setupPersistence() {
                             if (newPermission === 'granted') {
                                 console.log('📂 SETUP PERSISTENCE: ✅ Permission explicitly granted');
                                 if (folderTextElement) {
-                                    folderTextElement.textContent = `Currently using: ${savedDirHandle.xformName}`;
-                                    folderTextElement.title = `Click to change from ${savedDirHandle.xformName}`;
+                                    folderTextElement.textContent = `Currently using: ${savedDirHandle.name}`;
+                                    folderTextElement.title = `Click to change from ${savedDirHandle.name}`;
                                 }
                                 if (folderButton) {
                                     folderButton.classList.remove('needs-permission');
@@ -1181,11 +1181,11 @@ async function selectDirectoryAndListFiles(isLineItem=false) {
         };
         
         const dirHandle = await window.showDirectoryPicker(options);
-        console.log(`User selected directory: "${dirHandle.xformName}"`);
+        console.log(`User selected directory: "${dirHandle.name}"`);
         
-        if (dirHandle.xformName !== 'storage') {
-            console.warn(`⚠️ Selected directory xformName "${dirHandle.xformName}" does not match required "storage"`);
-            await showInfoDialog(`Please select a folder named exactly "storage" for consistent storage.`);
+        if (dirHandle.name !== 'storage') {
+            console.warn(`⚠️ Selected directory name "${dirHandle.name}" does not match required "storage"`);
+            await showInfoDialog(`Please select a folder named exactly "storage" not "${dirHandle.name}" for consistent storage.`);
             return false;
         }
         
@@ -1213,8 +1213,8 @@ async function selectDirectoryAndListFiles(isLineItem=false) {
         // Update folder display UI
         const folderDisplay = document.getElementById('currentFolderDisplay');
         if (folderDisplay) {
-            folderDisplay.textContent = dirHandle.xformName;
-            folderDisplay.title = dirHandle.xformName;
+            folderDisplay.textContent = dirHandle.name;
+            folderDisplay.title = dirHandle.name;
             folderDisplay.classList.add('folder-selected');
             folderDisplay.classList.remove('folder-needs-permission');
             folderDisplay.style.cursor = 'default';
@@ -1230,14 +1230,14 @@ async function selectDirectoryAndListFiles(isLineItem=false) {
         // Update the selected-folder-text element as well
         const folderTextElement = document.getElementById('selected-folder-text');
         if (folderTextElement) {
-            folderTextElement.textContent = `Currently using: ${dirHandle.xformName}`;
-            folderTextElement.title = `Click to change from ${dirHandle.xformName}`;
+            folderTextElement.textContent = `Currently using: ${dirHandle.name}`;
+            folderTextElement.title = `Click to change from ${dirHandle.name}`;
         }
         
         console.log("Listing files in selected directory...");
         await listFiles(dirHandle); 
         
-        // Enable xformName controls now that we have a directory
+        // Enable name controls now that we have a directory
         toggleFilenameControls(true);
         
         // Restore state to ATM mode if it was disabled
@@ -1247,7 +1247,7 @@ async function selectDirectoryAndListFiles(isLineItem=false) {
         
         return true; // Indicate success
     } catch (err) {
-        if (err.xformName === 'AbortError') {
+        if (err.name === 'AbortError') {
             console.log("User canceled directory selection");
         } else {
             console.error("Error selecting directory:", err);
@@ -1305,14 +1305,14 @@ async function listFiles(dirHandle) {
         }
 
         if (saveBtn) saveBtn.disabled = true; // Disable save when no folder
-        toggleFilenameControls(false); // Disable xformName input/buttons
+        toggleFilenameControls(false); // Disable name input/buttons
         if (sortXformsBtn) sortXformsBtn.style.display = 'none'; // Hide sort button
         return; // Stop further processing
     }
 
-    console.log(`listFiles: Valid directory handle provided (${dirHandle.xformName}). Listing files.`);
+    console.log(`listFiles: Valid directory handle provided (${dirHandle.name}). Listing files.`);
     if (saveBtn) saveBtn.disabled = false; // Enable save button
-    toggleFilenameControls(true); // Enable xformName input/buttons
+    toggleFilenameControls(true); // Enable name input/buttons
 
     // Clear the list (removes any previous prompt or loading message)
     xformsListUl.innerHTML = '';
@@ -1336,7 +1336,7 @@ async function listFiles(dirHandle) {
                 entry.file.endsWith('_xform.json')) {
                 try {
                     // Get file information
-                    const fileHandle = await dirHandle.getFileHandle(entry.xformName);
+                    const fileHandle = await dirHandle.getFileHandle(entry.name);
                     const fileObj = await fileHandle.getFile();
                     
                     // Try to read the file content to get lastModified from our JSON
@@ -1352,19 +1352,19 @@ async function listFiles(dirHandle) {
                             lastModified = xformData.lastModified;
                         }
                     } catch (jsonError) {
-                        console.warn(`Could not parse JSON from ${entry.xformName}:`, jsonError);
+                        console.warn(`Could not parse JSON from ${entry.name}:`, jsonError);
                         // Continue using the file system lastModified
                     }
                     
                     fileEntries.push({
-                        xformName: entry.xformName,
+                        name: entry.name,
                         lastModified: lastModified
                     });
                 } catch (fileError) {
-                    console.warn(`Error processing file ${entry.xformName}:`, fileError);
+                    console.warn(`Error processing file ${entry.name}:`, fileError);
                     // Add file with unknown lastModified
                     fileEntries.push({
-                        xformName: entry.xformName,
+                        name: entry.name,
                         lastModified: 0
                     });
                 }
@@ -1389,19 +1389,19 @@ async function listFiles(dirHandle) {
         }
 
         // Apply initial alphabetical sort
-        fileEntries.sort((a, b) => a.xformName.localeCompare(b.xformName, undefined, {numeric: true, sensitivity: 'base'}));
+        fileEntries.sort((a, b) => a.name.localeCompare(b.name, undefined, {numeric: true, sensitivity: 'base'}));
 
         fileEntries.forEach(fileEntry => {
             const li = document.createElement('li');
             li.className = 'xform-list-item';
-            li.dataset.xformName = fileEntry.xformName;
+            li.dataset.name = fileEntry.name;
             li.dataset.lastModified = fileEntry.lastModified; // Store lastModified as data attribute
             
-            // Create xformName column
+            // Create name column
             const nameSpan = document.createElement('span');
             nameSpan.className = 'xform-name-column';
-            nameSpan.textContent = fileEntry.xformName.replace(/_xform\.json$/, ''); // Show base xformName
-            nameSpan.title = fileEntry.xformName;
+            nameSpan.textContent = fileEntry.name.replace(/_xform\.json$/, ''); // Show base name
+            nameSpan.title = fileEntry.name;
             
             // Create date column
             const dateSpan = document.createElement('span');
@@ -1419,7 +1419,7 @@ async function listFiles(dirHandle) {
                 li.appendChild(dateSpan);
             li.appendChild(nameSpan);
             } else {
-                // Name first in xformName sort mode
+                // Name first in name sort mode
                 li.appendChild(nameSpan);
                 li.appendChild(dateSpan);
             }
@@ -1428,22 +1428,22 @@ async function listFiles(dirHandle) {
             const deleteBtn = document.createElement('button');
             deleteBtn.className = 'delete-xform-btn';
             deleteBtn.innerHTML = '&times;'; 
-            deleteBtn.title = `Delete ${fileEntry.xformName}`;
+            deleteBtn.title = `Delete ${fileEntry.name}`;
             deleteBtn.addEventListener('click', (e) => {
                 e.stopPropagation(); 
-                deleteFile(fileEntry.xformName); // Call delete function
+                deleteFile(fileEntry.name); // Call delete function
             });
             li.appendChild(deleteBtn);
 
             // Simplified click handler: only one item can be selected at any time.
             li.addEventListener('click', () => {
                 const alreadySelected = li.classList.contains('selected');
-                const xformId = li.dataset.xformName; // *** GET THE ID FROM THE CORRECT DATA ATTRIBUTE ***
+                const xformId = li.dataset.name; // *** GET THE ID FROM THE CORRECT DATA ATTRIBUTE ***
                 // Assuming the ID is stored in 'data-xform-id' based on renderXFormList
                 const correctXFormId = li.dataset.xformId; 
 
                 // --- Debugging log ---
-                console.log(`List item clicked. Already selected: ${alreadySelected}, XformName (from data-xformName): ${xformId}, Correct ID (from data-xform-id): ${correctXFormId}`);
+                console.log(`List item clicked. Already selected: ${alreadySelected}, XformName (from data-name): ${xformId}, Correct ID (from data-xform-id): ${correctXFormId}`);
                 
                 if (!correctXFormId) {
                     console.error("Could not find xformId on clicked list item!", li);
@@ -1482,7 +1482,7 @@ async function listFiles(dirHandle) {
         // Clear list and show error message
         xformsListUl.innerHTML = '<li>Error reading directory contents.</li>';
 
-        if (err.xformName === 'NotAllowedError') {
+        if (err.name === 'NotAllowedError') {
              window.lastUsedDirHandle = null;
              await deleteStoredDirectoryHandle(); // Remove bad handle from DB
              await showInfoDialog("Permission denied for storage folder. Please re-select it.");
@@ -1497,30 +1497,30 @@ async function listFiles(dirHandle) {
     }
 }
 
-async function loadFile(xformName) {
+async function loadFile(name) {
      if (!window.lastUsedDirHandle) {
         await showInfoDialog("Please select the storage folder first.");
         return;
     }
-    console.log(`Attempting to load: ${xformName}`);
+    console.log(`Attempting to load: ${name}`);
     let fileHandle = null;
     let contents = null;  
     try {
-        fileHandle = await window.lastUsedDirHandle.getFileHandle(xformName);
+        fileHandle = await window.lastUsedDirHandle.getFileHandle(name);
         const file = await fileHandle.getFile();
         contents = await file.text();
         const xformData = JSON.parse(contents);
        
         applyXFormData(xformData); // Apply the data first
-        console.log(`X-Form loaded successfully from file: ${xformName}`);
+        console.log(`X-Form loaded successfully from file: ${name}`);
        
         // --- UPDATE Name Logic --- 
-        // Set current xformName state based on the ACTUAL xformName loaded, including _(N) suffix
-        window.currentXFormName = xformName.replace(/_xform\.json$/, ''); 
+        // Set current name state based on the ACTUAL name loaded, including _(N) suffix
+        window.currentXFormName = name.replace(/_xform\.json$/, ''); 
         window.currentXFormId = xformData.id || Date.now(); 
         window.currentXFormHasRun = true; 
        
-        // Always Update main xformName input display to reflect loaded file
+        // Always Update main name input display to reflect loaded file
         const xformNameInput = document.getElementById('xformNameInput');
         if (xformNameInput) {
             xformNameInput.value = window.currentXFormName; 
@@ -1552,7 +1552,7 @@ async function loadFile(xformName) {
         });
         
         // Then find and highlight the loaded file
-        const fileElement = document.querySelector(`#savedXformsList li[data-xformName="${xformName}"]`);
+        const fileElement = document.querySelector(`#savedXformsList li[data-name="${name}"]`);
         if (fileElement) {
             fileElement.classList.add('selected');
             // Update the global selected item reference
@@ -1564,8 +1564,8 @@ async function loadFile(xformName) {
         // setupNamingMode();
 
     } catch (err) {
-        console.error(`Error processing file ${xformName}:`, err); 
-        await showInfoDialog(`Could not load or process file: ${xformName}\nReason: ${err.xformName} - ${err.message}\nIt might be corrupted, moved, or permissions may have changed.`);
+        console.error(`Error processing file ${name}:`, err); 
+        await showInfoDialog(`Could not load or process file: ${name}\nReason: ${err.name} - ${err.message}\nIt might be corrupted, moved, or permissions may have changed.`);
 
         // Attempt to move the file to an 'errors' folder IF we had a handle 
         // ... rest of catch block
@@ -1578,13 +1578,13 @@ function showInfoDialog(message, btnLabel = 'OK') {
 }
 
 // === Delete file helper ===
-async function deleteFile(xformName) {
+async function deleteFile(name) {
     if (!window.lastUsedDirHandle) {
         await showInfoDialog('Please select the storage folder first.');
         return;
     }
     const choice = await showModalDialog({
-        message: `Delete "${xformName}"? This cannot be undone.`,
+        message: `Delete "${name}"? This cannot be undone.`,
         buttons: [
             { id: 'delete', label: 'Delete', class: 'danger' },
             { id: 'cancel', label: 'Cancel', class: 'secondary' }
@@ -1595,7 +1595,7 @@ async function deleteFile(xformName) {
     try {
         // Find the current file element in the list
         const xformsListUl = document.getElementById('savedXformsList');
-        const currentFileElement = document.querySelector(`#savedXformsList li[data-xformName="${xformName}"]`);
+        const currentFileElement = document.querySelector(`#savedXformsList li[data-name="${name}"]`);
         let nextFileToSelect = null;
         
         // Determine the next file to select before deleting this one
@@ -1621,21 +1621,21 @@ async function deleteFile(xformName) {
         }
 
         // Delete the file
-        await window.lastUsedDirHandle.removeEntry(xformName);
-        console.log('Deleted file:', xformName);
+        await window.lastUsedDirHandle.removeEntry(name);
+        console.log('Deleted file:', name);
         
         // Refresh the file list
         await listFiles(window.lastUsedDirHandle);
         
         // If we found a next file to select, select and load it
-        if (nextFileToSelect && nextFileToSelect.dataset.xformName) {
+        if (nextFileToSelect && nextFileToSelect.dataset.name) {
             // Find the same file in the refreshed list
-            const newFileElement = document.querySelector(`#savedXformsList li[data-xformName="${nextFileToSelect.dataset.xformName}"]`);
+            const newFileElement = document.querySelector(`#savedXformsList li[data-name="${nextFileToSelect.dataset.name}"]`);
             if (newFileElement) {
                 // Simulate a click on the new file element to select it
                 newFileElement.click();
                 // Load the file
-                loadFile(nextFileToSelect.dataset.xformName);
+                loadFile(nextFileToSelect.dataset.name);
                 
                 // Scroll the newly selected item into view
                 setTimeout(() => {
@@ -1747,7 +1747,7 @@ window.getSelectedTransformType = getSelectedTransformType;
 window.saveSelectedFileName = saveSelectedFileName;
 window.saveSelectedTransformType = saveSelectedTransformType;
 
-// Add missing functions for xformName and transform type persistence
+// Add missing functions for name and transform type persistence
 function getSelectedFileName() {
     return localStorage.getItem(XFORM_NAMING_VALUE_KEY) || '';
 }
@@ -1756,8 +1756,8 @@ function getSelectedTransformType() {
     return localStorage.getItem('xformMaker_selectedTransformType') || 'linear';
 }
 
-function saveSelectedFileName(xformName) {
-    localStorage.setItem(XFORM_NAMING_VALUE_KEY, xformName);
+function saveSelectedFileName(name) {
+    localStorage.setItem(XFORM_NAMING_VALUE_KEY, name);
 }
 
 function saveSelectedTransformType(type) {
@@ -1861,9 +1861,9 @@ async function handleExportXForms() {
              jsonlLines.push(JSON.stringify(dataToSave));
              successCount++; // Assume success at this stage (actual write failure handled later)
         } catch(prepError) {
-            console.error(`Error preparing X-Form '${xform.xformName || xform.id}' for export:`, prepError);
+            console.error(`Error preparing X-Form '${xform.name || xform.id}' for export:`, prepError);
             errorCount++;
-            failedExports.push({ xformName: xform.xformName || xform.id, reason: prepError.message });
+            failedExports.push({ name: xform.name || xform.id, reason: prepError.message });
         }
     }
 
@@ -1877,8 +1877,8 @@ async function handleExportXForms() {
     // Join lines only if there are successful ones
     const jsonlString = jsonlLines.join('\n');
 
-    // 3. Generate default xformName
-    // ... (xformName generation unchanged) ...
+    // 3. Generate default name
+    // ... (name generation unchanged) ...
     const defaultFilename = `xforms_export_${new Date().toISOString().slice(0, 19).replace(/[-T:]/g, '')}.jsonl`;
 
     // 4. Get File Handle within the selected directory
@@ -1897,16 +1897,16 @@ async function handleExportXForms() {
         const writable = await fileHandle.createWritable();
         await writable.write(jsonlString);
         await writable.close();
-        console.log(`Attempted export of ${allForms.length} X-Forms to "${fileHandle.xformName}".`);
+        console.log(`Attempted export of ${allForms.length} X-Forms to "${fileHandle.name}".`);
     } catch (e) {
-        console.error(`Error writing file "${fileHandle.xformName}":`, e);
+        console.error(`Error writing file "${fileHandle.name}":`, e);
         writeError = e; // Store error to report
         // Don't show modal here, report in final summary
     }
     
     // 6. Show Summary Notification
-    let summaryMessage = `Export Summary for ${fileHandle.xformName}:\n`;
-    let consoleLogMessage = `Export Summary for ${fileHandle.xformName}: `;
+    let summaryMessage = `Export Summary for ${fileHandle.name}:\n`;
+    let consoleLogMessage = `Export Summary for ${fileHandle.name}: `;
 
     if (writeError) {
         summaryMessage += `\n⚠️ WRITE FAILED: ${writeError.message}`;

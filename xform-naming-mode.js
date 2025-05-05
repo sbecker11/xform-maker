@@ -7,7 +7,7 @@ window.xformNameModeLoaded = true; // <-- TESTING: Set global flag
 const XFORM_NAMING_MODE_KEY = 'xformMaker_xformNamingMode';
 const XFORM_NAMING_VALUE_KEY = 'xformMaker_xformNamingValue';
 
-// Initialize xformName mode when DOM is loaded
+// Initialize name mode when DOM is loaded
 document.addEventListener('DOMContentLoaded', () => {
     console.log("DEBUG: DOMContentLoaded listener fired in xform-naming-mode.js");
     console.log("DEBUG: ===> About to call setupNamingMode...");
@@ -33,7 +33,7 @@ function updateSaveButtonState() {
 // Make it globally accessible
 window.updateSaveButtonState = updateSaveButtonState;
 
-// Setup the xformName mode switching and input field behavior
+// Setup the name mode switching and input field behavior
 function setupNamingMode() {
     console.log("DEBUG: setupNamingMode function called.");
 
@@ -67,7 +67,7 @@ function setupNamingMode() {
     
     console.log('DEBUG: All elements found. Proceeding with handler setup...');
     
-    console.log('Setting up xformName mode handlers...');
+    console.log('Setting up name mode handlers...');
 
     // Function to UPDATE UI based on current mode (ATM or MEM)
     function updateNamingModeUI(isATM) {
@@ -76,7 +76,7 @@ function setupNamingMode() {
         memButton.classList.toggle('active', !isATM);
         
         xformNameInput.readOnly = isATM;
-        xformNameInput.classList.toggle('time-based-xformName', isATM);
+        xformNameInput.classList.toggle('time-based-name', isATM);
         
         // Enable/disable buttons based on mode
         atmButton.disabled = false; // Always clickable
@@ -137,22 +137,22 @@ function setupNamingMode() {
         // Restore first part
         console.log("DEBUG: Save button event listener fired!"); 
         console.log("Save button clicked!"); 
-        const xformName = xformNameInput.value || 'Untitled XForm'; 
-        console.log(`DEBUG: Got xformName: ${xformName}`); 
+        const name = xformNameInput.value || 'Untitled XForm'; 
+        console.log(`DEBUG: Got name: ${name}`); 
 
         // Restore the save call block
         if (typeof window.saveCurrentXForm === 'function') { 
             console.log("DEBUG: Calling window.saveCurrentXForm..."); 
             window.saveCurrentXForm().then(savedForm => {
                 if (savedForm) {
-                    console.log(`DEBUG: saveCurrentXForm() promise resolved successfully for "${xformName}".`);
-                    console.log(`Saved X-Form: "${xformName}"`);
+                    console.log(`DEBUG: saveCurrentXForm() promise resolved successfully for "${name}".`);
+                    console.log(`Saved X-Form: "${name}"`);
                 } else {
-                    console.warn(`DEBUG: saveCurrentXForm() promise resolved but returned null/falsy for "${xformName}".`);
+                    console.warn(`DEBUG: saveCurrentXForm() promise resolved but returned null/falsy for "${name}".`);
                 }
             }).catch(err => {
                 // Add logging for promise rejection
-                console.error(`DEBUG: Error occurred within saveCurrentXForm() promise for "${xformName}":`, err);
+                console.error(`DEBUG: Error occurred within saveCurrentXForm() promise for "${name}":`, err);
             });
         } else {
             console.error('saveCurrentXForm function not available');
@@ -178,7 +178,7 @@ function setupNamingMode() {
     console.log(`DEBUG: Initial mode set to: ${window.isNamingModeATM ? 'ATM' : 'MEM'}`);
 
     if (!window.isNamingModeATM) {
-        console.log("DEBUG: Setting initial MEM mode xformName...");
+        console.log("DEBUG: Setting initial MEM mode name...");
         let savedXformName = 'New X-Form'; // Default
         try {
             savedXformName = localStorage.getItem(XFORM_NAMING_VALUE_KEY) || savedXformName;
@@ -188,7 +188,7 @@ function setupNamingMode() {
             console.error("DEBUG: Error reading XFORM_NAMING_VALUE_KEY from localStorage!", e);
             xformNameInput.value = savedXformName; // Use default on error
         }
-        console.log("DEBUG: Initial MEM xformName set.");
+        console.log("DEBUG: Initial MEM name set.");
     }
     
     console.log("DEBUG: Calling updateNamingModeUI for initial setup...");
@@ -256,21 +256,21 @@ function setupNamingMode() {
         // Restore first part
         console.log("DEBUG: Save button event listener fired! (from setupNamingMode)"); 
         console.log("Save button clicked! (from setupNamingMode)"); 
-        const xformName = xformNameInput.value || 'Untitled XForm'; 
-        console.log(`DEBUG: Got xformName: ${xformName} (from setupNamingMode)`); 
+        const name = xformNameInput.value || 'Untitled XForm'; 
+        console.log(`DEBUG: Got name: ${name} (from setupNamingMode)`); 
 
         // Restore the save call block
         if (typeof window.saveCurrentXForm === 'function') { 
             console.log("DEBUG: Calling window.saveCurrentXForm... (from setupNamingMode)"); 
             window.saveCurrentXForm().then(savedForm => {
                 if (savedForm) {
-                    console.log(`DEBUG: saveCurrentXForm() promise resolved successfully for "${xformName}". (from setupNamingMode)`);
-                    console.log(`Saved X-Form: "${xformName}" (from setupNamingMode)`);
+                    console.log(`DEBUG: saveCurrentXForm() promise resolved successfully for "${name}". (from setupNamingMode)`);
+                    console.log(`Saved X-Form: "${name}" (from setupNamingMode)`);
                 } else {
-                    console.warn(`DEBUG: saveCurrentXForm() promise resolved but returned null/falsy for "${xformName}". (from setupNamingMode)`);
+                    console.warn(`DEBUG: saveCurrentXForm() promise resolved but returned null/falsy for "${name}". (from setupNamingMode)`);
                 }
             }).catch(err => {
-                console.error(`DEBUG: Error occurred within saveCurrentXForm() promise for "${xformName}":`, err);
+                console.error(`DEBUG: Error occurred within saveCurrentXForm() promise for "${name}":`, err);
             });
         } else {
             console.error('saveCurrentXForm function not available (from setupNamingMode)');

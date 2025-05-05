@@ -119,7 +119,7 @@ function createFallbackUsageContent(container) {
             <li>Add Waypoints (Optional): Click in the viewport to add intermediate points. Drag waypoints to refine the path.</li>
             <li>Set Rotation: Use the X/Y/Z controls.</li>
             <li>Name XForm: Use the input field at the top-left. Switch between time-based (ATM) and manual (MEM) naming using the clock/T icons.</li>
-            <li>Save XForm: Click the "Save" button (disk icon) next to the xformName field.</li>
+            <li>Save XForm: Click the "Save" button (disk icon) next to the name field.</li>
             <li>Load XForm: Double-click an item in the Saved X-Forms list.</li>
             <li>Animate: Click "Play" below the viewport.</li>
         </ul>

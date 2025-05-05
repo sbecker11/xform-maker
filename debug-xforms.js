@@ -15,7 +15,7 @@ async function debugXForms(id = null) {
         return;
       }
       
-      console.log(`📋 Examining XForm: "${xform.xformName}" (ID: ${xform.id})`);
+      console.log(`📋 Examining XForm: "${xform.name}" (ID: ${xform.id})`);
       console.log(`⏱️ Created: ${new Date(xform.timestamp || xform.id).toLocaleString()}`);
       console.log(`🔄 Last Modified: ${new Date(xform.lastModified).toLocaleString()}`);
       
@@ -52,7 +52,7 @@ async function debugXForms(id = null) {
       // Create a summary table
       console.table(xforms.map(xform => ({
         id: xform.id,
-        xformName: xform.xformName,
+        name: xform.name,
         modified: new Date(xform.lastModified).toLocaleString(),
         waypoints: xform.waypoints?.length || 0,
         duration: xform.duration || 'N/A',
@@ -96,7 +96,7 @@ window.saveCurrentXForm = async function() {
     // Log the XForm being saved
     console.group("🔍 SAVING XFORM TO DATABASE");
     console.log("XForm ID:", xformData.id);
-    console.log("XForm Name:", xformData.xformName);
+    console.log("XForm Name:", xformData.name);
     console.log("Rectangles:", {
         start: xformData.startRect,
         end: xformData.endRect
@@ -131,11 +131,11 @@ window.compareXForms = async function(xformId1, xformId2) {
     }
     
     // Compare and show differences
-    console.group(`🔍 COMPARING XFORMs: "${xform1.xformName}" vs "${xform2.xformName}"`);
+    console.group(`🔍 COMPARING XFORMs: "${xform1.name}" vs "${xform2.name}"`);
     
     // Basic properties
     compareProperty("ID", xform1.id, xform2.id);
-    compareProperty("Name", xform1.xformName, xform2.xformName);
+    compareProperty("Name", xform1.name, xform2.name);
     compareProperty("Duration", xform1.duration, xform2.duration);
     
     // Rectangles
@@ -193,19 +193,19 @@ window.compareXForms = async function(xformId1, xformId2) {
 };
 
 // Helper function to compare and format property differences
-function compareProperty(xformName, value1, value2) {
+function compareProperty(name, value1, value2) {
     const isDifferent = JSON.stringify(value1) !== JSON.stringify(value2);
     
     if (isDifferent) {
         console.log(
-            `%c${xformName}: %c${JSON.stringify(value1)} %c→ %c${JSON.stringify(value2)}`,
+            `%c${name}: %c${JSON.stringify(value1)} %c→ %c${JSON.stringify(value2)}`,
             "font-weight: bold;", 
             "color: #ff6b6b;", 
             "color: gray;", 
             "color: #4caf50; font-weight: bold;"
         );
     } else {
-        console.log(`${xformName}: ${JSON.stringify(value1)} (unchanged)`);
+        console.log(`${name}: ${JSON.stringify(value1)} (unchanged)`);
     }
 }
 
@@ -216,7 +216,7 @@ window.listAllXForms = async function() {
     console.group("📋 ALL XFORMS IN DATABASE");
     console.table(xforms.map(x => ({
         ID: x.id,
-        Name: x.xformName,
+        Name: x.name,
         Waypoints: x.waypoints?.length || 0,
         LastModified: new Date(x.lastModified).toLocaleString()
     })));

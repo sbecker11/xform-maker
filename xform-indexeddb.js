@@ -504,7 +504,7 @@ async function listXForms(sortBy = 'name', sortDirection = 'asc') {
             console.error("DEBUG: listXForms - Failed to get DB object from openDB!");
             return []; // Cannot proceed
         }
-        console.log(`DEBUG: listXForms - Got DB object: Name=${db.name}, Version=${db.version}, Stores=[${[...db.objectStoreNames].join(', ')}]`);
+        console.log(`DEBUG: listXForms - Got DB object: name=${db.name}, Version=${db.version}, Stores=[${[...db.objectStoreNames].join(', ')}]`);
         console.log(`DEBUG: listXForms - Attempting to start transaction on store: '${XFORMS_STORE}'`);
         // --- END ADDED LOGS ---
         
@@ -567,7 +567,7 @@ async function listXForms(sortBy = 'name', sortDirection = 'asc') {
 // Export a single xform to a JSON file
 async function exportXformNameToFileName(xformData) {
     try {
-        const xformName = sanitizeFilenameForSystem(xformData.name);
+        const name = sanitizeFilenameForSystem(xformData.name);
         
         // Compute integrity hash and attach if missing / refresh
         const hash = await _computeHashKey(xformData);
@@ -583,7 +583,7 @@ async function exportXformNameToFileName(xformData) {
         // Create a download link and trigger it
         const a = document.createElement('a');
         a.href = url;
-        a.download = xformName;
+        a.download = name;
         document.body.appendChild(a);
         a.click();
         
@@ -593,7 +593,7 @@ async function exportXformNameToFileName(xformData) {
             URL.revokeObjectURL(url);
         }, 0);
         
-        console.log(`XForm "${xformData.name}" exported as ${xformName}`);
+        console.log(`XForm "${xformData.name}" exported as ${name}`);
         return true;
     } catch (error) {
         console.error('Error exporting xform to file:', error);
@@ -603,6 +603,7 @@ async function exportXformNameToFileName(xformData) {
 
 // Export all xforms to a single JSONL file (JSON Lines format)
 async function exportAllXFormsToFile() {
+    console.log('%c[Export All] exportAllXFormsToFile function started!', 'color: green; font-weight: bold;'); // <-- ADDED LOG
     try {
         // Use selected xforms if available, otherwise export all
         let xformsToExport = [];
@@ -634,7 +635,8 @@ async function exportAllXFormsToFile() {
                 rotations: xform.rotations || { x: 1, y: 1, z: 1 },
                 duration: xform.duration || 500
             };
-            const hash = await _computeHashKey(cleanXform);
+            // Corrected function call
+            const hash = await computeXFormHash(cleanXform);
             cleanXform.exportHashKey = hash;
             return cleanXform;
         });
@@ -646,27 +648,51 @@ async function exportAllXFormsToFile() {
         // Create a Blob with the JSONL data
         const blob = new Blob([jsonlContent], { type: 'application/x-jsonlines' });
         
-        // Determine xformName
-        const dateStr = new Date().toISOString().slice(0, 10);
+        // Determine name
+        const now = new Date();
+        const dateStr = now.toISOString().slice(0, 10); // YYYY-MM-DD
+        // Format time as HH-MM-SS with leading zeros
+        const hours = now.getHours().toString().padStart(2, '0');
+        const minutes = now.getMinutes().toString().padStart(2, '0');
+        const seconds = now.getSeconds().toString().padStart(2, '0');
+        const timeStr = `${hours}-${minutes}-${seconds}`;
+        const dateTimeStr = `${dateStr}_${timeStr}`;
+
         let suggestedName = '';
         if (isSelectedOnly) {
             const count = xformsToExport.length === 1 ? "1-xform" : `${xformsToExport.length}-xforms`;
-            suggestedName = `xforms-selected-${count}-${dateStr}.jsonl`;
+            suggestedName = `xforms-selected-${count}-${dateTimeStr}.jsonl`;
         } else {
-            suggestedName = `xforms-all-${dateStr}.jsonl`;
+            suggestedName = `xforms-all-${dateTimeStr}.jsonl`;
         }
         
         // Check if the File System Access API is available
         if ('showSaveFilePicker' in window) {
             try {
-                // Use the File System Access API to let the user choose where to save
-                const handle = await window.showSaveFilePicker({
+                // *** ADDED: Prepare options object with startIn ***
+                const pickerOptions = {
                     suggestedName: suggestedName,
                     types: [{
                         description: 'JSON Lines File',
                         accept: {'application/x-jsonlines': ['.jsonl']}
                     }],
-                });
+                };
+                // Add startIn only if we have a valid handle stored
+                if (window.lastUsedDirHandle) {
+                    // Basic check if it looks like a handle (can be improved)
+                    if (typeof window.lastUsedDirHandle.queryPermission === 'function') { 
+                        pickerOptions.startIn = window.lastUsedDirHandle;
+                        console.log("Attempting to start file picker in last used directory.");
+                    } else {
+                        console.warn("window.lastUsedDirHandle exists but doesn't look like a valid directory handle. Using default starting directory.");
+                    }
+                } else {
+                     console.log("No last used directory handle found. Using default starting directory.");
+                }
+                // *** END ADDED ***
+
+                // Use the File System Access API with the prepared options
+                const handle = await window.showSaveFilePicker(pickerOptions);
                 
                 // Create a writable stream and write the blob data
                 const writable = await handle.createWritable();
@@ -677,8 +703,9 @@ async function exportAllXFormsToFile() {
                     `${xformsToExport.length} selected xform${xformsToExport.length === 1 ? "" : "s"}` : 
                     "all xforms";
                 
-                console.log(`Exported ${exportDesc} to: ${handle.name}`);
-                await showInfoDialog(`Successfully exported ${exportDesc} to: ${handle.name}`);
+                console.log(`Exported ${exportDesc} to chosen file: ${handle.name}`);
+                // Clarify the success message
+                await showInfoDialog(`Successfully exported ${exportDesc} as the file named: "${handle.name}".`);
                 
                 return true;
             } catch (err) {
@@ -705,13 +732,13 @@ async function exportAllXFormsToFile() {
 }
 
 // Fallback export method using traditional download
-async function fallbackExport(blob, xformName, isSelectedOnly, xformsToExport) {
+async function fallbackExport(blob, name, isSelectedOnly, xformsToExport) {
     try {
         const url = URL.createObjectURL(blob);
         
         const a = document.createElement('a');
         a.href = url;
-        a.download = xformName;
+        a.download = name;
         document.body.appendChild(a);
         a.click();
         
@@ -735,192 +762,153 @@ async function fallbackExport(blob, xformName, isSelectedOnly, xformsToExport) {
     }
 }
 
-// Import xform(s) from a JSON or JSONL file
+// Import xform(s) from a JSON or JSONL file (Simpler version expecting File object)
 async function importXFormsFromFile(file) {
-    try {
-        // Debug logging
-        console.log(`DEBUG IMPORT: Starting import of file: ${file.name}, size: ${file.size} bytes`);
-        
-        return new Promise((resolve, reject) => {
-            const reader = new FileReader();
-            
-            reader.onload = async (event) => {
-                try {
-                    const content = event.target.result;
-                    console.log(`DEBUG IMPORT: File content length: ${content.length} chars`);
-                    
-                    let xformsToImport = [];
-                    let parseMethod = "unknown";
-                    
-                    // Check if this is a JSONL file (each line is a separate JSON object)
-                    if (file.name.toLowerCase().endsWith('.jsonl')) {
-                        parseMethod = "JSONL";
-                        // Split by newlines and parse each line
-                        const lines = content.split('\n').filter(line => line.trim());
-                        console.log(`DEBUG IMPORT: JSONL format detected with ${lines.length} lines`);
-                        
-                        // Process each line individually with better error reporting
-                        for (let i = 0; i < lines.length; i++) {
-                            const line = lines[i];
-                            try {
-                                // Log a preview of the line for debugging
-                                const linePreview = line.length > 50 ? line.substring(0, 50) + '...' : line;
-                                console.log(`DEBUG IMPORT: Processing line ${i+1}: ${linePreview}`);
-                                
-                                const xform = JSON.parse(line);
-                                if (xform && xform.name) { // Only check for name, we'll generate new IDs
-                                    xformsToImport.push(xform);
-                                    console.log(`DEBUG IMPORT: Successfully parsed line ${i+1} as XForm "${xform.name}"`);
-                                } else {
-                                    console.warn(`DEBUG IMPORT: Skipping line ${i+1}: missing name property`);
-                                }
-                            } catch (lineError) {
-                                console.warn(`DEBUG IMPORT: Error parsing line ${i+1}:`, lineError);
-                                console.warn(`DEBUG IMPORT: Problematic line content: "${line.substring(0, 100)}${line.length > 100 ? '...' : ''}"`);
-                                // Continue with other lines
-                            }
+    // Basic check if a file object was passed
+    if (!file || !(file instanceof File)) {
+        console.error("IMPORT_OLD: Invalid file object received.", file);
+        await showInfoDialog("Import failed: No valid file provided.");
+        return { success: false, imported: 0, errors: ["Invalid file input"] };
+    }
+
+    console.log(`IMPORT_OLD: Starting import of file: ${file.name}, size: ${file.size} bytes`);
+
+    // Use Promise to handle FileReader
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+
+        reader.onload = async (event) => {
+            let importedCount = 0;
+            let errors = [];
+            let totalInFile = 0;
+
+            try {
+                const content = event.target.result;
+                console.log(`IMPORT_OLD: File content length: ${content.length} chars`);
+
+                let xformsToImport = [];
+                let parseMethod = "unknown";
+
+                // Parsing logic (similar to previous versions, adapted for single file)
+                if (file.name.toLowerCase().endsWith('.jsonl')) {
+                     parseMethod = "JSONL";
+                     const lines = content.split('\\n').filter(line => line.trim());
+                     console.log(`IMPORT_OLD: Parsing as JSONL (${lines.length} lines)`);
+                     lines.forEach((line, i) => {
+                         try {
+                             const xform = JSON.parse(line);
+                             // Use looser validation for old format - generate ID later if missing?
+                             if (xform && xform.name) {
+                                 xformsToImport.push(xform);
+                             } else {
+                                 console.warn(`IMPORT_OLD: Skipping line ${i+1} (missing name): ${line.substring(0, 50)}...`);
+                                 errors.push(`Skipped line ${i+1}: Missing Name`);
+                             }
+                         } catch (lineError) {
+                             console.warn(`IMPORT_OLD: Error parsing line ${i+1}:`, lineError);
+                             errors.push(`Error parsing line ${i+1}: ${lineError.message}`);
+                         }
+                     });
+
+                } else { // Assume JSON
+                    parseMethod = "JSON";
+                    console.log(`IMPORT_OLD: Parsing as JSON`);
+                    try {
+                        const parsed = JSON.parse(content);
+                         if (Array.isArray(parsed)) {
+                             xformsToImport = parsed.filter(x => x && x.name);
+                         } else if (parsed && parsed.name) {
+                             xformsToImport = [parsed];
+                         } else if (parsed && Array.isArray(parsed.xforms)) { // Old nested format
+                              xformsToImport = parsed.xforms.filter(x => x && x.name);
+                         }
+                         else {
+                            console.error('IMPORT_OLD: Invalid JSON format');
+                            throw new Error('Invalid file format: No valid xform data found');
+                         }
+                     } catch (jsonError) {
+                         console.error('IMPORT_OLD: Error parsing JSON:', jsonError);
+                         throw new Error(`Invalid JSON format: ${jsonError.message}`);
+                     }
+                 }
+
+                totalInFile = xformsToImport.length;
+                if (totalInFile === 0) {
+                    console.warn('IMPORT_OLD: No valid xforms found in the file');
+                    throw new Error('No valid xforms found in the file');
+                }
+
+                console.log(`IMPORT_OLD: Found ${totalInFile} xforms to import via ${parseMethod}`);
+
+                // Process each xform - simplified: generate new ID, save
+                const importPromises = xformsToImport.map(async (xform, idx) => {
+                    try {
+                        // Generate new unique ID
+                        const originalId = xform.id; // Keep for logging if needed
+                        xform.id = Date.now() + idx; // Simple unique ID generation
+
+                        // Update timestamps
+                        xform.lastModified = xform.id; // Use new ID as timestamp
+                        if (!xform.timestamp) {
+                            xform.timestamp = xform.id;
                         }
-                    } else {
-                        // Try parsing as regular JSON (either a single xform or our old nested format)
-                        parseMethod = "JSON";
-                        try {
-                            const parsed = JSON.parse(content);
-                            console.log(`DEBUG IMPORT: JSON format detected, type:`, typeof parsed, Array.isArray(parsed) ? "array" : "object");
-                            
-                            if (Array.isArray(parsed.xforms)) {
-                                // This is our old export format with nested xforms array
-                                console.log(`DEBUG IMPORT: Nested format with ${parsed.xforms.length} xforms`);
-                                xformsToImport = parsed.xforms.filter(x => x && x.name);
-                            } else if (parsed.name) {
-                                // This is a single xform - check just for name
-                                console.log(`DEBUG IMPORT: Single xform with name "${parsed.name}"`);
-                                xformsToImport = [parsed];
-                            } else if (Array.isArray(parsed)) {
-                                // This is a JSON array of xforms
-                                console.log(`DEBUG IMPORT: JSON array with ${parsed.length} items`);
-                                xformsToImport = parsed.filter(x => x && x.name);
-                                console.log(`DEBUG IMPORT: After filtering for valid xforms: ${xformsToImport.length} items`);
-                            } else {
-                                console.error('DEBUG IMPORT: Invalid format, cannot determine structure');
-                                throw new Error('Invalid file format: No valid xform data found');
-                            }
-                        } catch (jsonError) {
-                            console.error('DEBUG IMPORT: Error parsing JSON:', jsonError);
-                            throw new Error(`Invalid JSON format: ${jsonError.message}`);
-                        }
-                    }
-                    
-                    if (xformsToImport.length === 0) {
-                        console.warn('DEBUG IMPORT: No valid xforms found in the file');
-                        throw new Error('No valid xforms found in the file');
-                    }
-                    
-                    console.log(`DEBUG IMPORT: Found ${xformsToImport.length} xforms to import via ${parseMethod}`);
-                    
-                    // List all found xforms with original IDs
-                    xformsToImport.forEach((xform, idx) => {
-                        console.log(`DEBUG IMPORT: Xform ${idx+1}: Original ID=${xform.id}, Name="${xform.name}"`);
-                    });
-                    
-                    let importCount = 0;
-                    let errors = [];
-                    
-                    // Process each xform and collect results
-                    const importPromises = xformsToImport.map(async (xform, idx) => {
-                        try {
-                            // inside importXFormsFromFile processing each xform before save
-                            // Verify hash if present
-                            if (xform.exportHashKey) {
-                                const expected = xform.exportHashKey;
-                                delete xform.exportHashKey;
-                                const actual = await _computeHashKey(xform);
-                                if (expected !== actual) {
-                                    console.warn(`Hash mismatch for xform "${xform.name}". Skipping import.`);
-                                    return false;
-                                }
-                            }
-                            
-                            // ALWAYS generate new unique IDs for ALL imported xforms
-                            // to prevent duplicates overwriting each other
-                            const originalId = xform.id;
-                            const now = Date.now();
-                            xform.id = now + idx; // Use current time + index for uniqueness
-                            
-                            console.log(`DEBUG IMPORT: Assigned new unique ID ${xform.id} (was ${originalId}) to xform "${xform.name}"`);
-                            
-                            // Update timestamps to current
-                            xform.lastModified = now + idx; // Add idx to ensure uniqueness
-                            if (!xform.timestamp) {
-                                xform.timestamp = now + idx;
-                            }
-                            
-                            console.log(`DEBUG IMPORT: Saving xform "${xform.name}" with ID ${xform.id}`);
-                            const success = await saveXForm(xform);
-                            
-                            if (success) {
-                                console.log(`DEBUG IMPORT: Successfully saved xform "${xform.name}"`);
-                                return true;
-                            } else {
-                                console.error(`DEBUG IMPORT: Failed to save xform "${xform.name}"`);
-                                errors.push(`Failed to save "${xform.name}"`);
-                                return false;
-                            }
-                        } catch (err) {
-                            console.error(`DEBUG IMPORT: Error saving xform "${xform.name}":`, err);
-                            errors.push(`Error with "${xform.name}": ${err.message}`);
+
+                         // Remove potentially problematic fields before saving
+                         delete xform.exportHashKey;
+                         delete xform.integrityHash;
+                         if (xform.waypoints) {
+                             xform.waypoints = xform.waypoints.map(wp => ({ x: wp.x, y: wp.y }));
+                         }
+
+
+                        console.log(`IMPORT_OLD: Saving "${xform.name}" with NEW ID ${xform.id}`);
+                        const success = await saveXForm(xform);
+
+                        if (success) {
+                            return true;
+                        } else {
+                            errors.push(`Failed to save "${xform.name}"`);
                             return false;
                         }
-                    });
-                    
-                    // Wait for all imports to complete
-                    const results = await Promise.all(importPromises);
-                    importCount = results.filter(Boolean).length;
-                    
-                    if (errors.length > 0) {
-                        console.warn(`DEBUG IMPORT: Completed with ${errors.length} errors:`, errors);
-                    }
-                    
-                    console.log(`DEBUG IMPORT: Successfully imported ${importCount} of ${xformsToImport.length} xforms`);
-                    
-                    // Verify the database count after import
-                    try {
-                        const db = await openDB();
-                        const tx = db.transaction(XFORMS_STORE, 'readonly');
-                        const store = tx.objectStore(XFORMS_STORE);
-                        const count = await new Promise(resolve => {
-                            const countRequest = store.count();
-                            countRequest.onsuccess = () => resolve(countRequest.result);
-                            countRequest.onerror = () => resolve(0);
-                        });
-                        console.log(`DEBUG IMPORT: Total xforms in database after import: ${count}`);
                     } catch (err) {
-                        console.error('DEBUG IMPORT: Error counting database records after import:', err);
+                        console.error(`IMPORT_OLD: Error processing xform "${xform.name}":`, err);
+                        errors.push(`Error with "${xform.name}": ${err.message}`);
+                        return false;
                     }
-                    
-                    resolve({
-                        success: importCount > 0,
-                        imported: importCount,
-                        total: xformsToImport.length,
-                        errors: errors
-                    });
-                } catch (error) {
-                    console.error('DEBUG IMPORT: Error processing import file:', error);
-                    reject(error);
+                });
+
+                const results = await Promise.all(importPromises);
+                importedCount = results.filter(Boolean).length;
+
+                if (errors.length > 0) {
+                    console.warn(`IMPORT_OLD: Completed with ${errors.length} errors:`, errors);
                 }
-            };
-            
-            reader.onerror = (error) => {
-                console.error('DEBUG IMPORT: Error reading file:', error);
-                reject(error);
-            };
-            
-            reader.readAsText(file);
-        });
-    } catch (error) {
-        console.error('DEBUG IMPORT: Error in importXFormsFromFile:', error);
-        throw error;
-    }
+                console.log(`IMPORT_OLD: Successfully imported ${importedCount} of ${totalInFile} xforms from ${file.name}`);
+
+                // Resolve the promise for this file
+                resolve({
+                    success: importedCount > 0,
+                    imported: importedCount,
+                    total: totalInFile,
+                    errors: errors
+                });
+
+            } catch (error) {
+                console.error(`IMPORT_OLD: Error processing import file ${file.name}:`, error);
+                reject(error); // Reject the promise for this file
+            }
+        }; // end reader.onload
+
+        reader.onerror = (error) => {
+            console.error('IMPORT_OLD: Error reading file:', error);
+            reject(error); // Reject the promise
+        };
+
+        reader.readAsText(file); // Start reading the file
+    }); // end return new Promise
 }
+window.importXFormsFromFile = importXFormsFromFile; // Ensure global access
+
 
 // Helper function to sanitize filenames
 function sanitizeFilenameForSystem(originalName) {
@@ -1266,13 +1254,13 @@ async function loadXForm(id) {
         window.currentXFormHasRun = true; // Mark as loaded
         console.log("Set global state (name, id, MEM mode)");
         
-        // 3. Update xformName Input Field & Mode UI
+        // 3. Update name Input Field & Mode UI
         const xformNameInput = document.getElementById('xformNameInput');
         if (xformNameInput) {
             xformNameInput.value = window.currentXFormName;
             xformNameInput.readOnly = false;
-            xformNameInput.classList.remove('time-based-xformName');
-            console.log(`Updated xformName input to: ${xformNameInput.value}`);
+            xformNameInput.classList.remove('time-based-name');
+            console.log(`Updated name input to: ${xformNameInput.value}`);
         }
         
         // Update UI indicators for MEM mode
@@ -1474,11 +1462,24 @@ async function saveCurrentXForm() {
     console.groupCollapsed("Save Process");
     try {
         // 1. Create the DTO from UI state
+        console.log("Calling createXFormDataObject..."); // <-- ADDED LOG
         const xformData = createXFormDataObject();
-        
+        console.log("Returned from createXFormDataObject."); // <-- ADDED LOG
+        // *** ADD IMMEDIATE LOGGING OF THE RECEIVED OBJECT ***
+        try {
+            console.log("DEBUG: saveCurrentXForm - Raw xformData object received:", xformData);
+            console.log("DEBUG: saveCurrentXForm - Stringified xformData received:", JSON.stringify(xformData)); // Add stringify for better inspection
+        } catch (e) {
+            console.error("DEBUG: saveCurrentXForm - Error logging xformData:", e);
+        }
+        // *** END ADDED LOGGING ***
+
         // Validation: Ensure name is valid
-        const name = xformData.name;
+        const name = xformData.name; // Assign name
+        console.log(`DEBUG: saveCurrentXForm - Value assigned to 'name' variable: "${name}" (type: ${typeof name})`); // <-- ADDED LOG
+
         if (!name || name.trim() === '' || name === 'Untitled XForm') {
+            console.warn(`Validation FAILED: name is "${name}"`); // <-- ADDED LOG
             await showInfoDialog(`[${name}] is not a valid name. Please enter a valid name for the XForm before saving.`);
             const xformNameInput = document.getElementById('xformNameInput');
             if (xformNameInput) { xformNameInput.focus(); xformNameInput.select(); }
@@ -1486,7 +1487,8 @@ async function saveCurrentXForm() {
             console.groupEnd();
             return null;
         }
-        
+        console.log(`Validation PASSED: name is "${name}"`); // <-- ADDED LOG
+
         // Ensure ID exists
         if (!xformData.id) {
             xformData.id = Date.now();
@@ -1713,20 +1715,28 @@ function updateUIForSelectionCount() {
 
 // Update export button state based on selection
 function updateExportButtonState() {
-    const exportBtn = document.getElementById('export-xforms-btn');
-    if (!exportBtn) return;
+    console.log("DEBUG: updateExportButtonState - Starting...");
+    // Corrected the ID to match the HTML element
+    const exportBtn = document.getElementById('export-all-btn'); 
+    if (!exportBtn) {
+        // Add a warning if the button isn't found, helps debugging
+        console.error("ERROR:updateExportButtonState: Could not find button with ID 'export-all-btn'");
+        return;
+    }
     
     const count = window.selectedXforms ? window.selectedXforms.length : 0;
-    
+    console.log("DEBUG: updateExportButtonState: count=", count);
+    // Keep the existing logic for now (always enables if button found)
     if (count > 0) {
         exportBtn.disabled = false;
         exportBtn.title = `Export ${count} selected XForm${count === 1 ? '' : 's'}`;
         exportBtn.querySelector('span').textContent = count === 1 ? "Export Selected" : `Export ${count} Selected`;
-        } else {
-        exportBtn.disabled = false;
+    } else {
+        exportBtn.disabled = false; 
         exportBtn.title = "Export All XForms";
         exportBtn.querySelector('span').textContent = "Export All";
     }
+    console.log(`DEBUG: updateExportButtonState - set disabled=${exportBtn.disabled} (selected count: ${count})`); // Added log
 }
 
 // Initialize the selection mechanism
@@ -1745,7 +1755,7 @@ function createXFormDataObject() {
     
     // Get necessary data from the UI elements
     console.log("DEBUG: createXFormDataObject - Getting UI elements..."); // <-- ADDED
-    const xformNameInput = document.getElementById('xformNameInput'); 
+    const xformNameInput = document.getElementById('xformNameInput');
     const widthInput = document.getElementById('rectWidth');
     const heightInput = document.getElementById('rectHeight');
     const durationInput = document.getElementById('duration');
@@ -1756,12 +1766,12 @@ function createXFormDataObject() {
         id: window.currentXFormId || Date.now(),
         timestamp: window.currentXFormTimestamp || Date.now(), // Use existing timestamp if available
         lastModified: Date.now(), // Always update last modified
-        lastModifiedOnDateTime: new Date().toISOString(), 
+        lastModifiedOnDateTime: new Date().toISOString(),
         name: 'Untitled XForm', // Default name
         startRect: { left: 50, top: 50, width: 100, height: 60 }, // Reasonable defaults
-        endRect: { left: 150, top: 150, width: 100, height: 60 }, 
-        waypoints: [], 
-        rotations: { x: 1, y: 1, z: 1 }, 
+        endRect: { left: 150, top: 150, width: 100, height: 60 },
+        waypoints: [],
+        rotations: { x: 1, y: 1, z: 1 },
         duration: 500,
         pathStyle: 'solid' // Default path style
     };
@@ -1769,23 +1779,33 @@ function createXFormDataObject() {
     // --- Update with values from UI elements if they exist ---
     console.log("DEBUG: createXFormDataObject - Populating data from UI..."); // <-- ADDED
     
-    // XForm Name
-    // --- ADDED DETAILED LOGGING FOR NAME --- 
-    console.log(`DEBUG: createXFormDataObject - Checking input field. Exists: ${!!xformNameInput}, Value: "${xformNameInput ? xformNameInput.value : 'N/A'}", Trimmed: "${xformNameInput ? xformNameInput.value.trim() : 'N/A'}"`); // Log input value explicitly
-    console.log(`DEBUG: createXFormDataObject - Checking global window.currentXFormName: "${window.currentXFormName}"`); // Log global value
-    console.log(`DEBUG: createXFormDataObject - Checking XformNameController state: Mode ATM? ${window.xformNameController ? window.xformNameController.isInATMMode() : 'N/A'}, Controller Name: "${window.xformNameController ? window.xformNameController.getCurrentFilename() : 'N/A'}"`);
-    // --- END ADDED LOGGING --- 
+    // XForm name
+    // --- REFINED DETAILED LOGGING FOR name ---
+    console.group("name Assignment in createXFormDataObject"); // Group logs
 
-    if (xformNameInput && xformNameInput.value.trim() !== '') { // Use renamed variable
-        console.log(`DEBUG: createXFormDataObject - USING name from input field: "${xformNameInput.value}"`); // Log which branch is taken
-        xformData.name = xformNameInput.value;
-    } else if (window.currentXFormName) {
-        console.log(`DEBUG: createXFormDataObject - Input empty/missing, USING name from window.currentXFormName: "${window.currentXFormName}"`); // Log which branch is taken
-        xformData.name = window.currentXFormName; // Fallback to global state if input empty
+    const inputElementValue = xformNameInput ? xformNameInput.value : null;
+    const globalNameValue = window.currentXFormName;
+    console.log(`Input Field Value: "${inputElementValue}" (type: ${typeof inputElementValue})`);
+    console.log(`Global window.currentXFormName: "${globalNameValue}" (type: ${typeof globalNameValue})`);
+
+    let nameSource = "default"; // Track where the name came from
+
+    if (inputElementValue !== null && typeof inputElementValue === 'string' && inputElementValue.trim() !== '') {
+        console.log(`Condition 1 MET: Using name from input field.`);
+        xformData.name = inputElementValue;
+        nameSource = "input";
+    } else if (globalNameValue) { // Checks if globalNameValue is truthy
+        console.log(`Condition 1 FAILED. Condition 2 MET: Using name from window.currentXFormName.`);
+        xformData.name = globalNameValue;
+        nameSource = "global";
     } else {
-        console.log(`DEBUG: createXFormDataObject - Input empty/missing AND window.currentXFormName missing. Using default: "${xformData.name}"`); // Log default case
+        console.log(`Condition 1 FAILED. Condition 2 FAILED: Using initial default name.`);
+        // No assignment needed, uses initial value
     }
-    console.log(`DEBUG: createXFormDataObject - Name set to: "${xformData.name}"`); // <-- ADDED
+
+    console.log(`Final name assigned: "${xformData.name}" (type: ${typeof xformData.name}) from source: ${nameSource}`);
+    console.groupEnd(); // End group
+    // --- END REFINED LOGGING ---
     
     // Rectangle Dimensions (from inputs first)
     let currentWidth = xformData.startRect.width; // Start with default
@@ -2106,9 +2126,9 @@ window.showModalDialog = showModalDialog;
 
 // Add this function near the bottom of the file with the other initialization functions
 
-// Initialize the XformNameController to manage xformName input and mode toggling
+// Initialize the XformNameController to manage name input and mode toggling
 function initializeXformNameController() {
-    // Define a self-contained controller for xformName input and mode management
+    // Define a self-contained controller for name input and mode management
     class XformNameController {
         constructor() {
             // Get UI elements
@@ -2243,7 +2263,7 @@ function initializeXformNameController() {
             }
             if (this.xformNameInput) {
                 this.xformNameInput.readOnly = this._isATMMode;
-                this.xformNameInput.classList.toggle('time-based-xformName', this._isATMMode);
+                this.xformNameInput.classList.toggle('time-based-name', this._isATMMode);
             }
         }
         
@@ -2356,7 +2376,7 @@ async function loadXFormFromDB(xformId) {
                 window.xformNameController.setSavedXform(xformData.name);
                 console.log('%cDB LOAD: xformNameController handled mode switch to MEM.', 'color: blue;');
             } else {
-                console.error("DB LOAD: XformNameController or setSavedXform method not found! Cannot properly set xformName mode.");
+                console.error("DB LOAD: XformNameController or setSavedXform method not found! Cannot properly set name mode.");
                 // Fallback (less ideal - might conflict with controller later)
                 const xformNameInput = document.getElementById('xformNameInput');
                 const atmBtn = document.getElementById('xformNamingModeATM');

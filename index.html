@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en" class=""><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
     
-    <meta xformName="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>X-Form Maker</title>
     <link rel="stylesheet" href="styles.css">
     <script>
@@ -18,7 +18,7 @@
         const STORAGE_KEY = 'xformMaker_savedForms';
         const STATE_STORAGE_KEY = 'xformMaker_currentState';
         
-        // --- Timer for xformName updates ---
+        // --- Timer for name updates ---
         window.timeUpdateTimer = null;
         
         // --- Define global helper functions ---
@@ -110,8 +110,8 @@
                 li.dataset.id = t.id;
 
                 const nameSpan = document.createElement('span');
-                nameSpan.className = 'xform-xformName';
-                nameSpan.textContent = t.xformName;
+                nameSpan.className = 'xform-name';
+                nameSpan.textContent = t.name;
                 li.appendChild(nameSpan);
 
                 // Simple indication of complexity (optional)
@@ -135,7 +135,7 @@
                         window.selectedSavedXFormId = t.id;
                         li.classList.add('selected');
                         if (window.renameInput) {
-                            window.renameInput.value = t.xformName; // Pre-fill rename input
+                            window.renameInput.value = t.name; // Pre-fill rename input
                         }
                         if (window.selectedControlsDiv) {
                             window.selectedControlsDiv.style.display = 'block';
@@ -160,9 +160,9 @@
         <div class="left-column persistence-column">
             <fieldset class="persistence-fieldset">
                 <!-- XformName section with ATM/MEM modes (Phase 1 & 2) -->
-                <div class="control-group xformName-section">
-                    <div class="xformName-header">
-                    <label>X-Form Name:</label>
+                <div id="persistence-fieldset-container" class="control-group name-section">
+                    <div class="name-header">
+                    <label for="xformNameInput" >X-Form Name:</label>
                         <div class="mode-icons">
                             <!-- Removed CLONED Save Button -->
                             <button id="xformNamingModeATM" class="mode-icon active is-disableable" title="Automated Time Mode">
@@ -173,21 +173,21 @@
                             </button>
                         </div>
                     </div>
-                    <div class="xformName-input-container">
-                        <input type="text" id="xformNameInput" class="time-based-xformName is-disableable" readonly="true">
+                    <div class="name-input-container">
+                        <input type="text" id="xformNameInput" class="time-based-name is-disableable" readonly="true">
                     <button id="saveXformButton" class="save-button">Save</button> <!-- Original UNCOMMENTED -->
                     </div>
                 </div>
 
-                <div class="control-group xform-list-section">
+                <div id="xform-list-container" class="control-group xform-list-section">
                     <div class="xform-list-header">
                         <label>Saved X-Forms</label>
                         <div class="xform-header-controls">
                             <button id="import-file-btn" class="mode-icon is-hideable" title="Import XForms into DB">
-                                <span>📥</span>
+                                <img src="icons/import-light.png" alt="Import" class="btn-icon" data-dark-src="icons/import-dark.png">
                             </button>
-                            <button id="export-all-btn" class="mode-icon is-hideable" title="Export All XForms in DB" disabled>
-                                <span>📤</span>
+                            <button id="export-all-btn" class="mode-icon is-hideable" title="Export All XForms">
+                                <img src="icons/export-light.png" alt="Export" class="btn-icon" data-dark-src="icons/export-dark.png">
                             </button>
                             <button id="sortXformsBtn" class="mode-icon is-hideable" title="Sort X-Forms">
                                 <img src="icons/sort-light.png" class="btn-icon" data-dark-src="icons/sort-dark.png">
@@ -235,8 +235,8 @@
         <!-- Right: Controls -->
         <div class="right-column controls-column">
             <div class="control-section">
-                <label for="rotations">Rotations:</label>
-                <div class="control-group" style="margin-bottom: 5px;">
+                <label for="rotations-container">Rotations:</label>
+                <div id="rotations-container" class="control-group" style="margin-bottom: 5px;">
                     <div class="direction-toggle" data-axis="x" data-direction="1">
                         <span>X:</span><span class="rot-icon" data-axis="x"></span>
                         <button class="btn-dir active" data-value="1">+</button>
@@ -271,16 +271,16 @@
             </div>
 
             <div class="control-section">
-                <label for="rectangle">Rectangle:</label>
-                <div class="control-group block-size-controls">
+                <label for="rectangle-container">Rectangle:</label>
+                <div id="rectangle-container" class="control-group block-size-controls">
                     <input type="number" id="rectWidth" value="100" min="50" max="400" title="Width (50-400px)">
                     <input type="number" id="rectHeight" value="60" min="50" max="400" title="Height (50-400px)">
                 </div>
             </div>
 
-            <div class="control-section">
+            <div id="waypoint-controls-container" class="control-section">
                 <div class="waypoint-controls">
-                    <label>Waypoints:</label>
+                    <label for="waypoint-controls-container">Waypoints:</label>
                     <span id="waypointCounter">0</span>
                     <button id="deleteLastWaypointBtn" class="btn-dir" disabled>-1</button>
                 </div>

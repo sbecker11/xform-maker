@@ -1226,8 +1226,10 @@ function setupWaypointControls() {
     
     // --- Event Listeners --- 
     window.viewport.addEventListener('click', (e) => {
+        console.log('%cVIEWPORT CLICKED! Target:', 'color: orange; font-weight: bold;', e.target);
+        // Existing detailed logging for time and target:
         const clickTime = Date.now();
-        const timeSinceLastMouseUp = clickTime - window.lastMouseUpTime;
+        const timeSinceLastMouseUp = clickTime - (window.lastMouseUpTime || 0); // Ensure lastMouseUpTime is defined
         console.log(`viewport click: target=${e.target.id || e.target.className}, timeSinceLastMouseUp=${timeSinceLastMouseUp}ms`);
         
         // *** Check if click happened very shortly after a mouseup (likely drag end) ***
@@ -1255,7 +1257,7 @@ function setupWaypointControls() {
         }
 
         // If none of the above prevented it, proceed to add waypoint
-        console.log('viewport click: proceeding to addWaypoint.'); 
+        console.log('%cviewport click: ALL CHECKS PASSED - PROCEEDING TO addWaypoint.', 'color: green; font-weight: bold;'); 
         addWaypoint(e.clientX, e.clientY);
     });
 

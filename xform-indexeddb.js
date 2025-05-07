@@ -292,21 +292,25 @@ function openNewDatabase() {
 
 // Open and initialize the database
 function openDB() {
-    // --- Restored Original Logic --- 
-    if (dbPromise) return dbPromise;
+    console.log('%cOPENDB (xform-indexeddb.js): Entered openDB function.', 'color: green; font-weight: bold;');
+    if (dbPromise) {
+        console.log('%cOPENDB: Returning existing dbPromise.', 'color: green;');
+        return dbPromise;
+    }
     
+    console.log('%cOPENDB: No existing dbPromise, creating new one.', 'color: green;');
     dbPromise = new Promise((resolve, reject) => {
-        // Use VERSION 2 defined at top of file
+        console.log(`%cOPENDB: Attempting indexedDB.open("${XFORM_DB_NAME}", ${XFORM_DB_VERSION})`, 'color: green;');
         const request = indexedDB.open(XFORM_DB_NAME, XFORM_DB_VERSION);
         
         request.onerror = (event) => {
-            console.error("IndexedDB error:", event.target.error);
-            dbPromise = null; // Clear promise cache on error
+            console.error("%cOPENDB: request.onerror - IndexedDB error:", 'color: red; font-weight: bold;', event.target.error);
+            dbPromise = null; 
             reject("IndexedDB error: " + (event.target.error ? event.target.error.message : "Unknown error"));
         };
         
         request.onsuccess = (event) => {
-            console.log("IndexedDB opened successfully.");
+            console.log("%cOPENDB: request.onsuccess - IndexedDB opened successfully.", 'color: green;');
             const db = event.target.result;
             const storeNames = db.objectStoreNames;
             console.log(`DEBUG: Stores found onsuccess: [${[...storeNames].join(', ')}]`); 
@@ -1694,49 +1698,56 @@ function clearAllSelections() {
 // Update UI elements based on the number of selected items
 function updateUIForSelectionCount() {
     const count = window.selectedXforms ? window.selectedXforms.length : 0;
-    console.log(`Selection count: ${count}`);
-    
+    // console.log(`Selection count: ${count}`); // This console.log is problematic, let's use logToPage if needed or remove
+
     // Update export button state
     updateExportButtonState();
-    
+
     // Update selection counter if it exists
     const counter = document.querySelector('.selection-count');
-    if (counter) {
+    if (counter) { // <-- ADD THIS GUARD
         if (count > 0) {
             counter.textContent = `${count} selected`;
             counter.style.display = 'inline-block';
         } else {
             counter.style.display = 'none';
         }
+    } else {
+        // Optionally log that the element wasn't found, but do it safely
+        // console.warn("Element with class .selection-count not found. Cannot update selection count display.");
     }
-    
+
     // More UI updates can be added here
 }
 
 // Update export button state based on selection
 function updateExportButtonState() {
-    console.log("DEBUG: updateExportButtonState - Starting...");
-    // Corrected the ID to match the HTML element
+    // console.log("DEBUG: updateExportButtonState - Starting..."); // Let's use logToPage for consistency if debugging here
     const exportBtn = document.getElementById('export-all-btn'); 
     if (!exportBtn) {
-        // Add a warning if the button isn't found, helps debugging
-        console.error("ERROR:updateExportButtonState: Could not find button with ID 'export-all-btn'");
+        // console.error("ERROR:updateExportButtonState: Could not find button with ID 'export-all-btn'");
         return;
     }
     
     const count = window.selectedXforms ? window.selectedXforms.length : 0;
-    console.log("DEBUG: updateExportButtonState: count=", count);
-    // Keep the existing logic for now (always enables if button found)
+    // console.log("DEBUG: updateExportButtonState: count=", count);
+    
+    const spanInButton = exportBtn.querySelector('span');
+
     if (count > 0) {
         exportBtn.disabled = false;
         exportBtn.title = `Export ${count} selected XForm${count === 1 ? '' : 's'}`;
-        exportBtn.querySelector('span').textContent = count === 1 ? "Export Selected" : `Export ${count} Selected`;
+        if (spanInButton) { // <-- ADD GUARD
+            spanInButton.textContent = count === 1 ? "Export Selected" : `Export ${count} Selected`;
+        }
     } else {
         exportBtn.disabled = false; 
         exportBtn.title = "Export All XForms";
-        exportBtn.querySelector('span').textContent = "Export All";
+        if (spanInButton) { // <-- ADD GUARD
+            spanInButton.textContent = "Export All";
+        }
     }
-    console.log(`DEBUG: updateExportButtonState - set disabled=${exportBtn.disabled} (selected count: ${count})`); // Added log
+    // console.log(`DEBUG: updateExportButtonState - set disabled=${exportBtn.disabled} (selected count: ${count})`);
 }
 
 // Initialize the selection mechanism
@@ -2141,7 +2152,7 @@ function initializeXformNameController() {
             this._xformName = '';
             this._updateTimer = null; 
             
-            // No explicit binding needed with arrow functions
+            console.log('XformNameController: Constructor called.'); // Added log
             
             // Initialize
             if (!this.xformNameInput) {
@@ -2163,21 +2174,33 @@ function initializeXformNameController() {
         
         // --- Event Listener Setup (using arrow function) ---
         _setupEventListeners = () => {
-            this.atmButton.addEventListener('click', () => this._setMode(true)); 
-            this.memButton.addEventListener('click', () => this._setMode(false));
+            console.log('XformNameController: _setupEventListeners called.'); // Added log
+            this.atmButton.addEventListener('click', () => {
+                console.log('XformNameController: ATM button clicked.'); // Added log
+                this._setMode(true);
+            }); 
+            this.memButton.addEventListener('click', () => {
+                console.log('XformNameController: MEM button clicked.'); // Added log
+                this._setMode(false);
+            });
             
             this.xformNameInput.addEventListener('click', () => {
+                console.log('XformNameController: xformNameInput clicked.'); // Added log
                 if (this._isATMMode) {
+                    console.log('XformNameController: Switching to MEM mode from input click.'); // Added log
                     this._setMode(false); 
                     this.xformNameInput.select();
                 }
             });
             
             this.xformNameInput.addEventListener('input', () => {
+                // Added log for input event
+                console.log(`XformNameController: xformNameInput 'input' event. Current mode ATM: ${this._isATMMode}, New value: "${this.xformNameInput.value}"`);
                 if (!this._isATMMode) {
                     this._xformName = this.xformNameInput.value; 
                     localStorage.setItem('xformMaker_filenameValue', this._xformName);
                     window.currentXFormName = this._xformName; 
+                    console.log(`XformNameController: MEM mode name updated to "${this._xformName}" and saved to localStorage/window.`); // Added log
                 }
             });
             
@@ -2214,81 +2237,92 @@ function initializeXformNameController() {
         
         // --- Private Implementation Methods (using arrow functions) ---
         _setMode = (useATM, initializing = false) => {
+            // Added detailed log for _setMode
+            console.log(`XformNameController: _setMode called. Requested ATM: ${useATM}, Initializing: ${initializing}, Current ATM: ${this._isATMMode}`);
             const newModeIsATM = !!useATM;
-            // Prevent unnecessary updates if mode is already set, unless initializing
-            if (!initializing && this._isATMMode === newModeIsATM) return; 
+            if (!initializing && this._isATMMode === newModeIsATM) {
+                console.log('XformNameController: _setMode - Mode already set, no change.'); // Added log
+                return; 
+            }
 
             this._isATMMode = newModeIsATM;
-            window.isXformNamingModeATM = this._isATMMode; // Update global state
-            this._updateUI(); // Update button classes and input readonly state
+            window.isXformNamingModeATM = this._isATMMode; 
+            this._updateUI();
             
             if (this._isATMMode) {
                 this._startTimer();
-                this._updateATMFilename(); // Call immediately when switching TO ATM
+                this._updateATMFilename(); 
                 localStorage.setItem('xformMaker_xformNamingMode', 'ATM');
+                console.log('XformNameController: Switched to ATM mode.'); // Added log
             } else {
-                // ADD LOG HERE
-                console.log(`XformNameController: _setMode(false) - Current timer ID BEFORE stopping: ${this._updateTimer}`); 
-                this._stopTimer(); // Stop clock
-                // Restore last manually entered value if available, otherwise use current name
+                console.log(`XformNameController: Switching to MEM mode. Current timer ID BEFORE stopping: ${this._updateTimer}`); 
+                this._stopTimer(); 
                 const savedManualName = localStorage.getItem('xformMaker_filenameValue');
-                this._setName(savedManualName || window.currentXFormName || 'Untitled XForm'); 
+                const nameToSet = savedManualName || window.currentXFormName || 'Untitled XForm';
+                console.log(`XformNameController: MEM mode - name to set: "${nameToSet}" (from saved: "${savedManualName}", from window: "${window.currentXFormName}")`); // Added log
+                this._setName(nameToSet); 
                 localStorage.setItem('xformMaker_xformNamingMode', 'MEM');
+                console.log('XformNameController: Switched to MEM mode.'); // Added log
             }
             
             if (!initializing) {
-                 console.log(`XformNameController: Mode set to ${this._isATMMode ? 'ATM' : 'MEM'}`);
+                 console.log(`XformNameController: Mode set to ${this._isATMMode ? 'ATM' : 'MEM'} (final confirmation).`);
             }
         }
         
         _setName = (name) => {
+             // Added log for _setName
+             console.log(`XformNameController: _setName called with "${name}". Current _xformName: "${this._xformName}"`);
              if (this._xformName !== name) {
                  this._xformName = name;
                  if (this.xformNameInput) {
                     this.xformNameInput.value = name;
+                    console.log(`XformNameController: _setName - Updated input field value to "${name}"`); // Added log
                  }
-                 window.currentXFormName = name; // Sync global
-                 // Persist manual name only if in MEM mode
+                 window.currentXFormName = name; 
                  if (!this._isATMMode) {
                      localStorage.setItem('xformMaker_filenameValue', name);
+                     console.log(`XformNameController: _setName - In MEM mode, saved "${name}" to localStorage.`); // Added log
                  }
-                 // Notify subscribers if implemented
              }
         }
         
         _updateUI = () => {
+            // Added log for _updateUI
+            console.log(`XformNameController: _updateUI called. Current ATM: ${this._isATMMode}`);
             if (this.atmButton && this.memButton) {
                 this.atmButton.classList.toggle('active', this._isATMMode);
                 this.memButton.classList.toggle('active', !this._isATMMode);
+                console.log(`XformNameController: _updateUI - ATM button active: ${this._isATMMode}, MEM button active: ${!this._isATMMode}`); // Added log
             }
             if (this.xformNameInput) {
                 this.xformNameInput.readOnly = this._isATMMode;
                 this.xformNameInput.classList.toggle('time-based-name', this._isATMMode);
+                console.log(`XformNameController: _updateUI - Input field readOnly: ${this._isATMMode}, has class 'time-based-name': ${this._isATMMode}`); // Added log
             }
         }
         
         _updateATMFilename = () => {
             if (!this._isATMMode) return;
             const now = new Date();
-            const dateStr = now.toISOString().slice(0, 10); // YYYY-MM-DD
-            const timeStr = now.toTimeString().slice(0, 8); // HH:MM:SS
-            // REMOVE Prepend marker
+            const dateStr = now.toISOString().slice(0, 10); 
+            const timeStr = now.toTimeString().slice(0, 8); 
             this._setName(`${dateStr} ${timeStr}`); 
         }
         
         _startTimer = () => {
             this._stopTimer(); 
             this._updateTimer = setInterval(this._updateATMFilename, 1000);
-            console.log("XformNameController: Timer STARTED with interval ID:", this._updateTimer); // <-- ADD LOG
+            console.log("XformNameController: Timer STARTED with interval ID:", this._updateTimer);
         }
         _stopTimer = () => {
             if (this._updateTimer) {
-                console.log("XformNameController: Attempting to STOP timer with interval ID:", this._updateTimer); // <-- ADD LOG
+                console.log("XformNameController: Attempting to STOP timer with interval ID:", this._updateTimer);
                 clearInterval(this._updateTimer);
-                this._updateTimer = null; // Clear the reference
-                console.log("XformNameController: Timer STOPPED."); // <-- ADD LOG
+                this._updateTimer = null; 
+                console.log("XformNameController: Timer STOPPED.");
             } else {
-                 console.log("XformNameController: Stop timer called, but no active timer ID found."); // <-- ADD LOG
+                 console.log("XformNameController: Stop timer called, but no active timer ID found.");
             }
         }
     }
@@ -2432,40 +2466,45 @@ window.loadXFormFromDB = loadXFormFromDB; // Ensure it's globally accessible
 // === Initialization ===
 // Call this function when the application starts
 async function initializeDBAndUI() {
+    // const debugOutputDiv = document.getElementById('init-debug-output'); // REMOVE
+    // const logToPage = (message) => { ... }; // REMOVE
+
     try {
-        console.log('%cDB INIT: Initializing IndexedDB and UI... ', 'color: purple; font-weight: bold;');
-        
-        // Check if a reset is pending from a previous blocked attempt
+        console.log('%cDB INIT (xform-indexeddb.js): Entered initializeDBAndUI function.', 'color: purple; font-weight: bold;');
+
         if (localStorage.getItem('pendingDbReset') === 'true') {
             localStorage.removeItem('pendingDbReset');
             console.log('%cDB INIT: Pending DB reset detected, attempting reset now...', 'color: orange; font-weight: bold;');
-            await resetDatabase(); // Attempt the reset again
+            await resetDatabase();
         } else {
-            // Normal DB opening process
+            console.log('%cDB INIT: Calling openDB()...', 'color: purple;');
             await openDB();
-            console.log('%cDB INIT: Database opened successfully.', 'color: purple;');
+            console.log('%cDB INIT: openDB() call completed.', 'color: purple;');
         }
 
-        // Render the list of saved X-Forms
-        await renderXFormList(); // Initial render sorted by last modified desc
+        console.log('%cDB INIT: Calling renderXFormList()...', 'color: purple;');
+        await renderXFormList();
         console.log('%cDB INIT: Initial X-Form list rendered.', 'color: purple;');
 
-        // Initialize selection logic
+        console.log('%cDB INIT: Calling initializeXFormSelection()...', 'color: purple;');
         initializeXFormSelection();
         console.log('%cDB INIT: X-Form selection initialized.', 'color: purple;');
 
-        // Setup the DB reset button listener
+        console.log('%cDB INIT: Calling initDbResetButton()...', 'color: purple;');
         initDbResetButton();
+        console.log('%cDB INIT: initDbResetButton() completed.', 'color: purple;');
 
     } catch (error) {
-        console.error('%cDB INIT: FATAL - Failed to initialize database or UI:', 'color: red; font-weight: bold;', error);
-        // Display a user-friendly error message
-        const errorArea = document.getElementById('app-error-display'); // Assuming an element exists for this
+        // Restore console.error for the actual error
+        console.error('%cDB INIT (xform-indexeddb.js): FATAL - Failed to initialize database or UI:', 'color: red; font-weight: bold;', error);
+        
+        const errorArea = document.getElementById('app-error-display');
         if (errorArea) {
-            errorArea.textContent = "Critical Error: Could not initialize the application database. Please try refreshing the page or clearing application data.";
+            errorArea.textContent = "Critical Error: Could not initialize DB. (Code: E04)"; // New ID for final version
             errorArea.style.display = 'block';
         } else {
-            alert("Critical Error: Could not initialize the application database. Please try refreshing the page.");
+            alert("Critical Error: Could not initialize DB. (Code: A04)"); // New ID for final version
         }
+        throw error; // Re-throw the error so script.js's catch handler can also see it.
     }
 }

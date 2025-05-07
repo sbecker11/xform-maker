@@ -70,213 +70,133 @@ function setupNamingMode() {
     console.log('Setting up name mode handlers...');
 
     // Function to UPDATE UI based on current mode (ATM or MEM)
-    function updateNamingModeUI(isATM) {
-        console.log(`DEBUG: updateNamingModeUI called with isATM = ${isATM}`);
-        atmButton.classList.toggle('active', isATM);
-        memButton.classList.toggle('active', !isATM);
+    // function updateNamingModeUI(isATM) { // <-- COMMENTED OUT
+    //     console.log(`DEBUG: updateNamingModeUI called with isATM = ${isATM}`);
+    //     atmButton.classList.toggle('active', isATM);
+    //     memButton.classList.toggle('active', !isATM);
         
-        xformNameInput.readOnly = isATM;
-        xformNameInput.classList.toggle('time-based-name', isATM);
+    //     xformNameInput.readOnly = isATM; // <-- Key conflict point
+    //     xformNameInput.classList.toggle('time-based-name', isATM);
         
-        // Enable/disable buttons based on mode
-        atmButton.disabled = false; // Always clickable
-        memButton.disabled = false; // Always clickable
+    //     atmButton.disabled = false; 
+    //     memButton.disabled = false; 
         
-        updateSaveButtonState(); // Update save button state whenever mode changes
-        console.log(`DEBUG: updateNamingModeUI finished.`);
-    }
+    //     updateSaveButtonState(); 
+    //     console.log(`DEBUG: updateNamingModeUI finished.`);
+    // }
 
-    // --- Event Listeners ---
+    // --- Event Listeners (COMMENTED OUT as controller should handle them) ---
     
-    // ATM Button Click
-    atmButton.addEventListener('click', () => {
-        if (!window.isNamingModeATM) {
-            console.log('Switching to ATM');
-            window.isNamingModeATM = true;
-            localStorage.setItem(XFORM_NAMING_MODE_KEY, 'ATM');
-            updateNamingModeUI(true);
-            // Timer is handled by controller
-            // updateTimeBasedXformName(); // REMOVED
-            // startXformNameTimer();      // REMOVED
-        }
-    });
+    // // ATM Button Click
+    // atmButton.addEventListener('click', () => {
+    //     if (!window.isNamingModeATM) {
+    //         console.log('Switching to ATM');
+    //         window.isNamingModeATM = true;
+    //         localStorage.setItem(XFORM_NAMING_MODE_KEY, 'ATM');
+    //         // updateNamingModeUI(true); // UI update handled by controller
+    //     }
+    // });
     
-    // MEM Button Click
-    memButton.addEventListener('click', () => {
-        if (window.isNamingModeATM) {
-            console.log('Switching to MEM');
-            window.isNamingModeATM = false;
-            localStorage.setItem(XFORM_NAMING_MODE_KEY, 'MEM');
-            // Timer is handled by controller
-            // stopXformNameTimer(); // REMOVED
-            updateNamingModeUI(false);
-            localStorage.setItem(XFORM_NAMING_VALUE_KEY, xformNameInput.value);
-            xformNameInput.focus();
-            xformNameInput.select();
-        }
-    });
+    // // MEM Button Click
+    // memButton.addEventListener('click', () => {
+    //     if (window.isNamingModeATM) {
+    //         console.log('Switching to MEM');
+    //         window.isNamingModeATM = false;
+    //         localStorage.setItem(XFORM_NAMING_MODE_KEY, 'MEM');
+    //         // updateNamingModeUI(false); // UI update handled by controller
+    //         localStorage.setItem(XFORM_NAMING_VALUE_KEY, xformNameInput.value);
+    //         xformNameInput.focus();
+    //         xformNameInput.select();
+    //     }
+    // });
     
-    // Input Field Click (Switch to MEM if in ATM)
-    xformNameInput.addEventListener('click', () => {
-        if (window.isNamingModeATM) {
-            console.log('Input clicked while in ATM, switching to MEM');
-            memButton.click(); // Simulate clicking the MEM button
-        }
-    });
+    // // Input Field Click (Switch to MEM if in ATM)
+    // xformNameInput.addEventListener('click', () => {
+    //     if (window.isNamingModeATM) {
+    //         console.log('Input clicked while in ATM, switching to MEM');
+    //         // memButton.click(); // Controller should handle this logic
+    //     }
+    // });
     
-    // Input Field Typing (Update save state and persist value in MEM)
-    xformNameInput.addEventListener('input', () => {
-        if (!window.isNamingModeATM) {
-            localStorage.setItem(XFORM_NAMING_VALUE_KEY, xformNameInput.value);
-            updateSaveButtonState(); // Enable/disable save based on content
-        }
-    });
+    // // Input Field Typing (Update save state and persist value in MEM)
+    // xformNameInput.addEventListener('input', () => {
+    //     if (!window.isNamingModeATM) {
+    //         localStorage.setItem(XFORM_NAMING_VALUE_KEY, xformNameInput.value);
+    //         updateSaveButtonState(); 
+    //     }
+    // });
     
-    // Save Button Click
+    // Save Button Click (This might be okay to keep if it only calls window.saveCurrentXForm)
     saveXformButton.addEventListener('click', () => {
-        // Restore first part
-        console.log("DEBUG: Save button event listener fired!"); 
-        console.log("Save button clicked!"); 
+        console.log("DEBUG: Save button event listener fired! (from xform-naming-mode.js)"); 
         const name = xformNameInput.value || 'Untitled XForm'; 
-        console.log(`DEBUG: Got name: ${name}`); 
 
-        // Restore the save call block
         if (typeof window.saveCurrentXForm === 'function') { 
-            console.log("DEBUG: Calling window.saveCurrentXForm..."); 
+            console.log("DEBUG: Calling window.saveCurrentXForm... (from xform-naming-mode.js)"); 
             window.saveCurrentXForm().then(savedForm => {
                 if (savedForm) {
-                    console.log(`DEBUG: saveCurrentXForm() promise resolved successfully for "${name}".`);
-                    console.log(`Saved X-Form: "${name}"`);
+                    console.log(`DEBUG: saveCurrentXForm() promise resolved successfully for \"${name}\".`);
                 } else {
-                    console.warn(`DEBUG: saveCurrentXForm() promise resolved but returned null/falsy for "${name}".`);
+                    console.warn(`DEBUG: saveCurrentXForm() promise resolved but returned null/falsy for \"${name}\".`);
                 }
             }).catch(err => {
-                // Add logging for promise rejection
-                console.error(`DEBUG: Error occurred within saveCurrentXForm() promise for "${name}":`, err);
+                console.error(`DEBUG: Error occurred within saveCurrentXForm() promise for \"${name}\":`, err);
             });
         } else {
-            console.error('saveCurrentXForm function not available');
+            console.error('saveCurrentXForm function not available (called from xform-naming-mode.js)');
         }
-        
-        // --- TEMPORARILY SIMPLIFIED --- 
-        // console.log("DEBUG: Save button event listener fired! (Simplified Check)"); 
-        // -----------------------------
     });
     
     // --- Initial State Setup ---
-    console.log("DEBUG: Starting initial state setup...");
+    // This part might still be useful if the controller doesn't load early enough,
+    // or it could be fully managed by the controller. For now, let it set the initial global flag.
+    console.log("DEBUG: Starting initial state setup... (in xform-naming-mode.js)");
     let savedMode = null;
     try {
         savedMode = localStorage.getItem(XFORM_NAMING_MODE_KEY) || 'ATM';
-        console.log(`DEBUG: localStorage got XFORM_NAMING_MODE_KEY: ${savedMode}`);
     } catch (e) {
         console.error("DEBUG: Error reading XFORM_NAMING_MODE_KEY from localStorage!", e);
-        savedMode = 'ATM'; // Default on error
+        savedMode = 'ATM';
     }
 
     window.isNamingModeATM = (savedMode === 'ATM');
-    console.log(`DEBUG: Initial mode set to: ${window.isNamingModeATM ? 'ATM' : 'MEM'}`);
+    console.log(`DEBUG: Initial mode (from localStorage in xform-naming-mode.js) set to: ${window.isNamingModeATM ? 'ATM' : 'MEM'}`);
 
-    if (!window.isNamingModeATM) {
-        console.log("DEBUG: Setting initial MEM mode name...");
-        let savedXformName = 'New X-Form'; // Default
-        try {
-            savedXformName = localStorage.getItem(XFORM_NAMING_VALUE_KEY) || savedXformName;
-            console.log(`DEBUG: localStorage got XFORM_NAMING_VALUE_KEY: ${savedXformName}`);
-            xformNameInput.value = savedXformName;
-        } catch (e) {
-            console.error("DEBUG: Error reading XFORM_NAMING_VALUE_KEY from localStorage!", e);
-            xformNameInput.value = savedXformName; // Use default on error
-        }
-        console.log("DEBUG: Initial MEM name set.");
-    }
+    // The controller should handle setting the input value and UI on init.
+    // if (!window.isNamingModeATM) {
+    //     console.log("DEBUG: Setting initial MEM mode name... (in xform-naming-mode.js)");
+    //     let savedXformName = 'New X-Form'; 
+    //     try {
+    //         savedXformName = localStorage.getItem(XFORM_NAMING_VALUE_KEY) || savedXformName;
+    //         xformNameInput.value = savedXformName;
+    //     } catch (e) {
+    //         xformNameInput.value = savedXformName; 
+    //     }
+    // }
     
-    console.log("DEBUG: Calling updateNamingModeUI for initial setup...");
-    updateNamingModeUI(window.isNamingModeATM);
-    console.log("DEBUG: updateNamingModeUI call finished.");
-
-    console.log("DEBUG: Calling updateSaveButtonState...");
-    updateSaveButtonState(); // Ensure button state is correct initially
-
-    console.log('XformName mode setup complete.');
-
-    // --- Attach Listeners AFTER setup --- 
-    // NOTE: We keep the listener attachment here, even though the controller might also attach
-    // similar listeners. This ensures the core mode switching UI works even if the controller
-    // fails to initialize for some reason. The controller's internal state management should 
-    // override if it loads successfully.
-    console.log("DEBUG: Attaching event listeners in setupNamingMode..."); 
-
-    // ATM Button Click Listener (Remains)
-    atmButton.addEventListener('click', () => {
-        if (!window.isNamingModeATM) {
-            console.log('Switching to ATM (via setupNamingMode listener)');
-            window.isNamingModeATM = true;
-            localStorage.setItem(XFORM_NAMING_MODE_KEY, 'ATM');
-            updateNamingModeUI(true);
-            // Timer is handled by controller
-            // updateTimeBasedXformName(); // REMOVED
-            // startXformNameTimer();      // REMOVED
-        }
-    });
+    // updateNamingModeUI(window.isNamingModeATM); // Controller handles UI
     
-    // MEM Button Click Listener (Remains)
-    memButton.addEventListener('click', () => {
-        if (window.isNamingModeATM) {
-            console.log('Switching to MEM (via setupNamingMode listener)');
-            window.isNamingModeATM = false;
-            localStorage.setItem(XFORM_NAMING_MODE_KEY, 'MEM');
-            // Timer is handled by controller
-            // stopXformNameTimer(); // REMOVED
-            updateNamingModeUI(false);
-            localStorage.setItem(XFORM_NAMING_VALUE_KEY, xformNameInput.value);
-            xformNameInput.focus();
-            xformNameInput.select();
-        }
-    });
-    
-    // Input Field Click Listener (Remains)
-    xformNameInput.addEventListener('click', () => {
-        if (window.isNamingModeATM) {
-            console.log('Input clicked while in ATM, switching to MEM (via setupNamingMode listener)');
-            memButton.click(); 
-        }
-    });
-    
-    // Input Field Typing Listener (Remains)
-    xformNameInput.addEventListener('input', () => {
-        if (!window.isNamingModeATM) {
-            localStorage.setItem(XFORM_NAMING_VALUE_KEY, xformNameInput.value);
-            updateSaveButtonState();
-        }
-    });
-    
-    // Save Button Click Listener (Remains)
-    saveXformButton.addEventListener('click', () => {
-        // Restore first part
-        console.log("DEBUG: Save button event listener fired! (from setupNamingMode)"); 
-        console.log("Save button clicked! (from setupNamingMode)"); 
-        const name = xformNameInput.value || 'Untitled XForm'; 
-        console.log(`DEBUG: Got name: ${name} (from setupNamingMode)`); 
+    updateSaveButtonState();
 
-        // Restore the save call block
-        if (typeof window.saveCurrentXForm === 'function') { 
-            console.log("DEBUG: Calling window.saveCurrentXForm... (from setupNamingMode)"); 
-            window.saveCurrentXForm().then(savedForm => {
-                if (savedForm) {
-                    console.log(`DEBUG: saveCurrentXForm() promise resolved successfully for "${name}". (from setupNamingMode)`);
-                    console.log(`Saved X-Form: "${name}" (from setupNamingMode)`);
-                } else {
-                    console.warn(`DEBUG: saveCurrentXForm() promise resolved but returned null/falsy for "${name}". (from setupNamingMode)`);
-                }
-            }).catch(err => {
-                console.error(`DEBUG: Error occurred within saveCurrentXForm() promise for "${name}":`, err);
-            });
-        } else {
-            console.error('saveCurrentXForm function not available (from setupNamingMode)');
-        }
-    });
-    console.log("DEBUG: Event listeners attached in setupNamingMode.");
+    console.log('XformName mode setup (partially NOPed) complete in xform-naming-mode.js.');
+    
+    // Event listeners below were duplicates and are fully commented out.
+    // The XformNameController in xform-indexeddb.js should be the sole manager
+    // for these button clicks and input field interactions related to mode switching.
+
+    // console.log("DEBUG: Attaching event listeners in setupNamingMode (now NOPed)..."); 
+
+    // // ATM Button Click Listener (COMMENTED OUT)
+    // // memButton.addEventListener('click', () => { ... });
+    
+    // // MEM Button Click Listener (COMMENTED OUT)
+    // // xformNameInput.addEventListener('click', () => { ... });
+    
+    // // Input Field Click Listener (COMMENTED OUT)
+    // // xformNameInput.addEventListener('click', () => { ... });
+    
+    // // Input Field Typing Listener (COMMENTED OUT)
+    // // xformNameInput.addEventListener('input', () => { ... });
 }
 
 // Ensure the core setup function is still exported

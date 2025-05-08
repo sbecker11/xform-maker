@@ -26,6 +26,7 @@ window.dragStartX = 0;      // Initial element style.left
 window.dragStartY = 0;      // Initial element style.top
 window.dragInitialMouseX = 0; // Mouse X on mousedown
 window.dragInitialMouseY = 0; // Mouse Y on mousedown
+window.mouseDownStartTime = 0;  // Timestamp of mousedown event
 
 // --- Fallback Implementations for Potentially Missing Functions ---
 // These prevent console errors when the functions are not defined elsewhere
@@ -226,82 +227,104 @@ function cleanupDragState(eventSource) {
     console.log(`cleanupDragState: Listeners removed from WINDOW and flags reset.`);
 }
 
-// *** Global Mouse Up Handler (Simplified) ***
+// *** Global Mouse Up Handler (Simplified & Click Detection Added) ***
 function globalMouseUpHandler(e) {
-    // Only proceed if a drag was actually happening
+    // Only proceed if a drag was actually initiated
     if (!window.draggedElement) {
         console.log("globalMouseUpHandler: Exiting, no element was being dragged.");
         return; 
     }
 
-    window.lastMouseUpTime = Date.now(); 
-    console.log(`globalMouseUpHandler: mouseup for ${window.draggedElement.id || 'waypoint'} at time ${window.lastMouseUpTime}`);
-    let wasWaypointDrag = false;
-    const element = window.draggedElement; // Capture element before potential deletion/reset
+    const releasedElement = window.draggedElement; // Capture element before potential deletion/reset
+    const endTime = Date.now();
+    const startTime = window.mouseDownStartTime || endTime; // Use endTime if startTime wasn't set
+    const duration = endTime - startTime;
+    window.lastMouseUpTime = endTime; 
+    
+    // Calculate distance mouse moved during the potential drag
+    const dx = e.clientX - window.dragInitialMouseX;
+    const dy = e.clientY - window.dragInitialMouseY;
+    const distanceMoved = Math.sqrt(dx*dx + dy*dy);
 
-    // Handle waypoint drop/delete
-    if (element.classList.contains('point-marker')) {
-        wasWaypointDrag = true;
+    // Define thresholds for differentiating a click from a drag
+    const CLICK_DURATION_THRESHOLD = 200; // milliseconds
+    const CLICK_DISTANCE_THRESHOLD = 5;   // pixels
+
+    let isConsideredClick = false;
+    let wasWaypointInteraction = releasedElement.classList.contains('point-marker');
+
+    console.log(`globalMouseUpHandler: mouseup for ${releasedElement.id || 'waypoint'}. Duration: ${duration}ms, Distance: ${distanceMoved.toFixed(1)}px`);
+
+    // --- Check if it was a click on startRect ---    
+    if (releasedElement.id === 'startRect' && 
+        duration < CLICK_DURATION_THRESHOLD && 
+        distanceMoved < CLICK_DISTANCE_THRESHOLD) 
+    {
+        console.log("🖱️ Click detected on startRect!");
+        isConsideredClick = true;
+        // Trigger the animation
+        if (typeof applyXFormAnimation === 'function') {
+            applyXFormAnimation();
+        } else {
+            console.error("Cannot start animation - applyXFormAnimation function not found.");
+        }
+        // We *don't* update position data or save state for a simple click
+
+    } else if (wasWaypointInteraction) {
+        // --- Handle waypoint drop/delete --- (existing logic)
         const index = window.draggingPointIndex;
-        
         if (index >= 0 && index < window.intermediatePoints.length) {
-            // Calculate final position and check if center is outside viewport
-            const finalX = parseFloat(element.style.left || '0');
-            const finalY = parseFloat(element.style.top || '0');
+            // ... (logic for checking if outside viewport, deleting or updating position) ...
+            const finalX = parseFloat(releasedElement.style.left || '0');
+            const finalY = parseFloat(releasedElement.style.top || '0');
             const vpRect = window.viewport.getBoundingClientRect();
-            // Get element dimensions for center calculation and clamping
-            const elStyleWidth = parseFloat(element.style.width) || 15; // Fallback if style not set
-            const elStyleHeight = parseFloat(element.style.height) || 15;// Use computed style if needed? element.offsetWidth?
+            const elStyleWidth = parseFloat(releasedElement.style.width) || 8; // Use waypoint size default
+            const elStyleHeight = parseFloat(releasedElement.style.height) || 8;
             const elCenterX = finalX + elStyleWidth / 2;
             const elCenterY = finalY + elStyleHeight / 2;
             const isElementCenterOutside = elCenterX < 0 || elCenterX > vpRect.width || elCenterY < 0 || elCenterY > vpRect.height;
 
-            // *** Simplified Decision Logic: Delete ONLY if element center is outside ***
             if (isElementCenterOutside) {
                 console.log(`Deleting waypoint index ${index}. Reason: Element center ended outside viewport (${elCenterX.toFixed(1)}, ${elCenterY.toFixed(1)}).`);
-                // *** Call the global function ***
-                window.deleteWaypoint(index);
-                window.selectedPointIndex = -1; // Deselect
+                window.deleteWaypoint(index); // Use global delete function
+                window.selectedPointIndex = -1;
             } else {
-                // Update waypoint position (dropped inside)
-                // Clamp position data before saving 
                 const clampedX = Math.max(0, Math.min(finalX, vpRect.width - elStyleWidth));
                 const clampedY = Math.max(0, Math.min(finalY, vpRect.height - elStyleHeight));
-
-                // Ensure data is updated *before* snapping element style
                 window.intermediatePoints[index].x = clampedX;
                 window.intermediatePoints[index].y = clampedY;
                 console.log(`Updated intermediatePoints[${index}] data to clamped: (${clampedX.toFixed(1)}, ${clampedY.toFixed(1)})`);
-                window.selectedPointIndex = index; // Keep selected
-
-                // Snap element style back to clamped position
-                element.style.left = `${clampedX}px`;
-                element.style.top = `${clampedY}px`;
+                window.selectedPointIndex = index;
+                releasedElement.style.left = `${clampedX}px`; // Snap element
+                releasedElement.style.top = `${clampedY}px`;
             }
         } else {
             console.warn('Could not update or delete waypoint data - invalid index:', index);
         }
+
+    } else if (releasedElement.id === 'startRect' || releasedElement.id === 'endRect') {
+        // --- Handle rectangle drag completion --- (Position already updated by globalMouseMoveHandler)
+        console.log(`Drag finished for ${releasedElement.id}. Final position applied by mousemove.`);
+        // Optionally clamp position here if needed, though mousemove might not do it.
+        // Update path visualization and save state (only if it wasn't a click)
+        const pathVis = document.getElementById('path-visualization');
+        if (pathVis && typeof drawPathVisualization === 'function') {
+            drawPathVisualization();
+        }
+        if (typeof window.saveCurrentState === 'function') {
+            window.saveCurrentState();
+            console.log("Current state saved after rectangle drag operation.");
+        }
     }
 
-    // Update path visualization
-    const pathVis = document.getElementById('path-visualization');
-    if (pathVis && typeof drawPathVisualization === 'function') {
-        drawPathVisualization();
-    }
+    // Call the cleanup function regardless of click or drag
+    // Pass the source for better debugging
+    cleanupDragState(`globalMouseUpHandler (${isConsideredClick ? 'click' : 'drag'})`);
 
-    // Save state 
-    if (typeof window.saveCurrentState === 'function') {
-        window.saveCurrentState();
-        console.log("Current state saved after drag operation.");
-    }
-
-    // Call the cleanup function
-    cleanupDragState('globalMouseUpHandler');
-
-    // Stop propagation 
-    if (wasWaypointDrag) {
+    // Stop propagation if it was a waypoint interaction to prevent potential viewport clicks
+    if (wasWaypointInteraction) {
         e.stopPropagation();
-        console.log("globalMouseUpHandler: Stopped propagation after waypoint drag mouseup.");
+        console.log("globalMouseUpHandler: Stopped propagation after waypoint interaction mouseup.");
     }
 }
 
@@ -735,6 +758,9 @@ function makeDraggable(element) {
              return;
         }
 
+        // Record timestamp for click vs. drag detection
+        window.mouseDownStartTime = Date.now(); 
+        
         dragJustHappened = true; 
         console.log(`makeDraggable: Set dragJustHappened = true`);
 
@@ -748,7 +774,6 @@ function makeDraggable(element) {
         // Store initial positions and mouse coordinates globally
         const rect = element.getBoundingClientRect();
         const viewportRect = window.viewport.getBoundingClientRect();
-        // Use parseFloat for potentially non-integer initial positions
         window.dragStartX = parseFloat(element.style.left || '0'); 
         window.dragStartY = parseFloat(element.style.top || '0');
         window.dragInitialMouseX = e.clientX;

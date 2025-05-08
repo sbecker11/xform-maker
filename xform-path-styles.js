@@ -85,7 +85,8 @@ function addPathVisualizationStyles () {
   const thickness = window.pathThickness || 2;
   style.textContent = `
     .path-visualization{position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:4}
-    .path-line{stroke:rgba(65,105,225,.7);fill:none;stroke-width:${thickness}px}
+    /* REMOVED stroke-width from here - it will be set directly on the path element */
+    .path-line{stroke:rgba(65,105,225,.7);fill:none;/* stroke-width removed */}
     .path-line.dotted{stroke-dasharray:2,5}
     .path-line.dashed{stroke-dasharray:10,5}
     .path-marker-circle{fill:rgba(65,105,225,.5);stroke:rgba(65,105,225,.9);stroke-width:1px}
@@ -132,6 +133,11 @@ function applyPathStyle (style) {
     let d=`M ${finalPoints[0].x},${finalPoints[0].y}`;
     for(let i=1;i<finalPoints.length;i++) d+=` L ${finalPoints[i].x},${finalPoints[i].y}`;
     path.setAttribute('d',d);
+    
+    const currentWidth = window.pathLineWidth || 1;
+    console.log(`[Style] Applying stroke-width: ${currentWidth} to connector path`);
+    path.setAttribute('stroke-width', currentWidth);
+
     svg.appendChild(path);
   };
 
@@ -142,8 +148,13 @@ function applyPathStyle (style) {
     let d=`M ${finalPoints[0].x},${finalPoints[0].y}`;
     for(let i=1;i<finalPoints.length;i++) d+=` L ${finalPoints[i].x},${finalPoints[i].y}`;
     path.setAttribute('d',d);
-        svg.appendChild(path);
-    }
+
+    const currentWidth = window.pathLineWidth || 1;
+    console.log(`[Style] Applying stroke-width: ${currentWidth} to main styled path`);
+    path.setAttribute('stroke-width', currentWidth);
+
+    svg.appendChild(path);
+  }
   if(style==='circles'){
     drawConnectorLine();
     finalPoints.forEach((p,i)=>{

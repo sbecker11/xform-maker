@@ -2272,17 +2272,17 @@ function initializeXformNameController() {
         
         _setName = (name) => {
              // Added log for _setName
-             console.log(`XformNameController: _setName called with "${name}". Current _xformName: "${this._xformName}"`);
+             //console.log(`XformNameController: _setName called with "${name}". Current _xformName: "${this._xformName}"`);
              if (this._xformName !== name) {
                  this._xformName = name;
                  if (this.xformNameInput) {
                     this.xformNameInput.value = name;
-                    console.log(`XformNameController: _setName - Updated input field value to "${name}"`); // Added log
+                    //console.log(`XformNameController: _setName - Updated input field value to "${name}"`); // Added log
                  }
                  window.currentXFormName = name; 
                  if (!this._isATMMode) {
                      localStorage.setItem('xformMaker_filenameValue', name);
-                     console.log(`XformNameController: _setName - In MEM mode, saved "${name}" to localStorage.`); // Added log
+                    //  console.log(`XformNameController: _setName - In MEM mode, saved "${name}" to localStorage.`); // Added log
                  }
              }
         }
@@ -2507,4 +2507,351 @@ async function initializeDBAndUI() {
         }
         throw error; // Re-throw the error so script.js's catch handler can also see it.
     }
+}
+
+function handleViewportClick(event) {
+    // Check if a drag operation just ended. If so, ignore this click.
+    if (dragOperationJustEnded) {
+        console.log("handleViewportClick: Ignoring click because a drag operation just finished.");
+        return;
+    }
+
+    // If the click originated on a draggable rectangle or a waypoint marker, don't add a new waypoint.
+    const targetId = event.target.id;
+    const targetClasses = event.target.classList;
+    if (targetId === 'startRect' || targetId === 'endRect' || targetClasses.contains('point-marker')) {
+        console.log("handleViewportClick: Click originated on a draggable element (rect or marker), not adding new waypoint.");
+        return;
+    }
+
+    console.log("Viewport clicked! (This log means the event listener is firing)");
+
+    // --- Waypoint adding logic ---
+    // 1. Calculate waypoint coordinates from 'event' relative to the viewport
+    const viewportElement = event.target; // The viewport div IS the event target
+    const rect = viewportElement.getBoundingClientRect();
+    const newWaypointX = event.clientX - rect.left;
+    const newWaypointY = event.clientY - rect.top;
+
+    console.log(`Calculated waypoint coords: X=${newWaypointX.toFixed(2)}, Y=${newWaypointY.toFixed(2)}`);
+
+    const newWaypoint = { x: newWaypointX, y: newWaypointY };
+
+    // 2. Add the new waypoint to your global array
+    if (!window.intermediatePoints) { // Initialize if it doesn't exist
+        window.intermediatePoints = [];
+    }
+    window.intermediatePoints.push(newWaypoint);
+    console.log(`Waypoint added. Total waypoints: ${window.intermediatePoints.length}`);
+    // For more detailed inspection of the array contents:
+    // console.log("Current waypoints array:", JSON.stringify(window.intermediatePoints));
+
+    // 3. Create the visual marker for the waypoint on the screen
+    const marker = document.createElement('div');
+    marker.className = 'point-marker'; // Ensure .point-marker is styled in your CSS
+    marker.style.position = 'absolute';
+    // Set left/top directly. Centering will be handled by CSS transform.
+    marker.style.left = newWaypointX + 'px'; 
+    marker.style.top = newWaypointY + 'px';
+    
+    // Store the index of the waypoint on the marker element for later identification
+    marker.dataset.waypointIndex = window.intermediatePoints.length - 1; // Index of the just-added point
+
+    // Add mousedown listener for dragging this specific marker
+    marker.addEventListener('mousedown', onWaypointMouseDown);
+
+    viewportElement.appendChild(marker); // viewportElement is event.target from the click event
+    console.log("Visual marker element added to viewport with mousedown listener.");
+
+    // 4. AFTER adding the waypoint, update the counter and delete button state
+    if (typeof updateWaypointCounterFallback === 'function') {
+        updateWaypointCounterFallback();
+    } else {
+        console.error("updateWaypointCounterFallback function is not defined!");
+    }
+}
+
+// --- Example: How you might set up a delete button ---
+function setupDeleteWaypointButton() {
+    const deleteBtn = document.getElementById('deleteLastWaypointBtn');
+    if (deleteBtn) {
+        deleteBtn.addEventListener('click', () => {
+            console.log("Delete Last Waypoint button clicked."); // Existing log
+
+            if (window.intermediatePoints && window.intermediatePoints.length > 0) {
+                const removedPointData = window.intermediatePoints.pop(); // Remove data first
+                // --- NEW DEBUG LOGS START ---
+                console.log("DELETE MARKER DEBUG: Waypoint data popped from array. Remaining data points:", window.intermediatePoints.length);
+                console.log("DELETE MARKER DEBUG: Data of popped point:", JSON.stringify(removedPointData));
+
+                const viewportId = 'viewport'; // <<< IMPORTANT: Make sure this ID matches your actual viewport's ID in HTML
+                const viewportElement = document.getElementById(viewportId);
+
+                if (viewportElement) {
+                    console.log(`DELETE MARKER DEBUG: Successfully found viewport element with ID '${viewportId}'.`);
+                    const markers = viewportElement.getElementsByClassName('point-marker');
+                    console.log(`DELETE MARKER DEBUG: Found ${markers.length} elements with class 'point-marker' inside viewport.`);
+
+                    if (markers.length > 0) {
+                        const markerToRemove = markers[markers.length - 1];
+                        console.log("DELETE MARKER DEBUG: About to remove this marker element:", markerToRemove);
+                        markerToRemove.remove();
+                        console.log("DELETE MARKER DEBUG: Visual marker removed from viewport.");
+                    } else {
+                        console.warn("DELETE MARKER DEBUG: No '.point-marker' elements found in viewport to remove, even though data was popped.");
+                    }
+                } else {
+                    console.error(`DELETE MARKER DEBUG: CRITICAL - Viewport element with ID '${viewportId}' NOT found. Cannot remove visual marker.`);
+                }
+                // --- NEW DEBUG LOGS END ---
+            } else {
+                console.log("DELETE MARKER DEBUG: No waypoints in window.intermediatePoints array to delete.");
+            }
+
+            // AFTER deleting the waypoint, update the counter and delete button state
+            if (typeof updateWaypointCounterFallback === 'function') {
+                updateWaypointCounterFallback();
+            } else {
+                console.error("updateWaypointCounterFallback function is not defined!");
+            }
+        });
+        console.log("Event listener for 'click' attached to deleteLastWaypointBtn."); // Existing log
+    } else {
+        console.warn("Could not find the deleteLastWaypointBtn element to attach listener."); // Existing log
+    }
+}
+
+// Call this setup function when your page loads, after the button is in the DOM
+// For example, inside your main DOMContentLoaded listener:
+// document.addEventListener('DOMContentLoaded', function() {
+//     // ... other initializations ...
+//     setupDeleteWaypointButton();
+//     updateWaypointCounterFallback(); // Initial update
+// });
+
+// === Main Initialization ===
+document.addEventListener('DOMContentLoaded', async () => {
+    console.log("DOM fully loaded and parsed. Initializing application...");
+
+    // 1. Initialize Database and UI elements like the XForm list
+    try {
+        await initializeDBAndUI(); // This already exists in your file
+        console.log("initializeDBAndUI completed.");
+    } catch (error) {
+        console.error("Error during initializeDBAndUI:", error);
+        // Optionally display a critical error message to the user
+        const errorDisplay = document.getElementById('app-error-display'); // Ensure you have this element
+        if (errorDisplay) {
+            errorDisplay.textContent = "Critical error during application startup. Please try refreshing.";
+            errorDisplay.style.display = 'block';
+        }
+        return; // Stop further initialization if core setup fails
+    }
+
+    // 2. Setup Viewport Click Listener
+    const viewportElement = document.getElementById('viewport'); // <<< REVERTED ID TO 'viewport'
+    if (viewportElement) {
+        if (typeof handleViewportClick === 'function') {
+            viewportElement.addEventListener('click', handleViewportClick);
+            console.log("Event listener for 'click' on viewport attached.");
+        } else {
+            console.error("handleViewportClick function is NOT defined. Check script loading order and function definition.");
+        }
+    } else {
+        console.error("Viewport element with ID 'viewport' NOT found. Waypoint adding will not work.");
+    }
+
+    // 3. Setup Delete Waypoint Button
+    if (typeof setupDeleteWaypointButton === 'function') {
+        setupDeleteWaypointButton();
+        console.log("setupDeleteWaypointButton called.");
+    } else {
+        console.error("setupDeleteWaypointButton function is NOT defined.");
+    }
+
+    // 4. Initial Update for Waypoint Counter (and delete button state)
+    if (typeof updateWaypointCounterFallback === 'function') {
+        updateWaypointCounterFallback();
+        console.log("Initial call to updateWaypointCounterFallback completed.");
+    } else {
+        console.error("updateWaypointCounterFallback function is NOT defined.");
+    }
+
+    console.log("Application initialization sequence finished.");
+});
+
+let draggedWaypointIndex = -1; // Index of the waypoint currently being dragged, -1 if none
+let dragOffsetX = 0; // Mouse offset X within the dragged element
+let dragOffsetY = 0; // Mouse offset Y within the dragged element
+let dragOperationJustEnded = false; // Flag to ignore click immediately after drag
+let isWaypointOverDeleteZone = false; // Flag if waypoint is dragged out of viewport
+
+function onWaypointMouseDown(event) {
+    // 'this' inside this function refers to the marker element that was clicked
+    const markerElement = event.currentTarget; // More robust than 'this' in some complex scenarios
+    draggedWaypointIndex = parseInt(markerElement.dataset.waypointIndex, 10);
+
+    if (isNaN(draggedWaypointIndex) || draggedWaypointIndex < 0 || draggedWaypointIndex >= window.intermediatePoints.length) {
+        console.error("Invalid waypoint index on mousedown:", markerElement.dataset.waypointIndex);
+        draggedWaypointIndex = -1;
+        return;
+    }
+
+    console.log(`Mousedown on waypoint marker. Index: ${draggedWaypointIndex}`);
+    event.preventDefault(); // Prevent default browser drag behavior or text selection
+    event.stopPropagation(); // Prevent this mousedown from bubbling up and potentially triggering viewport click later
+
+    // Calculate initial mouse offset. Since CSS transform centers the marker around its
+    // style.left/top, we want the drag to position the marker's center at the cursor.
+    // So, the offset is effectively half the marker's dimensions.
+    dragOffsetX = markerElement.offsetWidth / 2;
+    dragOffsetY = markerElement.offsetHeight / 2;
+
+    // Add mousemove and mouseup listeners to the document to handle the drag
+    document.addEventListener('mousemove', onDocumentMouseMove);
+    document.addEventListener('mouseup', onDocumentMouseUp);
+
+    // Optional: Add a class to the marker to indicate it's being dragged
+    markerElement.classList.add('dragging');
+}
+
+function onDocumentMouseMove(event) {
+    if (draggedWaypointIndex === -1) {
+        return; // Not dragging anything
+    }
+
+    const viewportElement = document.getElementById('viewport'); // Or your actual viewport ID
+    if (!viewportElement) {
+        console.error("Viewport element not found during mousemove.");
+        // Attempt to clean up if viewport is gone mid-drag
+        document.removeEventListener('mousemove', onDocumentMouseMove);
+        document.removeEventListener('mouseup', onDocumentMouseUp);
+        draggedWaypointIndex = -1;
+        isWaypointOverDeleteZone = false;
+        return;
+    }
+    const viewportRect = viewportElement.getBoundingClientRect();
+    const markerElement = viewportElement.querySelector(`.point-marker[data-waypoint-index="${draggedWaypointIndex}"]`);
+
+    if (!markerElement) {
+        console.warn(`Could not find marker element for index ${draggedWaypointIndex} during mousemove.`);
+        // Attempt to clean up if marker is gone mid-drag
+        document.removeEventListener('mousemove', onDocumentMouseMove);
+        document.removeEventListener('mouseup', onDocumentMouseUp);
+        draggedWaypointIndex = -1;
+        isWaypointOverDeleteZone = false;
+        return;
+    }
+
+    // Calculate new position for the marker's center, relative to the viewport
+    // Assumes dragOffsetX/Y were set to half marker width/height to keep cursor at center
+    let newMarkerCenterX = event.clientX - viewportRect.left - dragOffsetX;
+    let newMarkerCenterY = event.clientY - viewportRect.top - dragOffsetY;
+
+    markerElement.style.left = newMarkerCenterX + 'px';
+    markerElement.style.top = newMarkerCenterY + 'px';
+
+    // Update the data in the window.intermediatePoints array
+    // (This assumes your data model stores the center coordinates, matching style.left/top due to CSS transform)
+    if (window.intermediatePoints[draggedWaypointIndex]) {
+        window.intermediatePoints[draggedWaypointIndex].x = newMarkerCenterX;
+        window.intermediatePoints[draggedWaypointIndex].y = newMarkerCenterY;
+    } else {
+        console.warn(`Data for waypoint index ${draggedWaypointIndex} not found in window.intermediatePoints during mousemove.`);
+    }
+
+
+    // Check if the waypoint (its center) is outside the viewport
+    // A small buffer can be added if needed (e.g., -10 or +10 to viewportRect dimensions)
+    if (newMarkerCenterX < 0 || newMarkerCenterX > viewportRect.width || 
+        newMarkerCenterY < 0 || newMarkerCenterY > viewportRect.height) {
+        isWaypointOverDeleteZone = true;
+        markerElement.classList.add('marker-deletable'); // For visual feedback
+    } else {
+        isWaypointOverDeleteZone = false;
+        markerElement.classList.remove('marker-deletable');
+    }
+    
+    // console.log(`Dragging waypoint ${draggedWaypointIndex} to X:${newMarkerCenterX.toFixed(1)}, Y:${newMarkerCenterY.toFixed(1)}`);
+}
+
+function onDocumentMouseUp(event) {
+    if (draggedWaypointIndex === -1) {
+        return; // Not dragging anything
+    }
+
+    const viewportElement = document.getElementById('viewport'); // Or your actual viewport ID
+    // Query for marker only if viewportElement exists to prevent error
+    const markerElement = viewportElement ? viewportElement.querySelector(`.point-marker[data-waypoint-index="${draggedWaypointIndex}"]`) : null;
+
+    if (isWaypointOverDeleteZone && markerElement) {
+        console.log(`Deleting waypoint index: ${draggedWaypointIndex} by dragging out.`);
+        markerElement.remove(); // Remove the visual marker
+        if (window.intermediatePoints && window.intermediatePoints[draggedWaypointIndex]) {
+            window.intermediatePoints.splice(draggedWaypointIndex, 1); // Remove data from array
+        } else {
+            console.warn(`Attempted to delete data for waypoint index ${draggedWaypointIndex}, but it was not found in array.`);
+        }
+        
+        // IMPORTANT: After splicing, data-waypoint-index attributes on subsequent visual markers
+        // are now "stale". Consider re-indexing markers if further complex interaction is needed.
+        console.log("Waypoint deleted. Subsequent marker indices may need updating.");
+
+        if (typeof updateWaypointCounterFallback === 'function') {
+            updateWaypointCounterFallback(); // Update counter
+        }
+        reindexWaypointMarkers(viewportElement); // Re-index remaining markers
+
+    } else if (markerElement) {
+        // Waypoint was not deleted, finalize its position
+        console.log(`Mouseup, finished dragging waypoint index: ${draggedWaypointIndex}`);
+        markerElement.classList.remove('dragging'); // Ensure dragging class is removed
+        markerElement.classList.remove('marker-deletable'); // Ensure deletable class is removed
+
+        // Data was already updated in onDocumentMouseMove.
+        // No need to update window.intermediatePoints[draggedWaypointIndex].x/y here again
+        // unless the calculation was different or needed finalization.
+        if (window.intermediatePoints[draggedWaypointIndex]) {
+             console.log("Finalized waypoint data:", JSON.stringify(window.intermediatePoints[draggedWaypointIndex]));
+        }
+
+    } else if (isWaypointOverDeleteZone && !markerElement) {
+        // Edge case: marker was somehow removed while being dragged out
+        console.warn(`Marker for index ${draggedWaypointIndex} not found but was in delete zone. Attempting to splice data.`);
+        if (window.intermediatePoints && window.intermediatePoints[draggedWaypointIndex]) {
+             window.intermediatePoints.splice(draggedWaypointIndex, 1);
+             if (typeof updateWaypointCounterFallback === 'function') {
+                updateWaypointCounterFallback();
+             }
+        }
+    } else {
+         console.warn(`Mouseup: Marker for index ${draggedWaypointIndex} not found. Cannot finalize.`);
+    }
+
+    // Reset all drag-related states
+    if(markerElement) markerElement.classList.remove('dragging', 'marker-deletable'); // Clean up classes
+    draggedWaypointIndex = -1;
+    isWaypointOverDeleteZone = false; // Reset this flag too
+    document.removeEventListener('mousemove', onDocumentMouseMove);
+    document.removeEventListener('mouseup', onDocumentMouseUp);
+
+    // Flag to prevent immediate click after drag
+    dragOperationJustEnded = true;
+    setTimeout(() => {
+        dragOperationJustEnded = false;
+    }, 0);
+}
+
+function reindexWaypointMarkers(viewportElem) {
+    if (!viewportElem) {
+        console.warn("reindexWaypointMarkers: viewportElement is null, cannot re-index.");
+        return;
+    }
+    const existingMarkers = viewportElem.querySelectorAll('.point-marker');
+    console.log(`reindexWaypointMarkers: Found ${existingMarkers.length} markers to re-index.`);
+    existingMarkers.forEach((marker, newIndex) => {
+        marker.dataset.waypointIndex = newIndex;
+        // console.log(`Marker re-indexed: old index was ${marker.dataset.waypointIndex} (potentially), new is ${newIndex}`);
+    });
+    console.log("reindexWaypointMarkers: Finished re-indexing visible markers.");
 }

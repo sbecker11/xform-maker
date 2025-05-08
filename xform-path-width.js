@@ -36,9 +36,41 @@ function setupPathWidthButton() {
   btn.addEventListener('click', () => {
     window.currentPathWidthIndex = (window.currentPathWidthIndex + 1) % widthModes.length;
     const mode = widthModes[window.currentPathWidthIndex];
+    
+    // Add check for valid mode and width
+    if (!mode || typeof mode.width === 'undefined') {
+        console.error("Invalid width mode found for index:", window.currentPathWidthIndex);
+        // Reset index? Or just skip?
+        window.currentPathWidthIndex = 0; // Reset to first mode as a fallback
+        const fallbackMode = widthModes[0];
+        if (fallbackMode) {
+            btn.textContent = fallbackMode.label;
+            applyPathWidth(fallbackMode.width);
+        } else {
+             btn.textContent = "ErrW"; // Indicate error
+        }
+        return; // Stop processing this click
+    }
+
     btn.textContent = mode.label;
-    console.log(`[Width] now: ${mode.width}px`);
+    console.log(`[Width] Set index to ${window.currentPathWidthIndex}. Trying to apply width: ${mode.width}px`);
+    
+    // Call the function to apply the width
     applyPathWidth(mode.width);
+    console.log(`[Width] Called applyPathWidth(${mode.width}).`);
+
+    // Explicitly redraw the path visualization AFTER applying the width
+    if (typeof window.drawPathVisualization === 'function') {
+        window.drawPathVisualization();
+        console.log("[Width] Called drawPathVisualization() to update view.");
+    } else {
+        console.warn("[Width] window.drawPathVisualization function not found, path may not visually update immediately.");
+    }
+
+    // Save state if function exists
+    if (typeof window.saveCurrentState === 'function') {
+        window.saveCurrentState();
+    }
   });
   btn.dataset.pathWidthInit = 'true';
   if (widthModes[0].width !== 1) applyPathWidth(widthModes[0].width);
@@ -69,10 +101,23 @@ function applyPathWidth(width){
   if(old) old.remove();
 
   window.pathLineWidth = window.pathThickness = width; // keep console utils compatibility
-  // update all style sheets
+  
+  // --- REMOVED UNRELIABLE CSS TEXT REPLACEMENT ---
+  // Modifying CSS rules within <style> tags using text replacement (regex) is fragile.
+  // It can easily break if the CSS format changes slightly (e.g., spacing, missing semicolon).
+  // The stroke width should be applied directly by the function that draws the main path
+  // (e.g., drawPathVisualization) by reading `window.pathLineWidth`.
+  /*
   ['path-visualization-styles','path-visualization-width-styles'].forEach(id=>{
-    const el=document.getElementById(id); if(!el) return; el.textContent=el.textContent.replace(/stroke-width:\s*\d+px;/,`stroke-width: ${width}px;`);
+    const el=document.getElementById(id); 
+    if(!el) return; 
+    el.textContent=el.textContent.replace(/stroke-width:\s*\d+px;/,`stroke-width: ${width}px;`);
   });
+  */
+  // --- END REMOVED SECTION ---
+
+  // Re-adding or updating the specific width-styles used ONLY for the orange overlay path is okay,
+  // as it correctly uses the updated window.pathLineWidth.
   addWidthStyles();
 
   const svg=document.createElementNS('http://www.w3.org/2000/svg','svg');

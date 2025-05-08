@@ -746,7 +746,6 @@ window.updateWaypointCounter = function() {
     console.log("Welcome to the UpdateWaypointCounter function");
     const waypointCounter = window.waypointCounter || document.getElementById('waypointCounter');
     const deleteLastWaypointButton = window.deleteLastWaypointButton || document.getElementById('deleteLastWaypointBtn');
-    // const addWaypointButton = // REMOVED
     
     // Exit if we don't have the required elements or intermediatePoints array
     if (!window.intermediatePoints || !waypointCounter || !deleteLastWaypointButton) {
@@ -774,13 +773,7 @@ window.updateWaypointCounter = function() {
         deleteLastWaypointButton.style.opacity = '1';
         deleteLastWaypointButton.style.cursor = 'pointer';
     }
-    
-    // REMOVED Add button logic
-    /*
-    const addButton = window.addWaypointButton || document.getElementById('addWaypointBtn'); 
-    if (addButton) { ... }
-    */
-    
+        
     console.log('---- Leaving updateWaypointCounter ----');
 }
 

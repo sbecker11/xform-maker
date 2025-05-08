@@ -832,11 +832,52 @@ window.makeDraggableWaypoint = function(element, index) { // Index passed in
 
 // --- Resize Logic ---
 function applyRectangleSize() {
-    console.log("--- applyRectangleSize called ---"); // Log entry
-    if (!window.widthInput || !window.heightInput || !window.startRect || !window.endRect) {
-        console.warn("applyRectangleSize: Missing required elements.");
-        return;
+    console.log("--- applyRectangleSize called ---");
+
+    // Enhanced check for missing elements
+    let missingElements = [];
+    if (!window.widthInput) missingElements.push("window.widthInput");
+    if (!window.heightInput) missingElements.push("window.heightInput");
+    // Check for rectangles separately
+    let missingRects = false;
+    if (!window.startRect) {
+        missingElements.push("window.startRect");
+        missingRects = true;
     }
+    if (!window.endRect) {
+        missingElements.push("window.endRect");
+        missingRects = true;
+    }
+
+    if (missingElements.length > 0) {
+        console.warn(`applyRectangleSize: Missing required elements: ${missingElements.join(', ')}.`);
+        console.log({
+            widthInputExists: !!window.widthInput,
+            heightInputExists: !!window.heightInput,
+            startRectExists: !!window.startRect,
+            endRectExists: !!window.endRect
+        });
+
+        // If the rectangles are missing, try to initialize them now.
+        if (missingRects && typeof initializeRects === 'function') {
+            console.log("applyRectangleSize: startRect or endRect missing, calling initializeRects(true) to create them...");
+            initializeRects(true); // Pass true to make them visible
+            // After initializing, re-check if they exist now
+            if (!window.startRect || !window.endRect) {
+                console.error("applyRectangleSize: FAILED to create startRect/endRect even after calling initializeRects. Aborting resize.");
+                return; // Stop if initialization failed
+            }
+            console.log("applyRectangleSize: Rectangles initialized. Proceeding with resize...");
+        } else if (missingRects) {
+            console.error("applyRectangleSize: startRect or endRect missing, and initializeRects function not found. Aborting resize.");
+            return;
+        } else {
+            // Inputs might be missing, but rects exist? Still likely an issue.
+            console.error("applyRectangleSize: Input elements missing. Aborting resize.");
+            return;
+        }
+    }
+
     if (!window.viewport) {
          console.warn("applyRectangleSize: Missing viewport element.");
         return;
@@ -1000,8 +1041,13 @@ function setupDurationControl() {
         return value;
     }
     
-    window.durationInput.addEventListener('change', validateDurationInput);
-    window.durationInput.addEventListener('input', updateDurationFeedbackText);
+    if (window.durationInput) {
+        window.durationInput.addEventListener('change', validateDurationInput);
+        window.durationInput.addEventListener('input', updateDurationFeedbackText);
+        console.log("Event listeners successfully attached to window.durationInput.");
+    } else {
+        console.error("ERROR in xform-controls.js: window.durationInput is not defined or null. Cannot attach event listeners. Check element ID and script timing.");
+    }
     
     updateDurationFeedbackText(); // Initial feedback update
     console.log("Duration control set up with range:", MIN_DURATION, "-", MAX_DURATION, "ms");
@@ -1375,14 +1421,81 @@ function resetXFormFields() {
 // Function to setup control listeners
 function setupControls() {
     console.log("Setting up controls...");
+
+    // --- Attempt to initialize critical global DOM references if not already set ---
+    if (!window.viewport) {
+        window.viewport = document.getElementById('viewport');
+        if (window.viewport) {
+            console.log("setupControls: Initialized window.viewport from getElementById.");
+        } else {
+            console.error("setupControls: FAILED to find element with ID 'viewport'. Many controls will fail.");
+        }
+    }
+
+    if (!window.deleteLastWaypointButton) {
+        // Note: The error log said 'deleteLastWaypointButton', common HTML might be 'deleteLastWaypointBtn'
+        // Trying 'deleteLastWaypointButton' first as per error log.
+        window.deleteLastWaypointButton = document.getElementById('deleteLastWaypointButton');
+        if (window.deleteLastWaypointButton) {
+            console.log("setupControls: Initialized window.deleteLastWaypointButton from getElementById.");
+        } else {
+            // Fallback attempt if specific ID from error log isn't found
+            window.deleteLastWaypointButton = document.getElementById('deleteLastWaypointBtn');
+            if (window.deleteLastWaypointButton) {
+                console.log("setupControls: Initialized window.deleteLastWaypointButton (fallback to 'deleteLastWaypointBtn') from getElementById.");
+            } else {
+                 console.error("setupControls: FAILED to find delete waypoint button by ID 'deleteLastWaypointButton' or 'deleteLastWaypointBtn'.");
+            }
+        }
+    }
+
+    if (!window.durationInput) {
+        window.durationInput = document.getElementById('duration');
+        if (window.durationInput) {
+            console.log("setupControls: Initialized window.durationInput from getElementById.");
+        } else {
+            console.error("setupControls: FAILED to find duration input by ID 'duration'.");
+        }
+    }
+
+    if (!window.widthInput) {
+        window.widthInput = document.getElementById('rectWidth');
+        if (window.widthInput) {
+            console.log("setupControls: Initialized window.widthInput from getElementById.");
+        } else {
+            console.error("setupControls: FAILED to find width input by ID 'rectWidth'. Size controls will fail.");
+        }
+    }
+
+    if (!window.heightInput) {
+        window.heightInput = document.getElementById('rectHeight');
+        if (window.heightInput) {
+            console.log("setupControls: Initialized window.heightInput from getElementById.");
+        } else {
+            console.error("setupControls: FAILED to find height input by ID 'rectHeight'. Size controls will fail.");
+        }
+    }
+    // --- End of global DOM reference initialization attempt ---
+
     setupRotationControls();
     setupDurationControl();
     setupViewportActions();
     setupWaypointControls(); 
 
-    // Setup resize listeners
-    if (window.widthInput) { window.widthInput.addEventListener('change', applyRectangleSize); }
-    if (window.heightInput) { window.heightInput.addEventListener('change', applyRectangleSize); }
+    // Setup resize listeners for width and height inputs - revert to 'change' event
+    if (window.widthInput) {
+        window.widthInput.addEventListener('change', applyRectangleSize);
+        console.log("Event listener 'change' for window.widthInput attached to applyRectangleSize.");
+    } else {
+        console.error("setupControls: Cannot attach listener to window.widthInput because it is not defined.");
+    }
+
+    if (window.heightInput) {
+        window.heightInput.addEventListener('change', applyRectangleSize);
+        console.log("Event listener 'change' for window.heightInput attached to applyRectangleSize.");
+    } else {
+        console.error("setupControls: Cannot attach listener to window.heightInput because it is not defined.");
+    }
 
     // Path Style/Width/Shape buttons (Keep)
     if (typeof window.setupPathStyleButton === 'function') { window.setupPathStyleButton(); }

@@ -2510,6 +2510,13 @@ async function initializeDBAndUI() {
 }
 
 function handleViewportClick(event) {
+    // --- DETAILED LOGGING FOR UNWANTED WAYPOINT DEBUG ---
+    console.log("handleViewportClick: Fired.");
+    console.log("handleViewportClick: event.target: ", event.target);
+    console.log("handleViewportClick: event.target.id: ", event.target.id);
+    console.log("handleViewportClick: event.target.classList: ", event.target.classList);
+    // --- END DETAILED LOGGING ---
+
     // Check if a drag operation just ended. If so, ignore this click.
     if (dragOperationJustEnded) {
         console.log("handleViewportClick: Ignoring click because a drag operation just finished.");
@@ -2535,7 +2542,21 @@ function handleViewportClick(event) {
 
     console.log(`Calculated waypoint coords: X=${newWaypointX.toFixed(2)}, Y=${newWaypointY.toFixed(2)}`);
 
-    const newWaypoint = { x: newWaypointX, y: newWaypointY };
+    // Create the visual marker first
+    const marker = document.createElement('div');
+    marker.className = 'point-marker';
+    marker.style.position = 'absolute';
+    marker.style.left = newWaypointX + 'px'; 
+    marker.style.top = newWaypointY + 'px';
+    // Add data-waypoint-index for drag identification BEFORE adding to array
+    // The index will be the current length of the array, as it's about to be added.
+    marker.dataset.waypointIndex = window.intermediatePoints ? window.intermediatePoints.length : 0;
+    marker.addEventListener('mousedown', onWaypointMouseDown); // From xform-indexeddb.js
+    viewportElement.appendChild(marker);
+    console.log("Visual marker element added to viewport with mousedown listener.");
+
+    // Now create the data object, including a reference to its DOM element
+    const newWaypoint = { x: newWaypointX, y: newWaypointY, element: marker };
 
     // 2. Add the new waypoint to your global array
     if (!window.intermediatePoints) { // Initialize if it doesn't exist
@@ -2546,28 +2567,19 @@ function handleViewportClick(event) {
     // For more detailed inspection of the array contents:
     // console.log("Current waypoints array:", JSON.stringify(window.intermediatePoints));
 
-    // 3. Create the visual marker for the waypoint on the screen
-    const marker = document.createElement('div');
-    marker.className = 'point-marker'; // Ensure .point-marker is styled in your CSS
-    marker.style.position = 'absolute';
-    // Set left/top directly. Centering will be handled by CSS transform.
-    marker.style.left = newWaypointX + 'px'; 
-    marker.style.top = newWaypointY + 'px';
-    
-    // Store the index of the waypoint on the marker element for later identification
-    marker.dataset.waypointIndex = window.intermediatePoints.length - 1; // Index of the just-added point
-
-    // Add mousedown listener for dragging this specific marker
-    marker.addEventListener('mousedown', onWaypointMouseDown);
-
-    viewportElement.appendChild(marker); // viewportElement is event.target from the click event
-    console.log("Visual marker element added to viewport with mousedown listener.");
-
-    // 4. AFTER adding the waypoint, update the counter and delete button state
+    // 3. AFTER adding the waypoint, update the counter and delete button state
     if (typeof updateWaypointCounterFallback === 'function') {
         updateWaypointCounterFallback();
     } else {
         console.error("updateWaypointCounterFallback function is not defined!");
+    }
+
+    // After adding the waypoint and updating UI, redraw the path visualization
+    if (typeof window.drawPathVisualization === 'function') {
+        window.drawPathVisualization();
+        console.log("handleViewportClick: Called drawPathVisualization() after adding new waypoint.");
+    } else {
+        console.warn("handleViewportClick: window.drawPathVisualization function not found, path won't update after adding new waypoint.");
     }
 }
 
@@ -2576,58 +2588,40 @@ function setupDeleteWaypointButton() {
     const deleteBtn = document.getElementById('deleteLastWaypointBtn');
     if (deleteBtn) {
         deleteBtn.addEventListener('click', () => {
-            console.log("Delete Last Waypoint button clicked."); // Existing log
-
-            if (window.intermediatePoints && window.intermediatePoints.length > 0) {
-                const removedPointData = window.intermediatePoints.pop(); // Remove data first
-                // --- NEW DEBUG LOGS START ---
-                console.log("DELETE MARKER DEBUG: Waypoint data popped from array. Remaining data points:", window.intermediatePoints.length);
-                console.log("DELETE MARKER DEBUG: Data of popped point:", JSON.stringify(removedPointData));
-
-                const viewportId = 'viewport'; // <<< IMPORTANT: Make sure this ID matches your actual viewport's ID in HTML
-                const viewportElement = document.getElementById(viewportId);
-
-                if (viewportElement) {
-                    console.log(`DELETE MARKER DEBUG: Successfully found viewport element with ID '${viewportId}'.`);
-                    const markers = viewportElement.getElementsByClassName('point-marker');
-                    console.log(`DELETE MARKER DEBUG: Found ${markers.length} elements with class 'point-marker' inside viewport.`);
-
-                    if (markers.length > 0) {
-                        const markerToRemove = markers[markers.length - 1];
-                        console.log("DELETE MARKER DEBUG: About to remove this marker element:", markerToRemove);
-                        markerToRemove.remove();
-                        console.log("DELETE MARKER DEBUG: Visual marker removed from viewport.");
-                    } else {
-                        console.warn("DELETE MARKER DEBUG: No '.point-marker' elements found in viewport to remove, even though data was popped.");
+            console.log("Delete Last Waypoint button clicked (event from xform-indexeddb.js).");
+            
+            // Call the primary delete function from xform-controls.js if it exists
+            if (typeof window.deleteLastWaypoint === 'function') {
+                window.deleteLastWaypoint(); // This function should handle data, visuals, and counter updates
+            } else {
+                console.error("window.deleteLastWaypoint function (expected in xform-controls.js) not found.");
+                // Fallback or old logic as a last resort, though ideally the main one works:
+                /*
+                if (window.intermediatePoints && window.intermediatePoints.length > 0) {
+                    const removedPointData = window.intermediatePoints.pop(); 
+                    console.log("DELETE MARKER DEBUG (indexeddb fallback): Waypoint data popped. Remaining:", window.intermediatePoints.length);
+                    if (removedPointData && removedPointData.element) {
+                        removedPointData.element.remove();
+                        console.log("DELETE MARKER DEBUG (indexeddb fallback): Visual marker removed.");
                     }
+                    if (typeof updateWaypointCounterFallback === 'function') {
+                        updateWaypointCounterFallback();
+                    }
+                    reindexWaypointMarkers(document.getElementById('viewport'));
                 } else {
-                    console.error(`DELETE MARKER DEBUG: CRITICAL - Viewport element with ID '${viewportId}' NOT found. Cannot remove visual marker.`);
+                    console.log("DELETE MARKER DEBUG (indexeddb fallback): No waypoints to delete.");
                 }
-                // --- NEW DEBUG LOGS END ---
-            } else {
-                console.log("DELETE MARKER DEBUG: No waypoints in window.intermediatePoints array to delete.");
-            }
-
-            // AFTER deleting the waypoint, update the counter and delete button state
-            if (typeof updateWaypointCounterFallback === 'function') {
-                updateWaypointCounterFallback();
-            } else {
-                console.error("updateWaypointCounterFallback function is not defined!");
+                */
             }
         });
-        console.log("Event listener for 'click' attached to deleteLastWaypointBtn."); // Existing log
+        console.log("Event listener for 'click' (from xform-indexeddb.js) attached to deleteLastWaypointBtn.");
     } else {
-        console.warn("Could not find the deleteLastWaypointBtn element to attach listener."); // Existing log
+        console.warn("Could not find the deleteLastWaypointBtn element to attach listener (from xform-indexeddb.js).");
     }
 }
 
 // Call this setup function when your page loads, after the button is in the DOM
-// For example, inside your main DOMContentLoaded listener:
-// document.addEventListener('DOMContentLoaded', function() {
-//     // ... other initializations ...
-//     setupDeleteWaypointButton();
-//     updateWaypointCounterFallback(); // Initial update
-// });
+// ... existing code ...
 
 // === Main Initialization ===
 document.addEventListener('DOMContentLoaded', async () => {
@@ -2773,6 +2767,13 @@ function onDocumentMouseMove(event) {
     }
     
     // console.log(`Dragging waypoint ${draggedWaypointIndex} to X:${newMarkerCenterX.toFixed(1)}, Y:${newMarkerCenterY.toFixed(1)}`);
+
+    // After updating waypoint position, redraw the path visualization
+    if (typeof window.drawPathVisualization === 'function') {
+        window.drawPathVisualization();
+    } else {
+        console.warn("onDocumentMouseMove: drawPathVisualization function not found, path won't update live during waypoint drag.");
+    }
 }
 
 function onDocumentMouseUp(event) {
@@ -2801,6 +2802,14 @@ function onDocumentMouseUp(event) {
             updateWaypointCounterFallback(); // Update counter
         }
         reindexWaypointMarkers(viewportElement); // Re-index remaining markers
+
+        // After deleting and re-indexing, redraw the path one last time
+        if (typeof window.drawPathVisualization === 'function') {
+            window.drawPathVisualization();
+            console.log("onDocumentMouseUp: Called drawPathVisualization() after waypoint deletion.");
+        } else {
+            console.warn("onDocumentMouseUp: window.drawPathVisualization function not found, path may not update after deletion.");
+        }
 
     } else if (markerElement) {
         // Waypoint was not deleted, finalize its position

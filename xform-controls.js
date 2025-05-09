@@ -1296,41 +1296,35 @@ function setupWaypointControls() {
     }
     
     // --- Event Listeners --- 
+    /* // XXX: This listener is likely redundant if handleViewportClick in xform-indexeddb.js is active
+       // and is causing an extra waypoint to be added when a drag on an existing waypoint starts.
+       // Temporarily commenting out to make handleViewportClick the sole controller for new waypoints.
     window.viewport.addEventListener('click', (e) => {
-        console.log('%cVIEWPORT CLICKED! Target:', 'color: orange; font-weight: bold;', e.target);
-        // Existing detailed logging for time and target:
+        console.log('%cVIEWPORT CLICKED! (from xform-controls.js) Target:', 'color: orange; font-weight: bold;', e.target);
         const clickTime = Date.now();
-        const timeSinceLastMouseUp = clickTime - (window.lastMouseUpTime || 0); // Ensure lastMouseUpTime is defined
-        console.log(`viewport click: target=${e.target.id || e.target.className}, timeSinceLastMouseUp=${timeSinceLastMouseUp}ms`);
+        const timeSinceLastMouseUp = clickTime - (window.lastMouseUpTime || 0);
+        console.log(`viewport click (xform-controls.js): target=${e.target.id || e.target.className}, timeSinceLastMouseUp=${timeSinceLastMouseUp}ms`);
         
-        // *** Check if click happened very shortly after a mouseup (likely drag end) ***
-        if (timeSinceLastMouseUp < 50) { // Use a small threshold (e.g., 50ms)
-            console.log(`viewport click: prevented because it occurred too soon (${timeSinceLastMouseUp}ms) after last mouseup.`);
+        if (timeSinceLastMouseUp < 50) {
+            console.log(`viewport click (xform-controls.js): prevented because it occurred too soon (${timeSinceLastMouseUp}ms) after last mouseup.`);
             return;
         }
-
-        // Check if click is on/inside a marker
         if (e.target.closest('.point-marker')) {
-            console.log('viewport click: prevented by target being on or inside a marker (closest check).'); 
+            console.log('viewport click (xform-controls.js): prevented by target being on or inside a marker (closest check).'); 
             return;
         }
-
-        // Check if target is start/end rectangle
         if (e.target === window.startRect || e.target === window.endRect) {
-            console.log('viewport click: prevented by target being startRect or endRect.'); 
+            console.log('viewport click (xform-controls.js): prevented by target being startRect or endRect.'); 
             return;
         }
-        
-        // Check rectangle dragging flags (keep as safety check?)
         if (window.isRectangleDragging) {
-            console.log('viewport click: prevented by rectangle dragging flag.'); 
+            console.log('viewport click (xform-controls.js): prevented by rectangle dragging flag.'); 
             return;
         }
-
-        // If none of the above prevented it, proceed to add waypoint
-        console.log('%cviewport click: ALL CHECKS PASSED - PROCEEDING TO addWaypoint.', 'color: green; font-weight: bold;'); 
+        console.log('%cviewport click (xform-controls.js): ALL CHECKS PASSED - PROCEEDING TO addWaypoint.', 'color: green; font-weight: bold;'); 
         addWaypoint(e.clientX, e.clientY);
     });
+    */
 
     // Event: Delete last waypoint button
     window.deleteLastWaypointButton.addEventListener('click', deleteLastWaypoint);

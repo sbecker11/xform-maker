@@ -98,9 +98,16 @@ function addPathVisualizationStyles () {
 function applyPathStyle (style) {
     const viewport = document.getElementById('viewport');
     if (!viewport) return;
-  const existing = document.getElementById('path-visualization');
-  if (existing) existing.remove();
-  if (style === 'none') return;
+
+  // Remove the main path visualization SVG if it exists
+  const existingPathVis = document.getElementById('path-visualization');
+  if (existingPathVis) existingPathVis.remove();
+
+  // ALSO REMOVE any existing path width visualization overlay to prevent leftovers
+  const existingWidthVis = document.getElementById('path-width-vis');
+  if (existingWidthVis) existingWidthVis.remove();
+
+  if (style === 'none') return; // If the style is 'none', we don't draw anything further.
 
   const svg = document.createElementNS('http://www.w3.org/2000/svg','svg');
   svg.id = 'path-visualization';
@@ -123,9 +130,41 @@ function applyPathStyle (style) {
   if (window.intermediatePoints?.length) window.intermediatePoints.forEach(p=>points.push({x:p.x,y:p.y}));
   points.push({x:endX,y:endY});
     
-  let finalPoints = points;
-  if (!window.forceLinearPath && typeof window.generateSplinePath==='function'){
-    try{const out=window.generateSplinePath(points);if(out?.length)finalPoints=out;}catch{}}
+  // Initialize finalPoints with the raw, direct points (linear path).
+  // This serves as a fallback if no specific interpolation mode is matched or if an error occurs.
+  let finalPoints = points; 
+
+  // Check the global pathInterpolationMode to determine which curve generation logic to use.
+  // This mode is set by the path shape button logic in xform-path-shape.js.
+  if (window.pathInterpolationMode === 'approx' && typeof window.generateGeneralizedBezierCurve === 'function') {
+    // If mode is 'approx' (formerly 'n-point-approx'), use the generalized N-degree Bezier curve function.
+    // This function uses all points in the 'points' array as control points for a single Bezier curve.
+    try {
+      // Generate the curve with a fixed number of samples (e.g., 100) for smoothness.
+      const out = window.generateGeneralizedBezierCurve(points, 100);
+      if (out?.length) {
+        finalPoints = out; // Use the generated Bezier curve points.
+      }
+    } catch (e) {
+      console.error("Error generating N-point Bezier curve:", e);
+      // If an error occurs, finalPoints will remain the raw linear points as a fallback.
+    }
+  } else if (!window.forceLinearPath && typeof window.generateSplinePath === 'function') {
+    // If not forcing a linear path, and another spline mode (e.g., 'passthrough' or 'bezier') is active,
+    // use the generateSplinePath function. This function internally handles different spline types
+    // like Catmull-Rom or Bezier splines (collections of segments).
+    try {
+      const out = window.generateSplinePath(points);
+      if (out?.length) {
+        finalPoints = out; // Use the generated spline points.
+      }
+    } catch (e) {
+      console.error("Error generating spline path:", e);
+      // If an error occurs, finalPoints will remain the raw linear points as a fallback.
+    }
+  }
+  // If window.forceLinearPath is true, or if no other condition was met (or errors occurred),
+  // finalPoints will be the original set of points, resulting in a linear path.
 
   const drawConnectorLine = () => {
     const path = document.createElementNS('http://www.w3.org/2000/svg','path');

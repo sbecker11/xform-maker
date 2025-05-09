@@ -182,6 +182,49 @@ window.generateSplinePath = generateSplinePath;
 // *** NEW: Expose quadratic helper globally ***
 window.getPointOnQuadraticBezier = getPointOnQuadraticBezier;
 
+// Helper function for Binomial Coefficient (n choose k)
+function binomialCoefficient(n, k) {
+    if (k < 0 || k > n) {
+        return 0;
+    }
+    if (k === 0 || k === n) {
+        return 1;
+    }
+    if (k > n / 2) {
+        k = n - k; // Take advantage of symmetry
+    }
+    let res = 1;
+    for (let i = 1; i <= k; ++i) {
+        res = res * (n - i + 1) / i;
+    }
+    return Math.round(res); // Should be an integer
+}
+
+// JavaScript equivalent of the Python bezier_curve function
+// Generates points along a single generalized Bezier curve defined by all controlPoints.
+function generateGeneralizedBezierCurve(controlPoints, numSamples = 100) {
+    const n = controlPoints.length - 1; // Degree of the Bezier curve
+    if (n < 0) return []; // No points if no control points
+    if (n === 0) return [controlPoints[0]]; // Single point if only one control point
+
+    const curvePoints = [];
+    for (let i = 0; i < numSamples; i++) {
+        const t = i / (numSamples - 1); // t from 0 to 1
+        if (numSamples === 1) t = 0; // Handle single sample case
+
+        let x = 0;
+        let y = 0;
+
+        for (let j = 0; j <= n; j++) {
+            const bernsteinPolynomial = binomialCoefficient(n, j) * Math.pow(1 - t, n - j) * Math.pow(t, j);
+            x += controlPoints[j].x * bernsteinPolynomial;
+            y += controlPoints[j].y * bernsteinPolynomial;
+        }
+        curvePoints.push({ x: x, y: y });
+    }
+    return curvePoints;
+}
+
 // *** NEW: Global Mouse Move Handler (Simplified) ***
 function globalMouseMoveHandler(e) {
     if (!window.draggedElement) return;

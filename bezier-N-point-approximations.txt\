@@ -1,0 +1,32 @@
+
+
+
+approximating bezier curve with N points
+https://www.google.com/search?q=appxomating+bezier+curve+with+N+control+points+python&rlz=1C5MACD_enUS1022US1022&oq=appxomating+bezier+curve+with+N+control+points+python&gs_lcrp=EgZjaHJvbWUyBggAEEUYOTIJCAEQIRgKGKABMgkIAhAhGAoYoAEyCQgDECEYChigATIJCAQQIRgKGKABMgkIBRAhGAoYoAHSAQkyMDYwM2owajSoAgCwAgA&sourceid=chrome&ie=UTF-8
+https://forum.processing.org/two/discussion/19164/make-a-bezier-curve-with-more-than-2-control-points.html
+
+import numpy as np
+
+def bezier_curve(control_points, num_points=100):
+    n = len(control_points) - 1
+    t = np.linspace(0, 1, num_points)
+    polynomial_matrix = np.array([
+        (1 - t)**n,
+        n * (1 - t)**(n - 1) * t,
+        np.array([np.math.comb(n, i) * (1 - t)**(n - i) * t**i for i in range(1, n)]),
+        t**n
+    ])
+    points_matrix = np.array(control_points).T
+    curve_points = np.dot(points_matrix, polynomial_matrix)
+    return curve_points.T
+
+control_points = np.array([
+    [0, 0],
+    [1, 2],
+    [3, 1],
+    [4, 3]
+])
+
+curve_points = bezier_curve(control_points)
+
+print(curve_points)

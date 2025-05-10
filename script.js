@@ -386,91 +386,253 @@ window.pathInterpolationMode = 'passthrough'; // Options: 'passthrough', 'gravit
 
 
 // --- Initial Setup on DOMContentLoaded ---
-document.addEventListener('DOMContentLoaded', () => {
-    console.log("SCRIPT.JS: DOMContentLoaded --- EVENT FIRED ---"); // <-- VERY FIRST LOG
+document.addEventListener('DOMContentLoaded', async () => {
+    console.log('DOM fully loaded and parsed. Initializing application...');
 
-    console.log("DOM Content Loaded. Initializing application...");
-
-    // Initialize UI controls
-    if (typeof setupControls === 'function') {
-        setupControls();
-        console.log("setupControls() called.");
-    } else {
-        console.error("setupControls function not found!");
+    // Initialize viewport reference
+    window.viewport = document.getElementById('viewport');
+    if (!window.viewport) {
+        console.error('Viewport element not found!');
+        return;
     }
 
-    // Initialize IndexedDB and render the initial list
-    console.log("SCRIPT.JS: About to call initializeDBAndUI...");
-    if (typeof initializeDBAndUI === 'function') {
-        console.log("SCRIPT.JS: initializeDBAndUI function IS defined.");
-        console.log("SCRIPT.JS DEBUG: Source code of initializeDBAndUI about to be called:");
-        console.log(initializeDBAndUI.toString()); // <-- NEW LOG OF FUNCTION SOURCE
-        console.log("SCRIPT.JS DEBUG: --- EXECUTING RIGHT BEFORE initializeDBAndUI() IS CALLED ---");
-        initializeDBAndUI().then(() => {
-            console.log("SCRIPT.JS DEBUG: initializeDBAndUI() promise RESOLVED successfully."); // <-- MODIFIED LOG
-        }).catch(error => {
-            console.error("SCRIPT.JS DEBUG: initializeDBAndUI() promise REJECTED with error:", error); // <-- MODIFIED LOG
-        });
-        console.log("SCRIPT.JS DEBUG: --- EXECUTED RIGHT AFTER initializeDBAndUI() CALL (promise handlers attached) ---"); // <-- NEW LOG
+    // Initialize input references
+    window.widthInput = document.getElementById('rectWidth');
+    window.heightInput = document.getElementById('rectHeight');
+    window.durationInput = document.getElementById('duration');
+    window.deleteLastWaypointButton = document.getElementById('deleteLastWaypointButton');
+
+    // Initialize XformNameController first
+    if (typeof window.initializeXformNameController === 'function') {
+        window.initializeXformNameController();
+        console.log('XformNameController initialized');
     } else {
-        console.error("SCRIPT.JS: FATAL ERROR - initializeDBAndUI function IS NOT DEFINED!"); // <-- MODIFIED LOG
+        console.warn('XformNameController not found');
     }
 
-    // Initialize the XForm Name Controller - MORE DETAILED LOGGING
-    console.log("SCRIPT.JS: Attempting to initialize XformNameController...");
-    if (typeof initializeXformNameController === 'function') {
-        console.log("SCRIPT.JS: initializeXformNameController function IS defined.");
-        try {
-            initializeXformNameController(); // This instantiates the XformNameController
-            console.log("SCRIPT.JS: SUCCESS - initializeXformNameController() was CALLED.");
-            if (window.xformNameController) {
-                console.log("SCRIPT.JS: window.xformNameController INSTANCE EXISTS.");
-            } else {
-                console.error("SCRIPT.JS: ERROR - window.xformNameController instance DOES NOT EXIST after call!");
-            }
-        } catch (e) {
-            console.error("SCRIPT.JS: ERROR during initializeXformNameController() call:", e);
+    // Check for animation manager
+    if (typeof window.animationManager === 'undefined') {
+        console.warn('Animation manager not found, animations will not be available');
+    } else {
+        console.log('Animation manager found, initializing animations...');
+        // Initialize flapping animation
+        if (typeof window.FlappingAnimation === 'function') {
+            const flappingAnimation = new window.FlappingAnimation();
+            flappingAnimation.initialize();
+            console.log('Flapping animation initialized');
         }
-    } else {
-        console.error("SCRIPT.JS: FATAL ERROR - initializeXformNameController function IS NOT DEFINED. Naming mode will not work correctly.");
     }
-    console.log("SCRIPT.JS: Finished attempt to initialize XformNameController.");
 
-    // Attach listener for theme toggle (if themeToggle exists)
-    if (window.themeToggleButton && typeof applyTheme === 'function') {
-        window.themeToggleButton.addEventListener('click', () => {
-             const currentTheme = document.documentElement.classList.contains('dark-theme') ? 'dark' : 'light';
-             applyTheme(currentTheme === 'dark' ? 'light' : 'dark'); 
+    // Initialize rectangles as hidden by default
+    if (typeof window.initializeRects === 'function') {
+        window.initializeRects(false);
+        console.log('Rectangles initialized (hidden)');
+    } else {
+        console.warn('initializeRects function not found');
+    }
+
+    // Create SVG element for path
+    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    svg.id = 'path-visualization';
+    svg.style.display = 'none';
+    window.viewport.appendChild(svg);
+
+    // Create preview rectangle
+    const previewRect = document.createElement('div');
+    previewRect.id = 'previewRect';
+    previewRect.style.display = 'none';
+    window.viewport.appendChild(previewRect);
+
+    // Initialize path control buttons
+    if (typeof window.setupPathStyleButton === 'function') {
+        window.setupPathStyleButton();
+    }
+    if (typeof window.setupPathWidthButton === 'function') {
+        window.setupPathWidthButton();
+    }
+    if (typeof window.setupPathShapeButton === 'function') {
+        window.setupPathShapeButton();
+    }
+
+    // Setup viewport actions (including the "New" button)
+    if (typeof window.setupViewportActions === 'function') {
+        window.setupViewportActions();
+        console.log('Viewport actions initialized');
+    } else {
+        console.warn('setupViewportActions function not found');
+    }
+
+    // Setup waypoint controls
+    if (typeof window.setupWaypointControls === 'function') {
+        window.setupWaypointControls();
+        console.log('Waypoint controls initialized');
+    } else {
+        console.warn('setupWaypointControls function not found');
+    }
+
+    // Setup rectangle controls
+    if (typeof window.setupRectangleControls === 'function') {
+        window.setupRectangleControls();
+        console.log('Rectangle controls initialized');
+    } else {
+        console.warn('setupRectangleControls function not found');
+    }
+
+    // Setup rotation controls
+    if (typeof window.setupRotationControls === 'function') {
+        window.setupRotationControls();
+        console.log('Rotation controls initialized');
+    } else {
+        console.warn('setupRotationControls function not found');
+    }
+
+    // Add event listener for reset button
+    const resetButton = document.getElementById('resetAllFieldsBtn');
+    if (resetButton) {
+        resetButton.addEventListener('click', () => {
+            if (confirm('Are you sure you want to reset all X-Form fields and clear selections?')) {
+                if (typeof window.resetXFormFields === 'function') {
+                    window.resetXFormFields();
+                }
+            }
         });
-        console.log("Theme toggle listener attached in script.js");
     }
 
-    // *** ADDED: Attach Export Button Listener ***
-    const exportAllButton = document.getElementById('export-all-btn');
-    if (exportAllButton && typeof window.exportAllXFormsToFile === 'function') {
-        exportAllButton.addEventListener('click', window.exportAllXFormsToFile);
-        console.log("Export All button listener attached in script.js");
-    } else {
-        if (!exportAllButton) console.warn('Export All button (#export-all-btn) not found.');
-        if (typeof window.exportAllXFormsToFile !== 'function') console.warn('exportAllXFormsToFile function not found for export button.');
-    }
-    // *** END ADDED ***
-
-    // SET FLAG: Indicate that initialization is finished 
+    console.log('Application initialization complete');
     window.appInitializationComplete = true;
-    console.log("✅ Application fully initialized and ready.");
-    
-    // *** Force Save Button Enable ***
-    const saveBtn = document.getElementById('saveXformButton');
-    if (saveBtn) {
-        saveBtn.disabled = false;
-        console.log("Forcibly enabled Save button after initialization.");
-    } else {
-        console.warn("Could not find Save button (saveXformButton) to force enable.");
-    }
 });
 
 // Functions previously defined outside DOMContentLoaded and now potentially shared
 // like updateRotationButtonsUI, applyTheme, updateWaypointCounter are now expected
 // to be defined in the respective modules (controls or persistence) or attached to window.
 // We keep the DOMContentLoaded wrapper for the initial setup orchestration.
+
+// --- UI Control Functions ---
+function setupThemeToggle() {
+    const themeToggle = document.getElementById('themeToggle');
+    if (!themeToggle) {
+        console.warn("Theme toggle button not found");
+        return;
+    }
+
+    themeToggle.addEventListener('click', () => {
+        const isDark = document.documentElement.classList.contains('dark-theme');
+        const newTheme = isDark ? 'light' : 'dark';
+        applyTheme(newTheme);
+    });
+}
+
+function setupHelpButton() {
+    const helpBtn = document.getElementById('helpBtn');
+    if (!helpBtn) {
+        console.warn("Help button not found");
+        return;
+    }
+
+    helpBtn.addEventListener('click', () => {
+        if (typeof showUsageModal === 'function') {
+            showUsageModal();
+        } else {
+            console.warn("showUsageModal function not found");
+        }
+    });
+}
+
+function setupFileOperations() {
+    const importBtn = document.getElementById('importBtn');
+    const exportBtn = document.getElementById('exportBtn');
+    
+    if (importBtn) {
+        importBtn.addEventListener('click', async () => {
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.accept = '.json,.jsonl';
+            
+            input.onchange = async (e) => {
+                const file = e.target.files[0];
+                if (file) {
+                    if (typeof importXFormsFromFile === 'function') {
+                        await importXFormsFromFile(file);
+                    } else {
+                        console.warn("importXFormsFromFile function not found");
+                    }
+                }
+            };
+            
+            input.click();
+        });
+    } else {
+        console.warn("Import button not found");
+    }
+    
+    if (exportBtn) {
+        exportBtn.addEventListener('click', async () => {
+            if (typeof exportAllXFormsToFile === 'function') {
+                await exportAllXFormsToFile();
+            } else {
+                console.warn("exportAllXFormsToFile function not found");
+            }
+        });
+    } else {
+        console.warn("Export button not found");
+    }
+}
+
+function setupSortButton() {
+    const sortBtn = document.getElementById('sortXformsBtn');
+    if (!sortBtn) {
+        console.warn("Sort button not found");
+        return;
+    }
+
+    sortBtn.addEventListener('click', () => {
+        if (typeof renderXFormList === 'function') {
+            // Toggle between name and date sort
+            const currentMode = window.fileListSortMode || 0;
+            const newMode = (currentMode + 1) % 4; // 0: name asc, 1: name desc, 2: date asc, 3: date desc
+            window.fileListSortMode = newMode;
+            
+            const sortBy = newMode < 2 ? 'name' : 'lastModified';
+            const sortDirection = newMode % 2 === 0 ? 'asc' : 'desc';
+            
+            renderXFormList(sortBy, sortDirection);
+        } else {
+            console.warn("renderXFormList function not found");
+        }
+    });
+}
+
+function setupResetButton() {
+    const resetBtn = document.getElementById('reset-db-btn');
+    if (!resetBtn) {
+        console.warn("Reset button not found");
+        return;
+    }
+
+    resetBtn.addEventListener('click', async () => {
+        if (typeof showModalDialog === 'function') {
+            const choice = await showModalDialog({
+                message: "Are you sure you want to reset the database? This will delete all saved XForms.",
+                buttons: [
+                    { id: 'reset', label: 'Reset', class: 'danger' },
+                    { id: 'cancel', label: 'Cancel', class: 'secondary' }
+                ]
+            });
+
+            if (choice === 'reset' && typeof resetDatabase === 'function') {
+                try {
+                    await resetDatabase();
+                    if (typeof refreshListWithEmptyState === 'function') {
+                        refreshListWithEmptyState();
+                    }
+                    await showInfoDialog("Database has been reset successfully.");
+                } catch (error) {
+                    console.error("Database reset error:", error);
+                    await showInfoDialog("Error resetting database: " + error.message);
+                }
+            }
+        } else {
+            console.warn("showModalDialog function not found");
+        }
+    });
+}

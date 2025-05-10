@@ -1,0 +1,106 @@
+9-point approxmation
+https://forum.processing.org/two/discussion/19164/make-a-bezier-curve-with-more-than-2-control-points.html
+
+int POINTS = 9;
+PVector[] c = new PVector[POINTS];
+
+void setup() {
+  size(400, 400);
+  // random control points
+  for (int i = 0 ; i < POINTS ; i++) {
+    c[i] = new PVector(random(-width / 2, width / 2), random(-height / 2, height / 2));
+  }
+  noLoop();
+}
+
+void draw() {
+  background(255);
+  translate(width / 2, height / 2);
+
+  // draw control points
+  stroke(0, 255, 0);
+  fill(255, 0, 0);
+  for (int i = 0 ;  i < POINTS ; i++) {
+    ellipse(c[i].x, c[i].y, 5, 5);
+    if (i != 0) {
+      line(c[i].x, c[i].y, c[i - 1].x, c[i - 1].y);
+    }
+  }
+
+  // draw bezier points
+  stroke(0, 0, 255);
+  for (float i = 0 ; i <= 1 ; i += 1 / 500.0) {
+    bpoint(i);
+  }
+}
+
+void bpoint(float t) {
+  float t0 = 1;
+  float t1 = t0 * t;
+  float t2 = t1 * t;
+  float t3 = t2 * t;
+  float t4 = t3 * t;
+  float t5 = t4 * t;
+  float t6 = t5 * t;
+  float t7 = t6 * t;
+  float t8 = t7 * t;
+  float _t0 = 1;
+  float _t1 = _t0 * (1 - t);
+  float _t2 = _t1 * (1 - t);
+  float _t3 = _t2 * (1 - t);
+  float _t4 = _t3 * (1 - t);
+  float _t5 = _t4 * (1 - t);
+  float _t6 = _t5 * (1 - t);
+  float _t7 = _t6 * (1 - t);
+  float _t8 = _t7 * (1 - t);
+  float bx = _t8 * c[0].x
+    + 8 * t1 * _t7 * c[1].x
+    + 28 * t2 * _t6 * c[2].x
+    + 56 * t3 * _t5 * c[3].x
+    + 70 * t4 * _t4 * c[4].x
+    + 56 * t5 * _t3 * c[5].x
+    + 28 * t6 * _t2 * c[6].x
+    + 8 * t7 * _t1 * c[7].x
+    + t8 * c[8].x;
+  float by = _t8 * c[0].y
+    + 8 * t1 * _t7 * c[1].y
+    + 28 * t2 * _t6 * c[2].y
+    + 56 * t3 * _t5 * c[3].y
+    + 70 * t4 * _t4 * c[4].y
+    + 56 * t5 * _t3 * c[5].y
+    + 28 * t6 * _t2 * c[6].y
+    + 8 * t7 * _t1 * c[7].y
+    + t8 * c[8].y;
+    point(bx, by);
+}
+
+
+approximating bezier curve with N points
+https://www.google.com/search?q=appxomating+bezier+curve+with+N+control+points+python&rlz=1C5MACD_enUS1022US1022&oq=appxomating+bezier+curve+with+N+control+points+python&gs_lcrp=EgZjaHJvbWUyBggAEEUYOTIJCAEQIRgKGKABMgkIAhAhGAoYoAEyCQgDECEYChigATIJCAQQIRgKGKABMgkIBRAhGAoYoAHSAQkyMDYwM2owajSoAgCwAgA&sourceid=chrome&ie=UTF-8
+https://forum.processing.org/two/discussion/19164/make-a-bezier-curve-with-more-than-2-control-points.html
+
+import numpy as np
+
+def bezier_curve(control_points, num_points=100):
+    n = len(control_points) - 1
+    t = np.linspace(0, 1, num_points)
+    polynomial_matrix = np.array([
+        (1 - t)**n,
+        n * (1 - t)**(n - 1) * t,
+        np.array([np.math.comb(n, i) * (1 - t)**(n - i) * t**i for i in range(1, n)]),
+        t**n
+    ])
+    points_matrix = np.array(control_points).T
+    curve_points = np.dot(points_matrix, polynomial_matrix)
+    return curve_points.T
+
+control_points = np.array([
+    [0, 0],
+    [1, 2],
+    [3, 1],
+    [4, 3]
+])
+
+curve_points = bezier_curve(control_points)
+
+print(curve_points)

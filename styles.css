@@ -1411,3 +1411,142 @@ button.danger:hover {
 #resetAllFieldsBtn:hover {
     background-color: var(--button-primary-hover-bg);
 }
+
+/* Animation Controls Panel */
+.effects-panel {
+    margin-top: 20px;
+    padding: 15px;
+    background-color: var(--background-secondary);
+    border-radius: 8px;
+    border: 1px solid var(--border-primary);
+}
+
+.animation-controls {
+    margin-bottom: 15px;
+}
+
+.animation-controls:last-child {
+    margin-bottom: 0;
+}
+
+.animation-controls .control-group {
+    background-color: var(--background-primary);
+    padding: 10px;
+    border-radius: 6px;
+    border: 1px solid var(--border-secondary);
+}
+
+.animation-controls label {
+    display: block;
+    margin-bottom: 8px;
+    font-weight: bold;
+    color: var(--text-primary);
+}
+
+.animation-controls .control-row {
+    display: flex;
+    align-items: center;
+    margin-bottom: 8px;
+}
+
+.animation-controls .control-row:last-child {
+    margin-bottom: 0;
+}
+
+.animation-controls .control-row label {
+    flex: 0 0 120px;
+    margin-bottom: 0;
+    font-weight: normal;
+}
+
+.animation-controls .control-row input[type="range"] {
+    flex: 1;
+    margin: 0 10px;
+}
+
+.animation-controls .control-row .value {
+    flex: 0 0 40px;
+    text-align: right;
+    color: var(--text-secondary);
+    font-family: monospace;
+}
+
+/* Path Animation Controls */
+.path-controls select {
+    flex: 1;
+    margin: 0 10px;
+    padding: 4px;
+    border: 1px solid var(--border-primary);
+    border-radius: 4px;
+    background-color: var(--background-primary);
+    color: var(--text-primary);
+}
+
+.path-controls .tension-control {
+    display: none; /* Hidden by default, shown for estimating mode */
+}
+
+.path-controls input[type="checkbox"] {
+    margin: 0 10px;
+    width: 16px;
+    height: 16px;
+}
+
+/* Path Preview Styles */
+.path-preview {
+    fill: none;
+    stroke: var(--button-primary-bg);
+    stroke-width: 2;
+    stroke-dasharray: 5,5;
+    pointer-events: none;
+}
+
+.preview-rect {
+    position: absolute;
+    width: 20px;
+    height: 20px;
+    background-color: var(--button-primary-bg);
+    border-radius: 4px;
+    pointer-events: none;
+    transition: transform 0.1s linear;
+}
+
+.control-point {
+    position: absolute;
+    width: 8px;
+    height: 8px;
+    background-color: var(--button-primary-bg);
+    border: 2px solid var(--background-primary);
+    border-radius: 50%;
+    transform: translate(-50%, -50%);
+    pointer-events: none;
+}
+
+.animation-controls .button-group {
+    display: flex;
+    gap: 10px;
+    margin-top: 15px;
+    justify-content: center;
+}
+
+.animation-controls .button-group button {
+    padding: 8px 16px;
+    border-radius: 4px;
+    border: 1px solid var(--border-primary);
+    background-color: var(--button-primary-bg);
+    color: var(--button-primary-text);
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.animation-controls .button-group button:hover {
+    background-color: var(--button-primary-hover);
+}
+
+.animation-controls .button-group button:active {
+    transform: translateY(1px);
+}
+
+.animation-controls .button-group button[style*="display: none"] {
+    display: none !important;
+}

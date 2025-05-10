@@ -289,6 +289,13 @@
                     <button id="resetAllFieldsBtn">Reset</button>
                 </div>
             </div>
+
+            <!-- Flapping Animation Controls -->
+            <div class="control-section">
+                <label for="flapping-container">Flapping Animation:</label>
+                <div id="flapping-container" class="control-group">
+                </div>
+            </div>
         </div>
         </div> <!-- End of center-right-wrapper -->
     </div> <!-- End of main-content-area -->
@@ -301,7 +308,7 @@
     
     <!-- Foundational Modules (Load & Execute Sequentially BEFORE DOMContentLoaded) -->
     <script src="xform-indexeddb.js"></script>
-    <script src="xform-naming-mode.js" defer></script>
+    <script src="xform-naming-mode.js"></script>
     <script src="xform-ui-helpers.js"></script>
     <script src="xform-persistence.js"></script> 
     <script src="xform-controls.js"></script>
@@ -313,6 +320,12 @@
     <script src="usage-modal.js"></script> 
     <script src="console-utils.js"></script>
     <script src="debug-xforms.js"></script>
+    
+    <!-- Flapping Animation -->
+    <script src="effects/base-animation.js"></script>
+    <script src="effects/animation-manager.js"></script>
+    <script src="effects/flapping-animation.js"></script>
+    <script src="effects/path-animation.js"></script>
     
     <!-- Main initialization script (Deferred - runs AFTER parsing and other scripts) -->
     <script src="script.js" defer></script>

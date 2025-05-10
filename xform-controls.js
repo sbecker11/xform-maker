@@ -439,7 +439,7 @@ function applyXFormAnimation() {
     
     window.startRect.style.animation = '';
     window.startRect.style.transform = '';
-    window.startRect.style.transition = ''; // Ensure transition is cleared
+    window.startRect.style.transition = '';
     
     setTimeout(() => {
         // Double-check that elements still exist
@@ -526,12 +526,20 @@ function applyXFormAnimation() {
                 const pointTranslateX = position.x - startCenterX;
                 const pointTranslateY = position.y - startCenterY;
                 
-                // Calculate rotation based on linear progress (unchanged)
+                // Calculate rotation based on linear progress
                 const rotateXValue = window.xRotationDirection * 360 * progress;
                 const rotateYValue = window.yRotationDirection * 360 * progress;
                 const rotateZValue = window.zRotationDirection * 360 * progress;
                 
-                const transformValue = `translateX(${pointTranslateX}px) translateY(${pointTranslateY}px) rotateX(${rotateXValue}deg) rotateY(${rotateYValue}deg) rotateZ(${rotateZValue}deg)`;
+                // Get flapping transform if available
+                let flapTransform = '';
+                if (window.FlappingAnimation) {
+                    const flappingAnimation = new window.FlappingAnimation();
+                    flapTransform = flappingAnimation.getFlapTransform(progress);
+                }
+                
+                // Combine all transforms
+                const transformValue = `translateX(${pointTranslateX}px) translateY(${pointTranslateY}px) ${flapTransform} rotateX(${rotateXValue}deg) rotateY(${rotateYValue}deg) rotateZ(${rotateZValue}deg)`;
                 keyframesRule += `  ${percentage}% { transform: ${transformValue}; }\n`;
             }
             
@@ -631,16 +639,16 @@ function initializeRects(makeVisible = false, isLoading = false) {
     const currentHeight = parseInt(window.heightInput.value, 10) || 60;
 
     // Create and Style Start Rect (Green)
-    window.startRect = document.createElement('div'); // Use window scope
-    startRect.id = 'startRect';
-    startRect.className = 'rect rect-start';
-    startRect.textContent = 'Start';
+    window.startRect = document.createElement('div');
+    window.startRect.id = 'startRect';
+    window.startRect.className = 'rect rect-start';
+    window.startRect.textContent = 'Start';
     if (makeVisible) {
-        window.viewport.appendChild(startRect);
+        window.viewport.appendChild(window.startRect);
     }
     
-    if (!isNaN(currentWidth) && currentWidth >= 10) startRect.style.width = `${currentWidth}px`;
-    if (!isNaN(currentHeight) && currentHeight >= 10) startRect.style.height = `${currentHeight}px`;
+    if (!isNaN(currentWidth) && currentWidth >= 10) window.startRect.style.width = `${currentWidth}px`;
+    if (!isNaN(currentHeight) && currentHeight >= 10) window.startRect.style.height = `${currentHeight}px`;
     
     // Use polar coordinates for random positioning
     // Padding to keep rectangles fully within viewport
@@ -655,19 +663,19 @@ function initializeRects(makeVisible = false, isLoading = false) {
     const startX = vpCenterX + startRadius * Math.cos(startAngle) - currentWidth / 2;
     const startY = vpCenterY + startRadius * Math.sin(startAngle) - currentHeight / 2;
     
-    startRect.style.left = `${startX}px`;
-    startRect.style.top = `${startY}px`;
-    startRect.style.transform = '';
+    window.startRect.style.left = `${startX}px`;
+    window.startRect.style.top = `${startY}px`;
+    window.startRect.style.transform = '';
 
     // Create and Style End Rect (Red)
-    window.endRect = document.createElement('div'); // Use window scope
-    endRect.id = 'endRect';
-    endRect.className = 'rect rect-end';
-    endRect.textContent = 'End';
-    if (!isNaN(currentWidth) && currentWidth >= 10) endRect.style.width = `${currentWidth}px`;
-    if (!isNaN(currentHeight) && currentHeight >= 10) endRect.style.height = `${currentHeight}px`;
+    window.endRect = document.createElement('div');
+    window.endRect.id = 'endRect';
+    window.endRect.className = 'rect rect-end';
+    window.endRect.textContent = 'End';
+    if (!isNaN(currentWidth) && currentWidth >= 10) window.endRect.style.width = `${currentWidth}px`;
+    if (!isNaN(currentHeight) && currentHeight >= 10) window.endRect.style.height = `${currentHeight}px`;
     if (makeVisible) {
-        window.viewport.appendChild(endRect);
+        window.viewport.appendChild(window.endRect);
     }
     
     // Generate different random position for end rectangle
@@ -679,9 +687,9 @@ function initializeRects(makeVisible = false, isLoading = false) {
     const endX = vpCenterX + endRadius * Math.cos(endAngle) - currentWidth / 2;
     const endY = vpCenterY + endRadius * Math.sin(endAngle) - currentHeight / 2;
     
-    endRect.style.left = `${endX}px`;
-    endRect.style.top = `${endY}px`;
-    endRect.style.transform = '';
+    window.endRect.style.left = `${endX}px`;
+    window.endRect.style.top = `${endY}px`;
+    window.endRect.style.transform = '';
 
     console.log('Rects Initialized at:', {
         start: { 
@@ -706,10 +714,10 @@ function initializeRects(makeVisible = false, isLoading = false) {
     window.lastModifiedPointIndex = -1;
     window.viewport.style.cursor = 'crosshair'; // Keep crosshair for WAM
 
-    console.log(`%cinitializeRects: Before makeDraggable: startRect exists? ${!!window.startRect}, endRect exists? ${!!window.endRect}`, 'color: orange;'); // *** ADDED PRE-CHECK LOG ***
+    console.log(`%cinitializeRects: Before makeDraggable: startRect exists? ${!!window.startRect}, endRect exists? ${!!window.endRect}`, 'color: orange;');
     if (makeVisible) {
-        if (startRect) makeDraggable(startRect);
-        if (endRect) makeDraggable(endRect);
+        if (window.startRect) makeDraggable(window.startRect);
+        if (window.endRect) makeDraggable(window.endRect);
         console.log(`%cinitializeRects: Called makeDraggable for startRect and endRect`, 'color: green; font-weight: bold;');
     }
 
@@ -719,13 +727,13 @@ function initializeRects(makeVisible = false, isLoading = false) {
     window.currentXFormHasRun = false;
     
     // Set default rotations
-    window.xRotationDirection = window.xRotationDirection || 1;
-    window.yRotationDirection = window.yRotationDirection || 1;
-    window.zRotationDirection = window.zRotationDirection || 1;
+    window.xRotationDirection = window.xRotationDirection || 0;
+    window.yRotationDirection = window.yRotationDirection || 0;
+    window.zRotationDirection = window.zRotationDirection || 0;
     
     // Set default duration
     if (window.durationInput) {
-        window.durationInput.value = window.durationInput.value || 500;
+        window.durationInput.value = window.durationInput.value || 5000;
     }
     
     const startButton = document.getElementById('startAnimation');
@@ -955,24 +963,27 @@ function applyRectangleSize() {
     const rawHeightValue = window.heightInput.value;
     console.log(`Raw input values: Width='${rawWidthValue}', Height='${rawHeightValue}'`);
 
+    // Parse values, defaulting to current size if invalid
     const newWidth = parseInt(rawWidthValue, 10);
     const newHeight = parseInt(rawHeightValue, 10);
     console.log(`Parsed values: newWidth=${newWidth}, newHeight=${newHeight}`);
 
-    const validWidth = Math.max(50, Math.min(400, newWidth));
-    const validHeight = Math.max(50, Math.min(400, newHeight));
+    // Only apply minimum size limit, no maximum
+    const validWidth = isNaN(newWidth) ? 100 : Math.max(50, newWidth);
+    const validHeight = isNaN(newHeight) ? 60 : Math.max(50, newHeight);
     console.log(`Clamped values: validWidth=${validWidth}, validHeight=${validHeight}`);
 
     let widthChanged = false;
     let heightChanged = false;
 
-    if (validWidth !== newWidth) {
-        console.log(`Clamping occurred for Width: ${newWidth} -> ${validWidth}. Updating input.`);
+    // Only update input if the value was invalid
+    if (isNaN(newWidth)) {
+        console.log(`Invalid width value, resetting to ${validWidth}`);
         window.widthInput.value = validWidth;
         widthChanged = true;
     }
-    if (validHeight !== newHeight) {
-        console.log(`Clamping occurred for Height: ${newHeight} -> ${validHeight}. Updating input.`);
+    if (isNaN(newHeight)) {
+        console.log(`Invalid height value, resetting to ${validHeight}`);
         window.heightInput.value = validHeight;
         heightChanged = true;
     }
@@ -1069,7 +1080,7 @@ function setupDurationControl() {
 
     const MIN_DURATION = 100;
     const MAX_DURATION = 5000;
-    const DEFAULT_DURATION = 500;
+    const DEFAULT_DURATION = 5000;
     
     window.durationInput.min = MIN_DURATION;
     window.durationInput.max = MAX_DURATION;
@@ -1148,6 +1159,7 @@ function setupViewportActions() {
     
     if (resetButton) {
         resetButton.addEventListener('click', () => {
+            // Clear any existing animation
             if (window.startRect) {
                 window.startRect.style.animation = '';
                 window.startRect.style.transform = '';
@@ -1164,31 +1176,34 @@ function setupViewportActions() {
             initializeRects(true); // Pass true to show rectangles
             console.log("Viewport reset complete - rectangles now visible");
             
-            // *** Use xformNameController to set up for a new XForm ***
-            if (window.xformNameController) {
-                window.xformNameController.setNewXform();
-                console.log("Initialized name state using xformNameController for new XForm");
-            } else {
-                // Fallback logic if controller isn't available (shouldn't happen now)
-                console.error("xformNameController not found during New button click!");
-                window.isXformNamingModeATM = true;
-                const xformNameInput = document.getElementById('xformNameInput');
-                if (xformNameInput) xformNameInput.value = ''; 
-                // Manually try to start timer if possible
-                if (typeof window.startXformNameTimer=== 'function') {
-                    window.startXformNameTimer();
-                }
+            // Reset XForm state
+            window.currentXFormName = null;
+            window.currentXFormId = null;
+            window.currentXFormHasRun = false;
+            
+            // Reset name input
+            const xformNameInput = document.getElementById('xformNameInput');
+            if (xformNameInput) {
+                xformNameInput.value = '';
             }
             
-            // Save the initial state
-            if (typeof window.saveCurrentState === 'function') window.saveCurrentState();
+            // Reset waypoints
+            window.intermediatePoints = [];
+            if (typeof window.updateWaypointCounter === 'function') {
+                window.updateWaypointCounter();
+            }
             
-            // *** Explicitly update save button state AFTER setting ATM mode ***
-            if (typeof updateSaveButtonState === 'function') {
-                updateSaveButtonState();
-                console.log("Ensured Save button state updated after ATM mode activation.");
-            } else {
-                 console.warn("updateSaveButtonState function not found after ATM activation.");
+            // Reset rotations
+            window.xRotationDirection = 0;
+            window.yRotationDirection = 0;
+            window.zRotationDirection = 0;
+            if (typeof window.updateRotationButtonsUI === 'function') {
+                window.updateRotationButtonsUI();
+            }
+            
+            // Reset duration
+            if (window.durationInput) {
+                window.durationInput.value = 5000;
             }
         });
     }
@@ -1444,9 +1459,9 @@ function resetXFormFields() {
     }
 
     // 5. Reset Rotations
-    window.xRotationDirection = 1;
-    window.yRotationDirection = 1;
-    window.zRotationDirection = 1;
+    window.xRotationDirection = 0;
+    window.yRotationDirection = 0;
+    window.zRotationDirection = 0;
     if (typeof updateRotationButtonsUI === 'function') {
         updateRotationButtonsUI();
         console.log("   Rotations reset to default.");
@@ -1455,7 +1470,7 @@ function resetXFormFields() {
     }
 
     // 6. Reset Duration
-    const defaultDuration = 500;
+    const defaultDuration = 5000;
     if (window.durationInput) {
         window.durationInput.value = defaultDuration;
         // Optionally trigger change event if needed by other logic
@@ -1614,10 +1629,32 @@ function setupControls() {
     console.log("Controls setup complete.");
 } 
 
+// --- Rectangle Controls Setup ---
+function setupRectangleControls() {
+    console.log("Setting up rectangle controls...");
+    
+    // Set up resize listeners for width and height inputs
+    if (window.widthInput) {
+        window.widthInput.addEventListener('input', applyRectangleSize);
+        console.log("Event listener 'input' for window.widthInput attached to applyRectangleSize.");
+    } else {
+        console.error("setupRectangleControls: Cannot attach listener to window.widthInput because it is not defined.");
+    }
+
+    if (window.heightInput) {
+        window.heightInput.addEventListener('input', applyRectangleSize);
+        console.log("Event listener 'input' for window.heightInput attached to applyRectangleSize.");
+    } else {
+        console.error("setupRectangleControls: Cannot attach listener to window.heightInput because it is not defined.");
+    }
+
+    console.log("Rectangle controls set up");
+}
+
 // Export all needed functions to the global namespace
 window.makeDraggable = makeDraggable;
 window.applyRectangleSize = applyRectangleSize;
-window.initializeRects = initializeRects; // Export initializeRects to make it accessible globally
+window.initializeRects = initializeRects;
 window.setupRotationControls = setupRotationControls;
 window.setupDurationControl = setupDurationControl;
 window.togglePathVisualization = togglePathVisualization;
@@ -1629,4 +1666,5 @@ window.updateRotationButtonsUI = updateRotationButtonsUI;
 window.setupControls = setupControls;
 window.globalMouseMoveHandler = globalMouseMoveHandler;  
 window.globalMouseUpHandler = globalMouseUpHandler;
-window.drawPathVisualization = drawPathVisualization; 
+window.drawPathVisualization = drawPathVisualization;
+window.setupRectangleControls = setupRectangleControls; 

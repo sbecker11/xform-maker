@@ -904,6 +904,11 @@ function showModalDialog({ message = '', buttons = [] }) {
     });
 }
 
+// Lightweight convenience wrapper for simple OK dialogs
+function showInfoDialog(message, btnLabel = 'OK') {
+    return showModalDialog({ message, buttons: [{ id: 'ok', label: btnLabel, class: 'primary' }] });
+}
+
 // NEW function containing the core file writing logic
 // Renamed and modified to accept fileHandle from picker
 async function _writeDataToHandle(fileHandle, xformData) { // fileHandle has the potentially numbered name
@@ -1927,3 +1932,7 @@ async function handleExportXForms() {
 // ... existing code ...
 
 // ... (handleExportXForms needs update next) ...
+
+// Export the functions that should be available globally
+window.showModalDialog = showModalDialog;
+window.showInfoDialog = showInfoDialog;
